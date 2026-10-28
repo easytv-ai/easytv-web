@@ -1,0 +1,214 @@
+/* 全站都会用到的小块：提示气泡、协议页。从画布样式里拆出来，避免首页为了这两段去加载整份画布 CSS。 */
+.canvas-tip {
+  position: absolute;
+  left: calc(100% + 10px);
+  top: 50%;
+  z-index: 40;
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: #18181b;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.2;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(-50%);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.16);
+}
+
+.canvas-tip::after {
+  position: absolute;
+  top: 50%;
+  right: 100%;
+  border-style: solid;
+  border-width: 5px 6px 5px 0;
+  border-color: transparent #18181b transparent transparent;
+  content: "";
+  transform: translateY(-50%);
+}
+
+.canvas-tip--up {
+  left: 50%;
+  top: auto;
+  bottom: calc(100% + 10px);
+  transform: translateX(-50%);
+}
+
+.canvas-tip--up::after {
+  top: 100%;
+  right: auto;
+  left: 50%;
+  border-width: 6px 5px 0;
+  border-color: #18181b transparent transparent;
+  transform: translateX(-50%);
+}
+
+/* 贴着左边缘的按钮：提示从按钮左缘往右长，居中会探出屏幕被裁掉 */
+.canvas-tip--up.canvas-tip--up-start {
+  left: 0;
+  transform: none;
+}
+
+.canvas-tip--up.canvas-tip--up-start::after {
+  left: 9px;
+  transform: none;
+}
+
+.canvas-tip--down {
+  left: 50%;
+  top: calc(100% + 10px);
+  bottom: auto;
+  transform: translateX(-50%);
+}
+
+.canvas-tip--down::after {
+  top: auto;
+  right: auto;
+  bottom: 100%;
+  left: 50%;
+  border-width: 0 5px 6px;
+  border-color: transparent transparent #18181b;
+  transform: translateX(-50%);
+}
+
+/* 贴着右边缘的按钮：提示往左长，不要居中，否则会盖住旁边的标题 */
+.canvas-tip--end {
+  left: auto;
+  right: 0;
+  top: calc(100% + 10px);
+  bottom: auto;
+  transform: none;
+}
+
+.canvas-tip--end::after {
+  top: auto;
+  right: 10px;
+  bottom: 100%;
+  left: auto;
+  border-width: 0 5px 6px;
+  border-color: transparent transparent #18181b;
+  transform: none;
+}
+
+.canvas-tip kbd {
+  margin-left: 8px;
+  color: #a1a1aa;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+:is(button, a, [role='button'], [role='link']):hover > .canvas-tip,
+:is(button, a, [role='button'], [role='link']):focus-visible > .canvas-tip {
+  opacity: 1;
+}
+
+.text-editor__popwrap:has(.text-editor__pop) > button > .canvas-tip,
+.canvas-selbar__color-wrap:has(.canvas-selbar__pop) > button > .canvas-tip {
+  opacity: 0;
+}
+
+/* 法律文档页 */
+html:has(.ea-legal-shell),
+html:has(.ea-legal-shell) body,
+html:has(.ea-legal-shell) #__nuxt {
+  height: 100%;
+  overflow: hidden;
+  background: var(--st-bg);
+  color: var(--st-text);
+}
+
+.ea-legal-shell {
+  height: 100dvh;
+  overflow: hidden;
+  background: var(--st-bg);
+  color: var(--st-text);
+}
+
+.ea-legal-shell .ea-simple-shell__header {
+  background: var(--st-bg);
+  box-shadow: none;
+  border-bottom: 1px solid var(--st-border);
+}
+
+.ea-simple-shell:not(.ea-legal-shell) {
+  background: var(--ea-bg);
+  color: var(--ea-text);
+}
+
+.ea-simple-shell:not(.ea-legal-shell) .ea-simple-shell__footer {
+  border-color: var(--ea-border);
+  background-color: var(--ea-bg-elevated);
+  color: var(--ea-text-muted);
+}
+
+.ea-legal-shell .ea-simple-shell__footer {
+  border-color: var(--st-border);
+  background: var(--st-bg);
+  color: var(--st-muted);
+}
+
+.ea-legal-shell .ea-simple-shell__main {
+  overflow-x: hidden;
+  overflow-y: scroll;
+  scrollbar-color: var(--st-scroll) var(--st-scroll-track);
+  scrollbar-width: thin;
+}
+
+.ea-legal-shell .ea-simple-shell__main::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.ea-legal-shell .ea-simple-shell__main::-webkit-scrollbar-track {
+  background: var(--st-scroll-track);
+}
+
+.ea-legal-shell .ea-simple-shell__main::-webkit-scrollbar-thumb {
+  background: var(--st-scroll);
+  border: 2px solid var(--st-scroll-track);
+  border-radius: 999px;
+}
+
+.ea-legal-shell .ea-simple-shell__main::-webkit-scrollbar-thumb:hover {
+  background: var(--st-muted);
+}
+
+.legal-article {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.legal-article__title,
+.legal-article__heading,
+.legal-article__subheading {
+  color: var(--st-text);
+}
+
+.legal-article__meta,
+.legal-article__intro,
+.legal-article__section,
+.legal-article__list {
+  color: var(--st-text-soft);
+}
+
+.legal-article__header {
+  border-color: var(--st-border);
+}
+
+.ea-simple-shell__close {
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--st-border);
+  border-radius: 999px;
+  color: var(--st-text);
+}
+
+.ea-simple-shell__close:hover {
+  background: var(--st-hover);
+}

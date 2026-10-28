@@ -1,0 +1,1040 @@
+﻿/* EasyTV 创作台 + 小云雀风登录 */
+
+:root {
+  --st-bg: #f3f3f5;
+  --st-bg-deep: #ececee;
+  --st-sidebar: #f7f7f8;
+  --st-elevated: #ffffff;
+  --st-card: #ffffff;
+  --st-text: #18181b;
+  --st-text-soft: #3f3f46;
+  --st-muted: #71717a;
+  --st-border: rgba(24, 24, 27, 0.1);
+  --st-hover: rgba(24, 24, 27, 0.06);
+  --st-chip-bg: #ffffff;
+  --st-chip-border: rgba(24, 24, 27, 0.1);
+  --st-pop: #ffffff;
+  --st-on: #18181b;
+  --st-on-text: #ffffff;
+  --st-switch: #d4d4d8;
+  --st-shadow: 0 16px 40px rgba(0, 0, 0, 0.12);
+  --st-scroll: #c4c4cc;
+  --st-scroll-track: #f3f3f5;
+  --st-canvas: #ececee;
+  --st-float: rgba(255, 255, 255, 0.94);
+  --st-float-border: rgba(24, 24, 27, 0.1);
+  --st-dot: rgba(24, 24, 27, 0.28);
+  --st-node: #ffffff;
+  --st-plan: #2563eb;
+  --st-plan-text: #ffffff;
+  --st-plan-soft: rgba(37, 99, 235, 0.1);
+}
+
+html.dark {
+  --st-bg: #070708;
+  --st-bg-deep: #070708;
+  --st-sidebar: #0c0c0e;
+  --st-elevated: #161618;
+  --st-card: #1a1a1e;
+  --st-text: #f5f5f5;
+  --st-text-soft: #c4c4cc;
+  --st-muted: #8b8b93;
+  --st-border: rgba(255, 255, 255, 0.14);
+  --st-hover: rgba(255, 255, 255, 0.06);
+  --st-chip-bg: rgba(255, 255, 255, 0.04);
+  --st-chip-border: rgba(255, 255, 255, 0.16);
+  --st-pop: #1a1a1d;
+  --st-on: #ffffff;
+  --st-on-text: #111111;
+  --st-switch: #2f2f35;
+  --st-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
+  --st-scroll: #5c5c66;
+  --st-scroll-track: #111;
+  --st-canvas: #161618;
+  --st-float: rgba(28, 28, 32, 0.94);
+  --st-float-border: rgba(255, 255, 255, 0.08);
+  --st-dot: rgba(255, 255, 255, 0.14);
+  --st-node: #1c1c20;
+  --st-plan: #3b82f6;
+  --st-plan-text: #ffffff;
+  --st-plan-soft: rgba(59, 130, 246, 0.16);
+}
+
+/* 暗色骨架：Nuxt UI 默认用 neutral-900，和页面底、卡片几乎同色，文字占位条看不清。 */
+html.dark .animate-pulse {
+  --ui-bg-elevated: color-mix(in srgb, var(--st-text) 22%, var(--st-elevated));
+  background-color: var(--ui-bg-elevated);
+}
+
+/* 统一细滚动条：透明轨道、圆角滑块。已单独隐藏或 hover 才显示的区域选择器更具体，不受影响。 */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--st-scroll) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background-color: var(--st-scroll);
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background-clip: content-box;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background-color: color-mix(in srgb, var(--st-scroll) 55%, var(--st-text));
+}
+
+*::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+html:has(.xyq-auth-root),
+html:has(.xyq-auth-root) body,
+html:has(.xyq-auth-root) #__nuxt {
+  height: 100%;
+  overflow: hidden;
+  background: var(--st-bg);
+  color: var(--st-text);
+}
+
+.xyq-auth-root {
+  height: 100dvh;
+  overflow: hidden;
+  background: var(--st-bg);
+  color: var(--st-text);
+}
+
+.theme-toggle-btn {
+  position: relative;
+  overflow: visible;
+  border-radius: 999px !important;
+  border-color: transparent !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.theme-toggle-btn:hover,
+.theme-toggle-btn:focus-visible,
+.theme-toggle-btn[aria-expanded='true'],
+[data-state='open'] > .theme-toggle-btn {
+  background: var(--st-hover) !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+  color: var(--st-text) !important;
+}
+
+.theme-toggle-btn:hover :is(svg, [class*='icon']),
+.theme-toggle-btn:active :is(svg, [class*='icon']),
+.theme-toggle-btn[aria-expanded='true'] :is(svg, [class*='icon']),
+[data-state='open'] > .theme-toggle-btn :is(svg, [class*='icon']) {
+  transform: none;
+}
+
+.theme-toggle-btn:active {
+  transform: none;
+  background: var(--st-hover) !important;
+}
+
+.theme-toggle-btn .canvas-tip {
+  background: #18181b;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.16);
+}
+
+.theme-toggle-btn .canvas-tip::after {
+  border-color: transparent transparent #18181b;
+}
+
+.xyq-theme {
+  position: absolute;
+  top: 20px;
+  right: 24px;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.xyq-theme .ea-icon-btn {
+  color: var(--st-text) !important;
+}
+
+.xyq-split {
+  display: grid;
+  height: 100%;
+  min-height: 0;
+  grid-template-columns: 1fr 1fr;
+}
+
+.xyq-split:has(.xyq-form--login) {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+
+.xyq-split__visual {
+  position: relative;
+  height: 100%;
+  min-height: 0;
+  padding: 20px;
+}
+
+.xyq-split__video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  border-radius: 24px;
+  background: #111;
+  pointer-events: none;
+}
+
+.xyq-split__caption {
+  position: absolute;
+  left: 50%;
+  bottom: 40px;
+  transform: translateX(-50%);
+  margin: 0;
+  white-space: nowrap;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  color: rgba(255, 255, 255, 0.82);
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.45);
+}
+
+.xyq-split__form {
+  position: relative;
+  display: flex;
+  height: 100%;
+  min-height: 0;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  overflow: auto;
+  padding: 48px 32px 72px;
+}
+
+.xyq-form {
+  box-sizing: border-box;
+  width: min(420px, 100%);
+  max-width: 420px;
+}
+
+.xyq-form--login {
+  width: min(640px, 100%);
+  max-width: 640px;
+}
+
+.xyq-form__icon {
+  display: flex;
+  width: 40px;
+  height: 40px;
+  margin: 0 auto 22px;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--st-text);
+  text-decoration: none;
+}
+
+.xyq-form__icon img {
+  display: block;
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+}
+
+.xyq-form--login .xyq-form__title {
+  font-size: 28px;
+}
+
+.xyq-form--login .xyq-form__lead {
+  margin: 8px 0 24px;
+}
+
+.xyq-login {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 1px 176px;
+  align-items: stretch;
+  gap: 0 28px;
+  padding: 22px 22px 20px;
+  border: 1px solid var(--st-border);
+  border-radius: 20px;
+  background: var(--st-elevated);
+}
+
+.xyq-login__label {
+  margin: 0 0 16px;
+  color: var(--st-text);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.xyq-login__phone {
+  min-width: 0;
+}
+
+.xyq-login__phone .xyq-field {
+  margin-bottom: 16px;
+}
+
+.xyq-login__phone .xyq-btn-primary {
+  margin-top: 4px;
+  height: 48px;
+  border-radius: 12px;
+}
+
+.xyq-login__rule {
+  display: block;
+  width: 1px;
+  margin: 6px 0;
+  background: var(--st-border);
+  font-style: normal;
+}
+
+.xyq-login__qr {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  text-align: center;
+}
+
+.xyq-login__qr .xyq-login__label {
+  width: 100%;
+  text-align: center;
+}
+
+.xyq-phone {
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  border: 1px solid var(--st-border);
+  border-radius: 12px;
+  background: var(--st-elevated);
+}
+
+.xyq-phone span {
+  flex-shrink: 0;
+  padding: 0 4px 0 16px;
+  color: var(--st-muted);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.xyq-phone .xyq-input {
+  height: 48px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.xyq-phone:focus-within {
+  border-color: var(--st-chip-border);
+  background: var(--st-chip-bg);
+}
+
+.ea-wechat-qr-fallback {
+  display: flex;
+  width: 160px;
+  height: 160px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--st-border);
+  border-radius: 12px;
+  background: #fff;
+}
+
+.xyq-form__title {
+  margin: 0;
+  text-align: center;
+  font-size: 32px;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.03em;
+  color: var(--st-text);
+}
+
+.xyq-form__lead {
+  margin: 12px 0 32px;
+  text-align: center;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--st-muted);
+}
+
+.xyq-input {
+  display: block;
+  width: 100%;
+  height: 48px;
+  padding: 0 16px;
+  border: 1px solid var(--st-border);
+  border-radius: 12px;
+  background: var(--st-elevated);
+  color: var(--st-text);
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.xyq-input::placeholder {
+  color: var(--st-muted);
+}
+
+.xyq-input:focus {
+  border-color: var(--st-chip-border);
+  background: var(--st-chip-bg);
+}
+
+.xyq-input:-webkit-autofill,
+.xyq-input:-webkit-autofill:hover,
+.xyq-input:-webkit-autofill:focus {
+  -webkit-text-fill-color: var(--st-text);
+  box-shadow: 0 0 0 1000px var(--st-elevated) inset;
+  caret-color: var(--st-text);
+}
+
+.xyq-input-wrap {
+  position: relative;
+}
+
+.xyq-input-wrap .xyq-input {
+  padding-right: 108px;
+}
+
+.xyq-input-wrap.is-password .xyq-input {
+  padding-right: 44px;
+}
+
+.xyq-pass-btn {
+  position: absolute;
+  top: 50%;
+  right: 10px;
+  display: inline-flex;
+  width: 32px;
+  height: 32px;
+  transform: translateY(-50%);
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  background: transparent;
+  color: var(--st-muted);
+  cursor: pointer;
+}
+
+.xyq-pass-btn:hover {
+  color: var(--st-text);
+}
+
+.xyq-code-btn {
+  position: absolute;
+  top: 50%;
+  right: 14px;
+  transform: translateY(-50%);
+  border: 0;
+  background: transparent;
+  color: var(--st-text);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.xyq-code-btn:disabled {
+  color: #52525b;
+  cursor: not-allowed;
+}
+
+.xyq-field {
+  margin-bottom: 16px;
+}
+
+.xyq-field__error {
+  margin: 6px 2px 0;
+  font-size: 12px;
+  color: #ef4444;
+}
+
+/* 注册表单：推广口令（选填）与实时回显 */
+.xyq-bonus-wrap {
+  position: relative;
+}
+
+.xyq-bonus-wrap .xyq-input {
+  padding-right: 40px;
+}
+
+.xyq-bonus-spin {
+  position: absolute;
+  top: 50%;
+  right: 14px;
+  transform: translateY(-50%);
+  color: var(--st-muted);
+}
+
+.xyq-bonus-hint {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin: 6px 2px 0;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.xyq-bonus-hint .iconify {
+  margin-top: 2px;
+}
+
+.xyq-bonus-hint.is-ok {
+  color: #059669;
+}
+
+.xyq-bonus-hint.is-err {
+  color: #ef4444;
+}
+
+.xyq-alert {
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(239, 68, 68, 0.12);
+  color: #fca5a5;
+  font-size: 13px;
+}
+
+.xyq-btn-primary {
+  display: flex;
+  width: 100%;
+  height: 48px;
+  margin-top: 8px;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 12px;
+  background: var(--st-on);
+  color: var(--st-on-text);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.xyq-btn-primary:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.xyq-or {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 20px 0 16px;
+  color: #71717a;
+  font-size: 12px;
+}
+
+.xyq-or::before,
+.xyq-or::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--st-border);
+}
+
+.xyq-btn-social {
+  display: flex;
+  width: 100%;
+  height: 48px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid var(--st-border);
+  border-radius: 12px;
+  background: var(--st-elevated);
+  color: var(--st-text);
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.xyq-btn-social:hover {
+  background: var(--st-hover);
+}
+
+.xyq-btn-social + .xyq-btn-social {
+  margin-top: 10px;
+}
+
+.xyq-agree {
+  margin-top: 20px;
+  color: var(--st-muted);
+  font-size: 12px;
+  line-height: 1.6;
+  text-align: center;
+}
+
+.xyq-form--login .xyq-agree {
+  margin-top: 20px;
+}
+
+.xyq-agree a {
+  color: var(--st-text-soft);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.xyq-agree a:hover {
+  color: var(--st-text);
+}
+
+.xyq-agree-mask {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(0, 0, 0, 0.62);
+}
+
+.xyq-agree-modal {
+  width: min(420px, 100%);
+  padding: 22px 24px 20px;
+  border-radius: 24px;
+  background: #fff;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.18);
+  color: #111;
+}
+
+.xyq-agree-modal__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.xyq-agree-modal__info {
+  display: flex;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: #3b82f6;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  font-style: italic;
+  line-height: 1;
+}
+
+.xyq-agree-modal__head h2 {
+  flex: 1;
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.xyq-agree-modal__close {
+  display: flex;
+  width: 28px;
+  height: 28px;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: #a1a1aa;
+  cursor: pointer;
+}
+
+.xyq-agree-modal__close:hover {
+  background: #f4f4f5;
+  color: #52525b;
+}
+
+.xyq-agree-modal__body {
+  margin: 14px 0 22px;
+  color: #52525b;
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.xyq-agree-modal__body a {
+  color: #52525b;
+  text-decoration: none;
+}
+
+.xyq-agree-modal__body a:hover {
+  color: #111;
+  text-decoration: underline;
+}
+
+.xyq-agree-modal__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.xyq-agree-modal__no,
+.xyq-agree-modal__yes {
+  height: 36px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: 999px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.xyq-agree-modal__no {
+  background: #f3f4f6;
+  color: #111;
+}
+
+.xyq-agree-modal__yes {
+  min-width: 72px;
+  background: #111;
+  color: #fff;
+}
+
+.xyq-switch {
+  margin-top: 18px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--st-muted);
+}
+
+.xyq-switch button {
+  border: 0;
+  background: transparent;
+  color: var(--st-text-soft);
+  cursor: pointer;
+}
+
+.xyq-switch button:hover {
+  color: var(--st-text);
+}
+
+/* 邮箱登录表单内的注册 / 忘记密码入口（非中文界面） */
+.xyq-switch--inline {
+  margin-top: 12px;
+  text-align: left;
+}
+
+.xyq-auth-footer {
+  position: absolute;
+  right: 24px;
+  bottom: 16px;
+  margin: 0;
+  font-size: 11px;
+  color: #52525b;
+}
+
+@media (min-width: 1440px) {
+  .xyq-split:has(.xyq-form--login) {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .xyq-split__form {
+    padding: 56px 36px 80px;
+  }
+
+  .xyq-form--login {
+    width: 100%;
+    max-width: 720px;
+  }
+
+  .xyq-form--login .xyq-form__icon {
+    margin-bottom: 26px;
+  }
+
+  .xyq-form--login .xyq-form__title {
+    font-size: 32px;
+  }
+
+  .xyq-form--login .xyq-form__lead {
+    margin: 12px 0 32px;
+  }
+
+  .xyq-login {
+    grid-template-columns: minmax(0, 1fr) 1px 188px;
+    gap: 0 32px;
+    padding: 28px 28px 26px;
+  }
+
+  .xyq-login__label {
+    margin-bottom: 18px;
+  }
+
+  .xyq-login__phone .xyq-field {
+    margin-bottom: 18px;
+  }
+
+  .xyq-login__phone .xyq-btn-primary {
+    margin-top: 8px;
+    height: 52px;
+  }
+
+  .xyq-form--login .xyq-agree {
+    margin-top: 24px;
+  }
+}
+
+@media (min-width: 1680px) {
+  .xyq-split:has(.xyq-form--login) {
+    grid-template-columns: minmax(0, 0.94fr) minmax(0, 1.06fr);
+  }
+
+  .xyq-split__form {
+    padding: 64px 40px 88px;
+  }
+
+  .xyq-form--login {
+    width: 100%;
+    max-width: 780px;
+  }
+
+  .xyq-form--login .xyq-form__icon,
+  .xyq-form--login .xyq-form__icon img {
+    width: 44px;
+    height: 44px;
+  }
+
+  .xyq-form--login .xyq-form__icon {
+    margin-bottom: 28px;
+  }
+
+  .xyq-form--login .xyq-form__title {
+    font-size: 34px;
+  }
+
+  .xyq-form--login .xyq-form__lead {
+    margin: 14px 0 36px;
+    font-size: 15px;
+  }
+
+  .xyq-login {
+    grid-template-columns: minmax(0, 1fr) 1px 200px;
+    gap: 0 36px;
+    padding: 32px 32px 28px;
+    border-radius: 22px;
+  }
+
+  .xyq-login__label {
+    margin-bottom: 20px;
+  }
+
+  .xyq-login__phone .xyq-field {
+    margin-bottom: 20px;
+  }
+
+  .xyq-form--login .xyq-phone .xyq-input,
+  .xyq-form--login .xyq-input {
+    height: 52px;
+  }
+
+  .xyq-login__phone .xyq-btn-primary {
+    margin-top: 10px;
+    height: 54px;
+  }
+
+  .xyq-form--login .xyq-agree {
+    margin-top: 28px;
+  }
+}
+
+@media (max-width: 960px) {
+  .xyq-split,
+  .xyq-split:has(.xyq-form--login) {
+    grid-template-columns: 1fr;
+  }
+
+  .xyq-split__visual {
+    display: none;
+  }
+}
+
+@media (max-width: 720px) {
+  .xyq-form--login {
+    width: min(420px, 100%);
+    max-width: 420px;
+  }
+
+  .xyq-login {
+    grid-template-columns: 1fr;
+    gap: 0;
+    padding: 20px 18px 18px;
+  }
+
+  .xyq-login__rule {
+    width: auto;
+    height: 1px;
+    margin: 18px 0 16px;
+  }
+
+  .xyq-login__qr {
+    padding: 0;
+  }
+}
+
+
+/* 登录 / 注册：邀请来源、新人红包。跟全站基础走，登录页不依赖创作台布局。 */
+/* ===== 注册页「由 xx 邀请」 ===== */
+.xyq-invite-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 14px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(37, 99, 235, 0.1);
+  color: var(--st-plan);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+/* ---- 新人红包浮层 ---- */
+.welcome-gift {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 60;
+  width: min(320px, calc(100vw - 40px));
+  overflow: hidden;
+  padding: 22px 20px 18px;
+  border-radius: 18px;
+  background: linear-gradient(160deg, #e11d48 0%, #c2410c 55%, #b45309 100%);
+  color: #fff;
+  box-shadow: 0 24px 60px rgba(190, 24, 60, 0.35);
+}
+
+html.dark .welcome-gift {
+  background: linear-gradient(160deg, #be123c 0%, #9a3412 55%, #92400e 100%);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55);
+}
+
+.welcome-gift__glow {
+  position: absolute;
+  top: -60px;
+  right: -60px;
+  width: 180px;
+  height: 180px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(253, 224, 71, 0.55), transparent 70%);
+  pointer-events: none;
+}
+
+.welcome-gift__close {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  display: inline-flex;
+  width: 28px;
+  height: 28px;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
+  cursor: pointer;
+}
+
+.welcome-gift__icon {
+  display: inline-flex;
+  width: 44px;
+  height: 44px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  background: rgba(253, 224, 71, 0.92);
+  color: #9a3412;
+}
+
+.welcome-gift h3 {
+  margin: 12px 0 4px;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.welcome-gift__amount {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin: 0;
+}
+
+.welcome-gift__amount strong {
+  font-size: 36px;
+  line-height: 1.1;
+  font-weight: 800;
+  color: #fde68a;
+  letter-spacing: -0.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.welcome-gift__amount span {
+  font-size: 13px;
+  opacity: 0.9;
+}
+
+.welcome-gift__sub {
+  margin: 6px 0 0;
+  font-size: 12px;
+  opacity: 0.85;
+}
+
+.welcome-gift__actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.welcome-gift__btn {
+  flex: 1;
+  padding: 9px 14px;
+  border: 0;
+  border-radius: 999px;
+  background: #fde68a;
+  color: #7c2d12;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.welcome-gift__btn:hover {
+  background: #fef3c7;
+}
+
+.welcome-gift__ghost {
+  padding: 9px 6px;
+  border: 0;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.85);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.welcome-gift-enter-active,
+.welcome-gift-leave-active {
+  transition: opacity 0.22s ease, transform 0.22s ease;
+}
+
+.welcome-gift-enter-from,
+.welcome-gift-leave-to {
+  opacity: 0;
+  transform: translateY(16px) scale(0.96);
+}

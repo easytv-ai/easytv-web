@@ -1,0 +1,79 @@
+/* 微信 WxLogin iframe：强制二维码在视口正中，去掉官方红框 */
+html,
+body {
+  width: 100% !important;
+  height: 100% !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  background: #fff !important;
+}
+
+html,
+body,
+.loginPanel,
+.panelContent,
+.wrp_code,
+.impowerBox {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.loginPanel,
+.panelContent,
+.wrp_code,
+.impowerBox {
+  width: 100% !important;
+  height: 100% !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  float: none !important;
+  text-align: center !important;
+}
+
+.impowerBox .qrcode {
+  display: block !important;
+  width: 160px !important;
+  height: 160px !important;
+  margin: 0 auto !important;
+  padding: 0 !important;
+  border: 0 !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+.impowerBox .qrcode img {
+  display: block !important;
+  width: 160px !important;
+  height: 160px !important;
+  margin: 0 auto !important;
+  border: 0 !important;
+}
+
+.impowerBox .title,
+.impowerBox .info,
+.impowerBox .status,
+.impowerBox .statusHolder,
+.js_status,
+.js_wx_default_tip {
+  display: none !important;
+}
+
+/* 快捷登录（头像 / 昵称 / 按钮）在视口内垂直居中，避免贴顶 */
+.js_quick_login,
+.web_qrcode_quick,
+.web_qrcode_quick_login,
+.web_qrcode_panel,
+.web_qrcode_wrp,
+.qlogin_mod {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 100% !important;
+  height: 100% !important;
+  margin: 0 auto !important;
+  padding: 0 !important;
+  box-sizing: border-box !important;
+}

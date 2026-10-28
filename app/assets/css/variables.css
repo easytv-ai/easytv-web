@@ -1,0 +1,451 @@
+/**
+ * variables.css — 全站颜色 / 设计令牌唯一定义处
+ *
+ * 分层（引用方向自上而下）：
+ *   1. @theme          Tailwind v4 色板（生成工具类 + --color-* 变量）
+ *   2. @layer theme    Nuxt UI 语义令牌 --ui-*（桥接到 --color-*）
+ *   3. :root           站点令牌 --ea-*（品牌/表面/文本/圆角/阴影）
+ *   4. .models-page 等 模型广场页面令牌 --models-*（桥接到 --ea-*；
+ *      两个 Teleport 抽屉面板脱离页面继承链，故并列挂载）
+ *
+ * 约定：业务样式文件只引用 var(--xx)，不出现颜色字面量；
+ * 改品牌/主题色只改本文件。本文件由 main.css @import 引入
+ * （必须在 Tailwind 入口链内，@theme 才会被处理）。
+ */
+
+/**
+ * 设计系统：OpenRouter 布局 + EasyAPI 品牌色（详见 /DESIGN-SYSTEM.md）。
+ * - 中性色：Slate 灰阶，避免纯黑 (#000)
+ * - 主色：EasyAPI 青 #18c1d6（favicon 品牌色）
+ * - 字体：Geist Variable / Inter / 系统 sans
+ * - 原则：白底、细边框、轻阴影、品牌色点缀 CTA / 链接
+ */
+@theme {
+  /* —— 中性色：Slate 灰阶（OpenRouter 风格，偏亮） —— */
+  --color-neutral-50: #f8fafc;
+  --color-neutral-100: #f1f5f9;
+  --color-neutral-200: #e2e8f0;
+  --color-neutral-300: #cbd5e1;
+  --color-neutral-400: #94a3b8;
+  --color-neutral-500: #64748b;
+  --color-neutral-600: #475569;
+  --color-neutral-700: #334155;
+  --color-neutral-800: #1e293b;
+  --color-neutral-900: #0f172a;
+  --color-neutral-950: #020617;
+
+  --ui-color-neutral-50: #f8fafc;
+  --ui-color-neutral-100: #f1f5f9;
+  --ui-color-neutral-200: #e2e8f0;
+  --ui-color-neutral-300: #cbd5e1;
+  --ui-color-neutral-400: #94a3b8;
+  --ui-color-neutral-500: #64748b;
+  --ui-color-neutral-600: #475569;
+  --ui-color-neutral-700: #334155;
+  --ui-color-neutral-800: #1e293b;
+  --ui-color-neutral-900: #0f172a;
+
+  --color-zinc-50: #f8fafc;
+  --color-zinc-100: #f1f5f9;
+  --color-zinc-200: #e2e8f0;
+  --color-zinc-300: #cbd5e1;
+  --color-zinc-400: #94a3b8;
+  --color-zinc-500: #64748b;
+  --color-zinc-600: #475569;
+  --color-zinc-700: #334155;
+  --color-zinc-800: #1e293b;
+  --color-zinc-900: #0f172a;
+  --color-zinc-950: #020617;
+
+  --color-gray-50: #f8fafc;
+  --color-gray-100: #f1f5f9;
+  --color-gray-200: #e2e8f0;
+  --color-gray-300: #cbd5e1;
+  --color-gray-400: #94a3b8;
+  --color-gray-500: #64748b;
+  --color-gray-600: #475569;
+  --color-gray-700: #334155;
+  --color-gray-800: #1e293b;
+  --color-gray-900: #0f172a;
+  --color-gray-950: #020617;
+
+  /* —— 主色：EasyAPI 品牌青（全程 cyan，避免混入 teal 绿） —— */
+  --color-primary-50: #ecfeff;
+  --color-primary-100: #cffafe;
+  --color-primary-200: #a5f3fc;
+  --color-primary-300: #67e8f9;
+  --color-primary-400: #3dd5e8;
+  --color-primary-500: #18c1d6;
+  --color-primary-600: #0eaeb8;
+  --color-primary-700: #0e7490;
+  --color-primary-800: #155e75;
+  --color-primary-900: #164e63;
+  --color-primary-950: #083344;
+
+  --ui-color-primary-50: #ecfeff;
+  --ui-color-primary-100: #cffafe;
+  --ui-color-primary-200: #a5f3fc;
+  --ui-color-primary-300: #67e8f9;
+  --ui-color-primary-400: #3dd5e8;
+  --ui-color-primary-500: #18c1d6;
+  --ui-color-primary-600: #0eaeb8;
+  --ui-color-primary-700: #0e7490;
+  --ui-color-primary-800: #155e75;
+  --ui-color-primary-900: #164e63;
+  --ui-color-primary-950: #083344;
+
+  /* —— 语义：success（绿）—— */
+  --color-green-50: #e8ffea;
+  --color-green-100: #d1fad6;
+  --color-green-200: #a6f1b3;
+  --color-green-300: #6fdf86;
+  --color-green-400: #3fc962;
+  --color-green-500: #1ba673;  /* success-text */
+  --color-green-600: #168959;
+  --color-green-700: #136e48;
+  --color-green-800: #10573a;
+  --color-green-900: #0e472f;
+  --color-green-950: #082c1d;
+
+  /*
+   * Tailwind v4 默认色板是 oklch()。Win7 最后一版 Chrome 是 109（无 oklch / color-mix），
+   * 办公电脑 360 内核更老。未覆盖的 from-teal-* / text-white 会整段失效，卡片变空白。
+   */
+  --color-white: #ffffff;
+  --color-black: #000000;
+
+  --color-teal-50: #f0fdfa;
+  --color-teal-100: #ccfbf1;
+  --color-teal-200: #99f6e4;
+  --color-teal-300: #5eead4;
+  --color-teal-400: #2dd4bf;
+  --color-teal-500: #14b8a6;
+  --color-teal-600: #0d9488;
+  --color-teal-700: #0f766e;
+  --color-teal-800: #115e59;
+  --color-teal-900: #134e4a;
+  --color-teal-950: #042f2e;
+
+  --color-cyan-50: #ecfeff;
+  --color-cyan-100: #cffafe;
+  --color-cyan-200: #a5f3fc;
+  --color-cyan-300: #67e8f9;
+  --color-cyan-400: #22d3ee;
+  --color-cyan-500: #06b6d4;
+  --color-cyan-600: #0891b2;
+  --color-cyan-700: #0e7490;
+  --color-cyan-800: #155e75;
+  --color-cyan-900: #164e63;
+  --color-cyan-950: #083344;
+
+  --color-blue-50: #eff6ff;
+  --color-blue-100: #dbeafe;
+  --color-blue-200: #bfdbfe;
+  --color-blue-300: #93c5fd;
+  --color-blue-400: #60a5fa;
+  --color-blue-500: #3b82f6;
+  --color-blue-600: #2563eb;
+  --color-blue-700: #1d4ed8;
+  --color-blue-800: #1e40af;
+  --color-blue-900: #1e3a8a;
+  --color-blue-950: #172554;
+
+  --color-indigo-50: #eef2ff;
+  --color-indigo-100: #e0e7ff;
+  --color-indigo-200: #c7d2fe;
+  --color-indigo-300: #a5b4fc;
+  --color-indigo-400: #818cf8;
+  --color-indigo-500: #6366f1;
+  --color-indigo-600: #4f46e5;
+  --color-indigo-700: #4338ca;
+  --color-indigo-800: #3730a3;
+  --color-indigo-900: #312e81;
+  --color-indigo-950: #1e1b4b;
+}
+
+/* Nuxt UI 语义 token */
+@layer theme {
+  :host,
+  :root,
+  .light {
+    --ui-radius: 0.25rem; /* Nuxt UI 半径基数：lg=2x=8px 对齐 ea-radius-md 卡片体系 */
+    --ui-header-height: 4rem;
+    --ui-text-dimmed: var(--color-neutral-400);
+    --ui-text-muted: var(--color-neutral-500);
+    --ui-text-toned: var(--color-neutral-600);
+    --ui-text: var(--color-neutral-700);
+    --ui-text-highlighted: var(--color-neutral-900);
+    --ui-text-inverted: #ffffff;
+    --ui-bg: #ffffff;
+    --ui-bg-muted: var(--color-neutral-50);
+    --ui-bg-elevated: #ffffff;
+    --ui-bg-accented: var(--color-neutral-100);
+    --ui-bg-inverted: var(--color-neutral-900);
+    --ui-border: var(--color-neutral-200);
+    --ui-border-muted: var(--color-neutral-200);
+    --ui-border-accented: var(--color-neutral-300);
+    --ui-border-inverted: var(--color-neutral-900);
+    /* Nuxt UI 组件 color="primary" / text-primary / USwitch 等 */
+    --ui-primary: var(--ui-color-primary-500);
+  }
+
+  .dark {
+    --ui-text-dimmed: var(--color-neutral-500);
+    --ui-text-muted: var(--color-neutral-400);
+    --ui-text-toned: var(--color-neutral-300);
+    --ui-text: var(--color-neutral-200);
+    --ui-text-highlighted: #ffffff;
+    --ui-text-inverted: var(--color-neutral-950);
+    --ui-bg: var(--color-neutral-950);
+    --ui-bg-muted: var(--color-neutral-900);
+    --ui-bg-elevated: var(--color-neutral-900);
+    --ui-bg-accented: var(--color-neutral-800);
+    --ui-bg-inverted: #ffffff;
+    --ui-border: var(--color-neutral-800);
+    --ui-border-muted: var(--color-neutral-800);
+    --ui-border-accented: var(--color-neutral-700);
+    --ui-border-inverted: #ffffff;
+    --ui-primary: var(--ui-color-primary-400);
+  }
+}
+
+/**
+ * 站点自定义变量：以 MiniMax token 命名为参考，前缀 --ea-。
+ * 圆角与品牌色单独成组，便于 Vue 模板中以 var() 引用。
+ */
+:root {
+  color-scheme: light;
+
+  /* 表面 */
+  --ea-bg: #ffffff;
+  --ea-bg-elevated: #ffffff;
+  --ea-bg-surface: #f8fafc;
+  --ea-bg-surface-soft: #f1f5f9;
+
+  /* 边线 */
+  --ea-border: #e2e8f0;
+  --ea-border-soft: #eef2f6;
+
+  /* 文本 */
+  --ea-text: #0f172a;
+  --ea-text-strong: #020617;
+  --ea-text-muted: #64748b;
+  --ea-text-stone: #94a3b8;
+  --ea-text-dimmed: #94a3b8;
+
+  /* 品牌主色（EasyAPI favicon #18c1d6） */
+  --ea-brand: #18c1d6;
+  --ea-primary: #18c1d6;
+  --ea-brand-hover: #0eaeb8;
+  --ea-brand-strong: #0e7490;
+  --ea-brand-soft: rgba(24, 193, 214, 0.12);
+  --ea-brand-muted: rgba(24, 193, 214, 0.08);
+
+  /* 扩展品牌色 */
+  --ea-coral: #ff5530;
+  --ea-magenta: #ea5ec1;
+  --ea-brand-blue: #18c1d6;
+  --ea-brand-blue-deep: #0eaeb8;
+  --ea-brand-purple: #a855f7;
+
+  /* 圆角（DESIGN.md/rounded 全量） */
+  --ea-radius-xs: 4px;
+  --ea-radius-sm: 6px;
+  --ea-radius-md: 8px;
+  --ea-radius-lg: 12px;
+  --ea-radius-xl: 16px;
+  --ea-radius-2xl: 20px;
+  --ea-radius-3xl: 24px;
+  --ea-radius-hero: 32px;
+
+  /* 阴影：弱（DESIGN.md elevation lv.1） */
+  --ea-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --ea-shadow-card: 0 4px 6px rgba(0, 0, 0, 0.08);
+}
+
+html.dark {
+  color-scheme: dark;
+  --color-primary-50: #083344;
+  --color-primary-100: #164e63;
+  --color-primary-200: #155e75;
+  --color-primary-300: #0e7490;
+  --color-primary-400: #0eaeb8;
+  --color-primary-500: #18c1d6;
+  --color-primary-600: #3dd5e8;
+  --color-primary-700: #67e8f9;
+  --color-primary-800: #a5f3fc;
+  --color-primary-900: #cffafe;
+  --color-primary-950: #ecfeff;
+
+  --ui-color-primary-50: #083344;
+  --ui-color-primary-100: #164e63;
+  --ui-color-primary-200: #155e75;
+  --ui-color-primary-300: #0e7490;
+  --ui-color-primary-400: #0eaeb8;
+  --ui-color-primary-500: #18c1d6;
+  --ui-color-primary-600: #3dd5e8;
+  --ui-color-primary-700: #67e8f9;
+  --ui-color-primary-800: #a5f3fc;
+  --ui-color-primary-900: #cffafe;
+  --ui-color-primary-950: #ecfeff;
+
+  --ea-bg: #0f172a;
+  --ea-bg-elevated: #1e293b;
+  --ea-bg-surface: #1e293b;
+  --ea-bg-surface-soft: #334155;
+
+  --ea-border: #334155;
+  --ea-border-soft: #293548;
+
+  --ea-text: #f1f5f9;
+  --ea-text-strong: #ffffff;
+  --ea-text-muted: #94a3b8;
+  --ea-text-stone: #64748b;
+  --ea-text-dimmed: #64748b;
+
+  --ea-brand: #18c1d6;
+  --ea-primary: #18c1d6;
+  --ea-brand-hover: #3dd5e8;
+  --ea-brand-strong: #67e8f9;
+  --ea-brand-soft: rgba(24, 193, 214, 0.16);
+  --ea-brand-muted: rgba(24, 193, 214, 0.1);
+
+  --ea-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  --ea-shadow-card: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+/* ── 模型广场页面令牌 --models-*（原 model.css 头部迁入） ── */
+.models-page,
+.models-filter-drawer__panel,
+.model-detail-drawer__panel,
+.ea-tool-studio {
+  --models-brand: var(--ea-brand, #18c1d6);
+  /* 品牌色 RGB 分量：rgba(var(--models-brand-rgb), α) 统一透明度写法 */
+  --models-brand-rgb: 24, 193, 214;
+  --models-brand-hover: var(--ea-brand-hover, #0eaeb8);
+  --models-brand-emphasis: var(--ea-brand, #18c1d6);
+  --models-brand-strong: var(--ea-brand-hover, #0eaeb8);
+  --models-brand-dark: #3dd5e8;
+  --models-brand-soft: var(--ea-brand-soft, rgba(24, 193, 214, 0.12));
+  --models-brand-border: rgba(24, 193, 214, 0.35);
+  --models-focus-ring: rgba(24, 193, 214, 0.12);
+  --models-accent-text: #0eaeb8;
+  --models-accent-bg: rgba(24, 193, 214, 0.1);
+  --models-accent-bg-hover: rgba(24, 193, 214, 0.16);
+  --models-border: #e2e8f0;
+  --models-divider: #eef2f6;
+  --models-bg: #f8fafc;
+  --models-surface: #ffffff;
+  --models-text-h1: #0f172a;
+  --models-text-h2: #0f172a;
+  --models-text-body: #334155;
+  --models-text-muted: #64748b;
+  /* 中性灰梯队（slate/gray）：收敛原先散落的硬编码 */
+  --models-text-faint: #94a3b8;
+  --models-border-strong: #cbd5e1;
+  --models-bg-soft: #f1f5f9;
+  --models-bg-gray: #f9fafb;
+  --models-border-gray: #e5e7eb;
+  --models-border-gray-strong: #d1d5db;
+  --models-divider-gray: #f3f4f6;
+  --models-text-gray: #6b7280;
+  --models-text-gray-soft: #9ca3af;
+  --models-text-gray-mid: #374151;
+  --models-text-gray-strong: #111827;
+  --models-text-gray-heavy: #1f2937;
+  /* 状态色（成功态，暗色在 .dark 块重定义） */
+  --models-success: #059669;
+  --models-success-border: #a7f3d0;
+  /* 暗色专用中性（仅 .dark 规则引用，值不随主题切换） */
+  --models-dark-line: #27272a;
+  --models-dark-line-strong: #333333;
+  --models-dark-panel: #18181b;
+  --models-dark-panel-soft: #1a1a1a;
+  --models-dark-border-soft: #374151;
+  --models-dark-border-strong: #404040;
+  --models-dark-raised: #334155;
+  --models-dark-muted: #475569;
+  --models-dark-text-dim: #525252;
+  --models-dark-text-bright: #e2e8f0;
+  --models-dark-text-brightest: #f8fafc;
+  --models-dark-track: #3f3f46;
+  --models-dark-hero-bg: #111113;
+  --models-radius-sm: 8px;
+  --models-radius-md: 12px;
+  --models-transition: 150ms ease-out;
+  --models-capability-tag-h: 28px;
+  --models-capability-tag-px: 12px;
+  --models-capability-tag-radius: 6px;
+  --models-capability-tag-gap: 8px;
+  --models-capability-tag-fs: 13px;
+  --models-capability-tag-fw: 500;
+  --models-capability-tag-color: var(--models-accent-text);
+  --models-capability-tag-bg: var(--models-accent-bg);
+  --models-capability-tag-bg-hover: var(--models-accent-bg-hover);
+}
+
+.dark .models-page,
+.dark .models-filter-drawer__panel,
+.dark .model-detail-drawer__panel,
+.dark .ea-tool-studio {
+  --models-success: #34d399;
+  --models-border: #262626;
+  --models-divider: #1f1f1f;
+  --models-bg: #0a0a0a;
+  --models-surface: #141414;
+  --models-text-h1: #ffffff;
+  --models-text-h2: rgb(203 213 225);
+  --models-text-body: rgb(203 213 225);
+  --models-text-muted: rgb(100 116 139);
+  --models-brand-soft: rgba(24, 193, 214, 0.1);
+  --models-brand-border: rgba(61, 213, 232, 0.35);
+  --models-focus-ring: rgba(24, 193, 214, 0.12);
+  --models-brand-dark: #67e8f9;
+  --models-accent-text: #3dd5e8;
+  --models-accent-bg: rgba(24, 193, 214, 0.12);
+  --models-accent-bg-hover: rgba(24, 193, 214, 0.18);
+  --models-capability-tag-color-dark: var(--models-accent-text);
+  --models-capability-tag-bg-dark: var(--models-accent-bg);
+  --models-capability-tag-bg-hover-dark: var(--models-accent-bg-hover);
+}
+
+/* ── 文档页语义状态色（doc.css：callout / API 方法徽章 / mock 演示图） ──
+   值为固定色（明暗模式通用）；color-mix() 透明度变体自动跟随基色。 */
+:root {
+  --doc-warn: #f59e0b;
+  --doc-danger: #ef4444;
+  --doc-danger-soft: #f87171;
+  --doc-danger-deep: #991b1b;
+  --doc-success: #22c55e;
+  --doc-success-soft: #4ade80;
+  --doc-success-pale: #86efac;
+  --doc-success-deep: #166534;
+  --doc-info: #3b82f6;
+  --doc-info-deep: #1d4ed8;
+  --doc-info-pale: #93c5fd;
+  --doc-accent: #c084fc;
+  --doc-accent-pale: #faf5ff;
+  /* mock 终端窗口深灰（终端始终深色，不随主题） */
+  --doc-mock-border: #333333;
+  --doc-mock-panel: #3c3c3c;
+  --doc-mock-line: #a1a1aa;
+}
+
+/* ── 首页 landing 专属色（home.css：标题深灰 / tiffany 墨青 / mac 窗口点）
+   注：--ui-tiffany-* 主题体系定义在 landing-bg.css（带生效条件选择器），自成一组。 ── */
+:root {
+  --home-heading: #1a202c;
+  --home-text-strong: #111827;
+  --home-text-gray: #6b7280;
+  --home-bg-soft: #f7f9fc;
+  --home-tiffany-ink: #0f766e;
+  /* tiffany 渐变尾色（hero 标题渐变用） */
+  --home-tiffany: #5bc0b8;
+}
+
+/* ── mac 窗口三色点（首页终端卡片 / 文档 mock 窗口共用装饰） ── */
+:root {
+  --ea-mac-red: #ff5f57;
+  --ea-mac-yellow: #febc2e;
+  --ea-mac-green: #28c840;
+}

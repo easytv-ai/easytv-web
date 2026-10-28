@@ -1,0 +1,8 @@
+/* 全站基础：变量、登录、落地页、提示气泡、定价。
+ * 画布和导演台在 studio.css，只在创作台相关页面再加载。
+ * 子目录必须叫 studio-parts，不能叫 studio/ —— 和入口文件重名时 Vite 解析 @import 会失败。
+ */
+@import './studio-parts/tokens-auth.css';
+@import './studio-parts/landing.css';
+@import './studio-parts/chrome.css';
+@import './studio-parts/pricing.css';

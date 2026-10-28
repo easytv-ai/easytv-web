@@ -1,0 +1,27 @@
+@import './studio-parts/tokens-motion.css';
+/* 画布、功能面板和导演台。只在画布、导演台、分享、播放、成片和设定页引入。
+ * 首页不会通过创作台布局把这三份打进来（第一行的 tokens-motion.css 是跟练 / 浮层共用的动效令牌，也不进首页）。
+ * 子目录必须叫 studio-parts，不能叫 studio/ —— 和 studio.css 重名时 Vite 解析 @import 会失败。
+ */
+@import './studio-parts/canvas.css';
+@import './studio-parts/features.css';
+@import './studio-parts/director.css';
+
+/* @ 唤起素材（L21）：建议条上的两个动作 */
+.canvas-autolink__act {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--st-text);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.canvas-autolink__act:hover {
+  background: var(--st-hover);
+}

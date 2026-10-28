@@ -1,0 +1,30 @@
+/* 动效令牌：跟练浮层 / 清单 / 卡片共用。只在创作台入口（studio.css）引入，首页不吃这份。
+ * 时长与缓动只在这里定义一份，canvas.css 只引用令牌、不写裸时长。
+ * JS 侧（app/utils/canvas-viewport-tween.ts 的相机补间、app/utils/guide-anim.ts 的聚光平滑）在 node 环境里
+ * 读不到 CSS 变量，所以那边另有一份同值常量（相机 260ms / 聚光 90ms / 卡片避让 110ms）——改这里必须同步改那边。
+ */
+:root {
+  --st-motion-fast: 120ms;
+  --st-motion-base: 160ms;
+  --st-motion-slow: 220ms;
+  --st-motion-camera: 260ms;
+  --st-motion-ease: ease;
+  --st-motion-ease-out: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --st-motion-ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* 系统开了「减少动态效果」：令牌一次归零，卡片 / 清单 / 步骤 / 图标 / 进度条全部直落。
+ * 用 1ms 不用 0s：0s 在部分浏览器里被当成「没有过渡」，transitionend 的语义会变。
+ * 聚光与相机是 JS 逐帧写值，不归这份管（会话开始时读一次 prefersReducedMotion 直接落位）。
+ */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --st-motion-fast: 1ms;
+    --st-motion-base: 1ms;
+    --st-motion-slow: 1ms;
+    --st-motion-camera: 1ms;
+  }
+
+  /* 角标是一次性 @keyframes，令牌管不到，必须显式关掉 */
+  .cnode__tag-practice{ animation:none }
+}
