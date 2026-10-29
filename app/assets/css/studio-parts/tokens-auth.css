@@ -277,6 +277,42 @@ html.dark .xyq-auth-dialog {
   pointer-events: none;
 }
 
+.xyq-split__arrow {
+  position: absolute;
+  top: 50%;
+  z-index: 2;
+  display: flex;
+  width: 36px;
+  height: 36px;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.42);
+  color: #fff;
+  cursor: pointer;
+  opacity: 0.72;
+  transform: translateY(-50%);
+  transition: opacity 0.2s ease, background 0.15s ease;
+}
+
+.xyq-split__visual:hover .xyq-split__arrow,
+.xyq-split__visual:focus-within .xyq-split__arrow {
+  opacity: 1;
+}
+
+.xyq-split__arrow:hover {
+  background: rgba(0, 0, 0, 0.62);
+}
+
+.xyq-split__arrow.is-prev {
+  left: 14px;
+}
+
+.xyq-split__arrow.is-next {
+  right: 14px;
+}
+
 .xyq-split__meta {
   position: absolute;
   right: 0;
