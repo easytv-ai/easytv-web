@@ -605,6 +605,7 @@
   "条": " clips",
   "查看": "View",
   "查看制作过程": "View the making-of",
+  "查看创作过程": "View creation process",
   "标准画质": "Standard quality",
   "标记": "Mark",
   "标题": "Title",
@@ -4199,5 +4200,19 @@
   "跟练已经替你把这一步布好了，你只要点生成看回放。第二段不跟第一段串提示词，各是各的镜头。": "This step is already set up for you; just hit generate and watch the replay. The second clip doesn't share the first clip's prompt; each is its own shot.",
   "跟练已经替你把这一步布好了，你只要点生成看回放。两条视频都在画布上之后，才能选中它们去合成。": "This step is already set up for you; just hit generate and watch the replay. Once both videos are on the canvas, you can select them to compose.",
   "跟练已经替你把这一步布好了，你只要点生成看回放。合成前两条都要有成片；跟练里点生成看回放，不真提交合成。": "This step is already set up for you; just hit generate and watch the replay. Both clips must be generated before composing; in practice you hit generate to watch the replay and nothing is actually submitted.",
-  "跟练已经替你把这一步布好了，你只要点生成看回放。跟练不打开合成。退出后选中两段打开合成，顺序即成片顺序，不计积分。": "This step is already set up for you; just hit generate and watch the replay. Practice doesn't open compose. After leaving, select the two clips and open compose; their order is the final order, and it costs no points."
+  "跟练已经替你把这一步布好了，你只要点生成看回放。跟练不打开合成。退出后选中两段打开合成，顺序即成片顺序，不计积分。": "This step is already set up for you; just hit generate and watch the replay. Practice doesn't open compose. After leaving, select the two clips and open compose; their order is the final order, and it costs no points.",
+  "技能库": "Skill library",
+  "技能广场": "Skill plaza",
+  "我创建的": "Created by me",
+  "技能广场分类": "Plaza categories",
+  "全部技能": "All skills",
+  "加入技能库": "Add to library",
+  "已加入": "Added",
+  "移出技能库": "Remove from library",
+  "已加入技能库": "Added to your library",
+  "已移出技能库": "Removed from your library",
+  "已加入技能库，可在「我的技能」中查看": "Added to your library. Find it under \"My skills\".",
+  "把常用提示词、角色设定和创作方法，变成随时可用的能力。": "Turn your go-to prompts, characters and techniques into skills you can use anytime.",
+  "{n} 个": "{n}",
+  "删除中…": "Deleting…"
 }

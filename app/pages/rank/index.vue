@@ -231,12 +231,12 @@ onMounted(() => {
     <ol v-else class="rank-list">
       <li v-for="(row, idx) in skillRows" :key="row.skill.id" class="rank-row">
         <i class="agent-leader__rank rank-row__no" :class="{ 'is-top': idx < 3 }">{{ idx + 1 }}</i>
-        <NuxtLink :to="localePath(`/agent?skill=${row.skill.id}`)" class="rank-row__thumb">
+        <NuxtLink :to="localePath(`/skills?skill=${row.skill.id}`)" class="rank-row__thumb">
           <img v-if="row.skill.cover_url" :src="resolveMediaUrl(row.skill.cover_url)" :alt="row.skill.title" loading="lazy">
           <span v-else class="rank-row__thumb-fallback"><UIcon name="i-lucide-sparkles" class="size-4" /></span>
         </NuxtLink>
         <div class="rank-row__main">
-          <NuxtLink :to="localePath(`/agent?skill=${row.skill.id}`)" class="rank-row__name">{{ row.skill.title }}</NuxtLink>
+          <NuxtLink :to="localePath(`/skills?skill=${row.skill.id}`)" class="rank-row__name">{{ row.skill.title }}</NuxtLink>
           <small>{{ row.skill.category ? t(row.skill.category) : row.skill.author_name }}</small>
         </div>
         <div class="rank-row__stats">

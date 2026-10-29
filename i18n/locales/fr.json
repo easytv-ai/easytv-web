@@ -604,6 +604,7 @@
   "条": " clips",
   "查看": "View",
   "查看制作过程": "View the making-of",
+  "查看创作过程": "Voir le processus de création",
   "标准画质": "Standard quality",
   "标记": "Mark",
   "标题": "Title",
@@ -4175,5 +4176,19 @@
   "跟练已经替你把这一步布好了，你只要点生成看回放。第二段不跟第一段串提示词，各是各的镜头。": "Cette étape est déjà préparée pour vous : lancez la génération et regardez le replay. Le second clip ne reprend pas le prompt du premier : chacun est son propre plan.",
   "跟练已经替你把这一步布好了，你只要点生成看回放。两条视频都在画布上之后，才能选中它们去合成。": "Cette étape est déjà préparée pour vous : lancez la génération et regardez le replay. Une fois les deux vidéos sur le canevas, vous pouvez les sélectionner pour le montage.",
   "跟练已经替你把这一步布好了，你只要点生成看回放。合成前两条都要有成片；跟练里点生成看回放，不真提交合成。": "Cette étape est déjà préparée pour vous : lancez la génération et regardez le replay. Les deux clips doivent être générés avant le montage ; en mode guidé, on lance la génération pour voir le replay sans rien soumettre.",
-  "跟练已经替你把这一步布好了，你只要点生成看回放。跟练不打开合成。退出后选中两段打开合成，顺序即成片顺序，不计积分。": "Cette étape est déjà préparée pour vous : lancez la génération et regardez le replay. Le mode guidé n'ouvre pas le montage. Après être sorti, sélectionnez les deux clips et ouvrez le montage ; leur ordre est l'ordre final, sans coût en points."
+  "跟练已经替你把这一步布好了，你只要点生成看回放。跟练不打开合成。退出后选中两段打开合成，顺序即成片顺序，不计积分。": "Cette étape est déjà préparée pour vous : lancez la génération et regardez le replay. Le mode guidé n'ouvre pas le montage. Après être sorti, sélectionnez les deux clips et ouvrez le montage ; leur ordre est l'ordre final, sans coût en points.",
+  "技能库": "Bibliothèque de compétences",
+  "技能广场": "Place des compétences",
+  "我创建的": "Mes créations",
+  "技能广场分类": "Catégories",
+  "全部技能": "Toutes les compétences",
+  "加入技能库": "Ajouter à la bibliothèque",
+  "已加入": "Ajouté",
+  "移出技能库": "Retirer de la bibliothèque",
+  "已加入技能库": "Ajouté à votre bibliothèque",
+  "已移出技能库": "Retiré de votre bibliothèque",
+  "已加入技能库，可在「我的技能」中查看": "Ajouté. Retrouvez-le dans « Mes compétences ».",
+  "把常用提示词、角色设定和创作方法，变成随时可用的能力。": "Transformez vos prompts, personnages et méthodes favoris en compétences toujours prêtes.",
+  "{n} 个": "{n}",
+  "删除中…": "Suppression…"
 }

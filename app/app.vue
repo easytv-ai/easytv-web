@@ -39,8 +39,9 @@ onMounted(syncLoginModal)
 watch(() => route.fullPath, () => syncLoginModal())
 
 /** 创作台内部切页：内容区淡入，侧栏和顶栏不动。登录 / 画布等自己关过渡。 */
+const tabSwitch = useState('studio-tab-switch', () => false)
 const pageTransition = computed(() => {
-  if (route.meta.pageTransition === false)
+  if (tabSwitch.value || route.meta.pageTransition === false)
     return false
   if (route.meta.layout === 'studio')
     return { name: 'studio-page' }

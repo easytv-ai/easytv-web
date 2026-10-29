@@ -37,7 +37,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   close: []
-  /** 收藏状态变化，父组件同步列表 */
+  /** 加入 / 移出技能库（即收藏）状态变化，父组件同步列表 */
   favorite: [id: number, favorited: boolean, stars: number]
   edit: [id: number]
   /** 提交上架 / 撤回成功，父组件刷新「我的」列表 */
@@ -145,7 +145,7 @@ async function onSave() {
     starsCount.value = res.data.stars
     emit('favorite', props.skill.id, res.data.favorited, res.data.stars)
     notify(
-      res.data.favorited ? t('已加入收藏，可在「收藏」中查看') : t('已从收藏中移除'),
+      res.data.favorited ? t('已加入技能库，可在「我的技能」中查看') : t('已移出技能库'),
       'success',
     )
   }
@@ -300,12 +300,12 @@ function onAdd() {
                   type="button"
                   class="studio-icon-btn"
                   :class="{ 'is-on': saved }"
-                  :aria-label="saved ? t('取消收藏') : t('收藏')"
+                  :aria-label="saved ? t('移出技能库') : t('加入技能库')"
                   :disabled="favoriting"
                   @click="onSave"
                 >
-                  <UIcon name="i-lucide-star" class="size-4" />
-                  <span class="canvas-tip canvas-tip--down">{{ saved ? t('取消收藏') : t('收藏') }}</span>
+                  <UIcon :name="saved ? 'i-lucide-check' : 'i-lucide-plus'" class="size-4" />
+                  <span class="canvas-tip canvas-tip--down">{{ saved ? t('移出技能库') : t('加入技能库') }}</span>
                 </button>
                 <button type="button" class="skill-modal__add" @click="onAdd">
                   {{ t('加入创作台') }}

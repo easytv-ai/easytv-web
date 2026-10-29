@@ -3,6 +3,7 @@ const { t } = useI18n()
 const localePath = useLocalePath()
 const route = useRoute()
 const { resourceLinks } = useStudioNav()
+const { requireLogin } = useRequireLogin()
 
 const collapsed = useState('studio-sidebar-collapsed', () => false)
 const navRef = ref<HTMLElement | null>(null)
@@ -53,6 +54,15 @@ function syncIndicator(animate: boolean) {
   indicatorTimer = window.setTimeout(() => {
     indicatorInstant.value = false
   }, 60)
+}
+
+/** 需登录的入口：未登录时拦下跳转并弹登录框，登录成功后回到目标页 */
+function gotoNav(event: MouseEvent, item: typeof resourceLinks[number], navigate: (event?: MouseEvent) => unknown) {
+  if (item.auth && !requireLogin(localePath(item.to))) {
+    event.preventDefault()
+    return
+  }
+  void navigate(event)
 }
 
 function toggleCollapsed() {
@@ -128,13 +138,19 @@ onBeforeUnmount(() => {
       <NuxtLink
         v-for="item in resourceLinks"
         :key="item.to"
+        v-slot="{ href, navigate }"
         :to="localePath(item.to)"
-        prefetch
-        :class="{ 'is-active': isActive(item) }"
+        custom
       >
-        <UIcon :name="item.icon" class="size-4" />
-        <span class="studio-nav__label-text">{{ t(item.label) }}</span>
-        <span class="studio-sidebar__tip">{{ t(item.label) }}</span>
+        <a
+          :href="href"
+          :class="{ 'is-active': isActive(item) }"
+          @click="gotoNav($event, item, navigate)"
+        >
+          <UIcon :name="item.icon" class="size-4" />
+          <span class="studio-nav__label-text">{{ t(item.label) }}</span>
+          <span class="studio-sidebar__tip">{{ t(item.label) }}</span>
+        </a>
       </NuxtLink>
     </nav>
   </aside>

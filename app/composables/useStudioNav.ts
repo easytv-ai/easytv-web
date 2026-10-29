@@ -3,15 +3,16 @@ export function useStudioNav() {
 
   /**
    * 左侧主导航只放五个入口。首页是 EasyTV Agent；
-   * 关注 / 榜单并进推荐标签，资产 / 主体 / 提示词并进项目标签，
+   * 技能是技能库（广场 / 我的 / 我创建的），资产 / 主体 / 提示词并进项目标签，
    * 任务收进积分钱包，设置等收进右上角头像菜单。match 里的路径访问时高亮对应入口。
+   * auth：未登录点击时不跳转，先弹登录框，登录成功后再进入该页。
    */
   const resourceLinks = [
-    { to: '/agent', label: '首页', icon: 'i-lucide-house', match: [] },
-    { to: '/create', label: '创作', icon: 'i-lucide-wand-sparkles', match: [] },
-    { to: '/projects', label: '项目', icon: 'i-lucide-folder', match: ['/assets', '/subjects', '/prompts'] },
-    { to: '/studio', label: '推荐', icon: 'i-lucide-clapperboard', match: ['/following', '/rank'] },
-    { to: '/campaign', label: '活动', icon: 'i-lucide-trophy', match: [] },
+    { to: '/agent', label: '首页', icon: 'i-lucide-house', match: [], auth: false },
+    { to: '/create', label: '创作', icon: 'i-lucide-wand-sparkles', match: [], auth: true },
+    { to: '/projects', label: '项目', icon: 'i-lucide-folder', match: ['/assets', '/subjects', '/prompts'], auth: true },
+    { to: '/skills', label: '技能', icon: 'i-lucide-sparkles', match: [], auth: false },
+    { to: '/campaign', label: '活动', icon: 'i-lucide-trophy', match: [], auth: false },
   ] as const
 
   /** 首页顶部标签 */

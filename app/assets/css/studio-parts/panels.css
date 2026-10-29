@@ -3809,129 +3809,6 @@ html.dark .canvas-history__tag.is-now {
   cursor: pointer;
 }
 
-/* ===== 制作过程 ===== */
-.watch-process {
-  width: min(92vw, 640px);
-  padding: 0;
-}
-
-.watch-process__body {
-  max-height: 70vh;
-  overflow: auto;
-  padding: 8px 20px 20px;
-}
-
-.watch-process__steps {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.watch-process__steps li {
-  position: relative;
-  display: grid;
-  grid-template-columns: 28px 1fr;
-  gap: 12px;
-  padding: 10px 0;
-}
-
-.watch-process__steps li + li::before {
-  content: '';
-  position: absolute;
-  top: -10px;
-  left: 13px;
-  width: 2px;
-  height: 20px;
-  background: var(--st-line, rgba(120, 120, 128, 0.2));
-}
-
-.watch-process__no {
-  display: inline-flex;
-  width: 28px;
-  height: 28px;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  background: var(--st-hover);
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.watch-process__card {
-  min-width: 0;
-  padding: 10px 12px;
-  border: 1px solid var(--st-border);
-  border-radius: 12px;
-  background: var(--st-card);
-  font-size: 13px;
-}
-
-.watch-process__head {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.watch-process__head small {
-  margin-left: auto;
-  color: var(--st-muted);
-  font-size: 11px;
-}
-
-.watch-process__text,
-.watch-process__prompt {
-  margin: 8px 0 0;
-  white-space: pre-wrap;
-  line-height: 1.5;
-}
-
-.watch-process__prompt {
-  color: var(--st-muted);
-  font-size: 12px;
-}
-
-.watch-process__prompt em {
-  margin-right: 6px;
-  padding: 1px 6px;
-  border-radius: 999px;
-  background: var(--st-hover);
-  font-size: 11px;
-  font-style: normal;
-}
-
-.watch-process__media {
-  margin-top: 8px;
-}
-
-.watch-process__media img,
-.watch-process__media video {
-  max-width: 100%;
-  max-height: 240px;
-  border-radius: 8px;
-}
-
-.watch-process__media audio {
-  width: 100%;
-}
-
-.watch-process__ref {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-top: 8px;
-}
-
-.watch-process__ref img {
-  width: 64px;
-  height: 40px;
-  border-radius: 6px;
-  object-fit: cover;
-}
-
-.watch-process__ref small {
-  color: var(--st-muted);
-}
-
 /* ===== 播放页评论抽屉 ===== */
 .watch-comments {
   width: min(440px, 100%);
@@ -5059,6 +4936,22 @@ html.dark .canvas-agent__choice.is-on {
   color: inherit;
   font-weight: 700;
   text-decoration: none;
+}
+
+.share-bar__back {
+  height: 34px;
+  flex-shrink: 0;
+  padding: 0 12px 0 8px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.share-bar__back:hover {
+  background: var(--st-hover);
 }
 
 .share-bar__title {

@@ -1892,7 +1892,7 @@ html.dark .canvas-promo__chip {
 
 /* ===== Agent 页创作者榜（T28） ===== */
 .agent-leader {
-  max-width: 1180px;
+  max-width: 1760px;
   margin: 0 auto 16px;
   padding: 12px 16px;
   border: 1px solid var(--st-border);
@@ -4499,5 +4499,436 @@ html.dark .canvas-inspector__cam-clear:hover {
 
 .prompt-detail__link:hover {
   color: var(--st-text);
+}
+
+/* ---- 技能库（/skills） ---- */
+.skill-lib {
+  max-width: 1480px;
+  margin: 0 auto;
+  padding: 28px 4px 48px;
+}
+
+.skill-lib__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.skill-lib__head h1 {
+  margin: 0;
+  color: var(--st-text);
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.skill-lib__head p {
+  margin: 6px 0 0;
+  color: var(--st-muted);
+  font-size: 13px;
+}
+
+.skill-lib__head > div {
+  min-width: 0;
+  flex: 1;
+}
+
+.skill-lib__head .skill-lib__create {
+  display: inline-flex;
+  width: auto;
+  height: 38px;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 6px;
+  padding: 0 16px;
+  font-size: 13.5px;
+}
+
+.skill-lib__bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 22px 0 18px;
+}
+
+/* 分段控件：浅色轨道 + 选中项白色凸起胶囊 */
+.skill-lib__tabs {
+  position: relative;
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 5px;
+  border-radius: 14px;
+  background: #ededf0;
+}
+
+html.dark .skill-lib__tabs {
+  background: #232326;
+}
+
+.skill-lib__tabs button {
+  display: inline-flex;
+  height: 38px;
+  align-items: center;
+  gap: 8px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: #6b6b73;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+}
+
+html.dark .skill-lib__tabs button {
+  color: #a8a8b0;
+}
+
+.skill-lib__tabs button:hover {
+  color: var(--st-text);
+}
+
+.skill-lib__tabs button.is-on {
+  background: #ffffff;
+  color: #111111;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 10%), 0 1px 2px rgb(0 0 0 / 6%);
+}
+
+html.dark .skill-lib__tabs button.is-on {
+  background: #131315;
+  color: #ffffff;
+  box-shadow: none;
+}
+
+.skill-lib__tabs button {
+  position: relative;
+  z-index: 1;
+}
+
+.skill-lib__tabs-indicator {
+  position: absolute;
+  top: 5px;
+  bottom: 5px;
+  left: 0;
+  border-radius: 10px;
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 10%), 0 1px 2px rgb(0 0 0 / 6%);
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    transform 0.36s cubic-bezier(0.32, 0.72, 0, 1),
+    width 0.36s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+html.dark .skill-lib__tabs-indicator {
+  background: #131315;
+  box-shadow: none;
+}
+
+.skill-lib__tabs.is-ready .skill-lib__tabs-indicator {
+  opacity: 1;
+}
+
+.skill-lib__tabs.is-ready button.is-on,
+html.dark .skill-lib__tabs.is-ready button.is-on {
+  background: transparent;
+  box-shadow: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skill-lib__tabs-indicator {
+    transition: none;
+  }
+}
+
+.skill-lib__body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+
+.skill-lib__body.has-side {
+  grid-template-columns: 220px minmax(0, 1fr);
+}
+
+.skill-lib__side {
+  position: sticky;
+  top: 12px;
+  padding: 16px 12px;
+  border: 1px solid var(--st-border);
+  border-radius: 16px;
+  background: var(--st-card);
+}
+
+.skill-lib__side h2 {
+  margin: 0 8px 10px;
+  color: var(--st-text);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.skill-lib__side nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.skill-lib__side button {
+  display: flex;
+  width: 100%;
+  height: 38px;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--st-text-soft, var(--st-muted));
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.skill-lib__side button .iconify {
+  flex: none;
+}
+
+.skill-lib__side .skill-lib__tag-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.skill-lib__side button:hover {
+  background: var(--st-hover);
+}
+
+.skill-lib__side button.is-on {
+  background: var(--st-hover);
+  color: var(--st-text);
+  font-weight: 600;
+}
+
+.skill-lib__section {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.skill-lib__section h2 {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  color: var(--st-text);
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.skill-lib__section span {
+  color: var(--st-muted);
+  font-size: 12px;
+}
+
+.skill-lib__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.skill-lib-card {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  padding: 16px;
+  border: 1px solid var(--st-border);
+  border-radius: 16px;
+  background: var(--st-card);
+  cursor: pointer;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.skill-lib-card:hover,
+.skill-lib-card:focus-visible {
+  border-color: color-mix(in srgb, var(--st-text) 18%, var(--st-border));
+  box-shadow: 0 8px 24px rgb(0 0 0 / 12%);
+  outline: none;
+}
+
+.skill-lib-card--skeleton {
+  cursor: default;
+  pointer-events: none;
+}
+
+.skill-lib-card__top {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+}
+
+.skill-lib-card__icon {
+  display: inline-flex;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: 10px;
+  background: var(--st-hover);
+  color: var(--st-text);
+}
+
+.skill-lib-card__icon img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.skill-lib-card__top h3 {
+  margin: 0;
+  overflow: hidden;
+  color: var(--st-text);
+  font-size: 15px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.skill-lib-card__desc {
+  display: -webkit-box;
+  min-height: calc(13px * 1.6 * 3);
+  margin: 12px 0 0;
+  overflow: hidden;
+  color: var(--st-muted);
+  font-size: 13px;
+  line-height: 1.6;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+
+.skill-lib-card__meta {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+  color: var(--st-muted);
+  font-size: 12px;
+}
+
+.skill-lib-card__meta > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.skill-lib-card__author {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.skill-lib-card__meta > em {
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.skill-lib-card__tag {
+  padding: 1px 8px;
+  border-radius: 6px;
+  background: var(--st-hover);
+  color: var(--st-muted);
+  font-size: 11px;
+  font-style: normal;
+}
+
+.skill-lib-card__foot {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.skill-lib-card__foot small {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  color: var(--st-muted);
+  font-size: 12px;
+}
+
+.skill-lib-card__btn {
+  display: inline-flex;
+  height: 36px;
+  align-items: center;
+  gap: 6px;
+  padding: 0 14px;
+  border: 1px solid var(--st-border);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--st-text);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.skill-lib-card__btn:hover {
+  background: var(--st-hover);
+}
+
+.skill-lib-card__btn.is-on {
+  border-color: transparent;
+  background: var(--st-hover);
+  color: var(--st-muted);
+}
+
+.skill-lib-card__btn.is-danger {
+  color: #ef4444;
+}
+
+.skill-lib-card__btn:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+
+@media (max-width: 900px) {
+  .skill-lib__body.has-side {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .skill-lib__side {
+    position: static;
+  }
+
+  .skill-lib__side nav {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+
+  .skill-lib__side button {
+    width: auto;
+  }
+
+  .skill-lib__side .skill-lib__tag-name {
+    flex: none;
+  }
 }
 

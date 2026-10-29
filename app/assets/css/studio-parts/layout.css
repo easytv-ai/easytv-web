@@ -1426,7 +1426,8 @@ html.dark .studio-chip--gold.is-on {
   display: none;
 }
 
-.show-toolbar h1 {
+.show-toolbar h1,
+.show-toolbar h2 {
   margin: 0;
   color: var(--st-text);
   font-size: 24px;
@@ -1495,40 +1496,25 @@ html.dark .studio-chip--gold.is-on {
   gap: 28px 20px;
 }
 
+/* 即梦式卡片：封面 + 常驻底色信息区，悬停不变色、不放大 */
 .show-card {
   position: relative;
   z-index: 0;
+  display: flex;
+  flex-direction: column;
   padding: 0;
   border: 0;
-  background: transparent;
+  border-radius: 14px;
+  background: var(--st-card);
   color: inherit;
   text-align: left;
   text-decoration: none;
   cursor: pointer;
-  transition: transform 0.22s ease;
-}
-
-/* 悬停时整张卡片托一层底色并略放大，底色用伪元素伸出封面，不挤占网格间距 */
-.show-card::before {
-  position: absolute;
-  z-index: -1;
-  inset: -8px;
-  border-radius: 18px;
-  background: transparent;
-  content: '';
-  pointer-events: none;
-  transition: background-color 0.22s ease;
 }
 
 .show-card:hover,
 .show-card:focus-visible {
   z-index: 2;
-  transform: none;
-}
-
-.show-card:hover::before,
-.show-card:focus-visible::before {
-  background: color-mix(in srgb, var(--st-text) 8%, var(--st-bg));
 }
 
 .show-card--skeleton {
@@ -1540,12 +1526,6 @@ html.dark .studio-chip--gold.is-on {
 .show-card--skeleton:hover,
 .show-card--skeleton:focus-visible {
   z-index: 0;
-  transform: none;
-}
-
-.show-card--skeleton:hover::before,
-.show-card--skeleton:focus-visible::before {
-  background: transparent;
 }
 
 .show-card--skeleton .animate-pulse {
@@ -1562,7 +1542,7 @@ html.dark .studio-chip--gold.is-on {
   position: relative;
   overflow: hidden;
   aspect-ratio: 16 / 9;
-  border-radius: 8px;
+  border-radius: 14px 14px 0 0;
   background: #1a1a1e;
 }
 
@@ -1572,12 +1552,12 @@ html.dark .studio-chip--gold.is-on {
   height: 100%;
   object-fit: cover;
   pointer-events: none;
-  transform: scale(1.001);
-  transition: transform 0.35s ease;
 }
 
-.show-card:hover .show-card__cover video,
-.show-card:focus-visible .show-card__cover video,
+.show-card .show-card__play {
+  display: none;
+}
+
 .recent-card:hover .recent-card__thumb img {
   transform: scale(1.03);
 }
@@ -1639,7 +1619,14 @@ html.dark .studio-chip--gold.is-on {
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   cursor: pointer;
-  transition: background-color 0.2s ease;
+  opacity: 0;
+  transition: background-color 0.2s ease, opacity 0.2s ease;
+}
+
+.show-card:hover .show-card__likes,
+.show-card:focus-visible .show-card__likes,
+.show-card__likes:focus-visible {
+  opacity: 1;
 }
 
 .show-card__likes-icon {
@@ -1669,9 +1656,39 @@ html.dark .studio-chip--gold.is-on {
 
 .show-card__meta {
   display: flex;
+  flex: 1;
   align-items: flex-start;
   gap: 10px;
-  margin-top: 12px;
+  padding: 12px 14px 14px;
+}
+
+.show-card__process {
+  position: relative;
+  display: inline-flex;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  align-self: center;
+  align-items: center;
+  justify-content: center;
+  margin-left: auto;
+  border: 0;
+  border-radius: 999px;
+  background: var(--st-hover);
+  color: var(--st-text);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.2s ease, background-color 0.2s ease;
+}
+
+.show-card:hover .show-card__process,
+.show-card:focus-visible .show-card__process,
+.show-card__process:focus-visible {
+  opacity: 1;
+}
+
+.show-card__process:hover {
+  background: color-mix(in srgb, var(--st-text) 16%, transparent);
 }
 
 .show-card__avatar {
@@ -1804,9 +1821,26 @@ html.dark .studio-chip--gold.is-on {
   background: var(--st-bg);
 }
 
+.agent-feed .show-toolbar {
+  margin: 40px -32px 20px;
+  padding: 12px 32px;
+}
+
+.agent-feed .show-page__inner {
+  max-width: 1760px;
+}
+
+.agent-feed .studio-hot {
+  margin-top: 40px;
+}
+
+.agent-feed .studio-hot + .show-toolbar {
+  margin-top: 28px;
+}
+
 .agent-tabs,
 .agent-filters {
-  max-width: 1180px;
+  max-width: 1760px;
   margin-left: auto;
   margin-right: auto;
 }
@@ -1890,9 +1924,9 @@ html.dark .studio-chip--gold.is-on {
 
 .agent-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 16px;
-  max-width: 1180px;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 24px 18px;
+  max-width: 1760px;
   margin: 18px auto 0;
 }
 
@@ -1900,7 +1934,7 @@ html.dark .studio-chip--gold.is-on {
   display: flex;
   align-items: center;
   justify-content: center;
-  max-width: 1180px;
+  max-width: 1760px;
   min-height: 40px;
   margin: 8px auto 0;
   color: var(--st-muted);
@@ -1932,20 +1966,28 @@ html.dark .studio-chip--gold.is-on {
 .skill-card {
   position: relative;
   display: flex;
-  gap: 14px;
-  padding: 10px;
+  min-width: 0;
+  flex-direction: column;
   overflow: visible;
-  border: 0;
+  border: 1px solid transparent;
   border-radius: 16px;
   background: var(--st-card);
   color: inherit;
   text-align: left;
   cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
 }
 
 .skill-card:hover {
   z-index: 3;
-  background: var(--st-elevated);
+  border-color: var(--st-border);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.12);
+  transform: translateY(-2px);
+}
+
+.skill-card:focus-visible {
+  outline: 2px solid var(--st-chip-border);
+  outline-offset: 2px;
 }
 
 .skill-card--skeleton {
@@ -1955,7 +1997,9 @@ html.dark .studio-chip--gold.is-on {
 }
 
 .skill-card--skeleton:hover {
-  background: var(--st-card);
+  border-color: transparent;
+  box-shadow: none;
+  transform: none;
 }
 
 .skill-card--skeleton .animate-pulse {
@@ -1964,29 +2008,38 @@ html.dark .studio-chip--gold.is-on {
 
 .skill-card__cover {
   position: relative;
-  width: 112px;
-  height: 84px;
+  width: 100%;
+  aspect-ratio: 4 / 3;
   flex-shrink: 0;
   overflow: hidden;
-  border-radius: 10px;
+  border-radius: 15px 15px 0 0;
   background: #111;
 }
 
 .skill-card__cover img {
+  display: block;
   width: 100%;
   height: 100%;
+  max-width: 100%;
   object-fit: cover;
+  transition: transform 0.35s ease;
+}
+
+.skill-card:hover .skill-card__cover img {
+  transform: scale(1.04);
 }
 
 .skill-card__cover span {
   position: absolute;
-  top: 6px;
-  right: 6px;
-  padding: 1px 6px;
-  border-radius: 6px;
-  background: rgba(0, 0, 0, 0.55);
+  top: 8px;
+  right: 8px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(6px);
   color: #fff;
-  font-size: 10px;
+  font-size: 11px;
+  line-height: 18px;
 }
 
 .skill-card__body {
@@ -1994,23 +2047,26 @@ html.dark .studio-chip--gold.is-on {
   min-width: 0;
   flex: 1;
   flex-direction: column;
+  padding: 14px 16px 14px;
 }
 
 .skill-card__body h3 {
-  margin: 2px 0 0;
+  margin: 0;
   overflow: hidden;
   color: var(--st-text);
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 600;
+  line-height: 1.4;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .skill-card__body p {
-  margin: 6px 0 0;
+  margin: 4px 0 0;
   overflow: hidden;
   color: var(--st-muted);
-  font-size: 12px;
+  font-size: 13px;
+  line-height: 1.5;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -2021,7 +2077,7 @@ html.dark .studio-chip--gold.is-on {
   justify-content: space-between;
   gap: 8px;
   margin-top: auto;
-  padding-top: 10px;
+  padding-top: 12px;
 }
 
 .skill-card__author {
@@ -2060,15 +2116,18 @@ html.dark .studio-chip--gold.is-on {
   font-size: 12px;
 }
 
-@media (max-width: 1100px) {
-  .agent-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
 @media (max-width: 720px) {
   .agent-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px 10px;
+  }
+
+  .skill-card__body {
+    padding: 10px;
+  }
+
+  .skill-card__body h3 {
+    font-size: 14px;
   }
 }
 

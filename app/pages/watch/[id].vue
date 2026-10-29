@@ -290,8 +290,6 @@ async function toggleLike() {
   }
 }
 
-const processOpen = ref(false)
-
 // ---- 做同款（POST /user/work/:id/clone，API.md 7.3）----
 const isOpenSource = computed(() => {
   const work = current.value
@@ -482,7 +480,7 @@ function isTypingTarget(target: EventTarget | null) {
 }
 
 function playerOverlayOpen() {
-  return commentsOpen.value || processOpen.value || clonePreviewOpen.value || shareOpen.value || reportOpen.value
+  return commentsOpen.value || clonePreviewOpen.value || shareOpen.value || reportOpen.value
 }
 
 /** 快捷键：Esc 返回；空格播放；←/→ 快进退；M 静音；F 全屏；L 点赞。弹层或输入中不触发。 */
@@ -498,7 +496,7 @@ function onGlobalKeydown(event: KeyboardEvent) {
         reportOpen.value = false
       return
     }
-    if (commentsOpen.value || processOpen.value || clonePreviewOpen.value || shareOpen.value)
+    if (commentsOpen.value || clonePreviewOpen.value || shareOpen.value)
       return
     goBack()
     return
@@ -651,10 +649,10 @@ onUnmounted(() => window.removeEventListener('keydown', onGlobalKeydown))
             {{ cloning ? t('复制中…') : t('做同款') }}
             <b v-if="cloneCount > 0" class="watch-chip__count">· {{ cloneCount }}</b>
           </button>
-          <button v-if="(current.show_process && current.canvas_id) || isOpenSource" type="button" class="watch-chip" @click="processOpen = true">
+          <NuxtLink v-if="(current.show_process && current.canvas_id) || isOpenSource" :to="localePath(`/process/${current.id}`)" class="watch-chip">
             <UIcon name="i-lucide-file-text" class="size-4" />
             {{ t('查看制作过程') }}
-          </button>
+          </NuxtLink>
           <div class="watch-hero__tools">
             <button type="button" class="watch-icon" :class="{ 'is-on': liked }" :aria-label="liked ? t('取消喜欢') : t('喜欢')" :disabled="liking" @click="toggleLike">
               <UIcon name="i-lucide-heart" class="size-4" />
@@ -752,7 +750,6 @@ onUnmounted(() => window.removeEventListener('keydown', onGlobalKeydown))
       </button>
     </div>
 
-  <WatchProcessModal :open="processOpen" :work-id="current?.id ?? 0" @close="processOpen = false" />
   <WatchClonePreview :open="clonePreviewOpen" :preview="clonePreview" :loading="clonePreviewLoading" :cloning="cloning" @close="clonePreviewOpen = false" @confirm="confirmClone" />
   <StudioShareModal :open="shareOpen" :work="current ?? null" @close="shareOpen = false" />
   <WatchCommentsPanel

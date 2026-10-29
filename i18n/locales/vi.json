@@ -604,6 +604,7 @@
   "条": " clips",
   "查看": "View",
   "查看制作过程": "View the making-of",
+  "查看创作过程": "Xem quá trình sáng tạo",
   "标准画质": "Standard quality",
   "标记": "Mark",
   "标题": "Title",
@@ -4175,5 +4176,19 @@
   "跟练已经替你把这一步布好了，你只要点生成看回放。第二段不跟第一段串提示词，各是各的镜头。": "Bước này đã được chuẩn bị sẵn, bạn chỉ cần nhấn tạo và xem phát lại. Đoạn thứ hai không lẫn câu lệnh với đoạn đầu, mỗi đoạn là một cảnh riêng.",
   "跟练已经替你把这一步布好了，你只要点生成看回放。两条视频都在画布上之后，才能选中它们去合成。": "Bước này đã được chuẩn bị sẵn, bạn chỉ cần nhấn tạo và xem phát lại. Khi cả hai video đã nằm trên canvas, bạn mới chọn chúng để ghép.",
   "跟练已经替你把这一步布好了，你只要点生成看回放。合成前两条都要有成片；跟练里点生成看回放，不真提交合成。": "Bước này đã được chuẩn bị sẵn, bạn chỉ cần nhấn tạo và xem phát lại. Trước khi ghép, cả hai đoạn đều phải có video; trong thực hành, nhấn tạo để xem phát lại, không thật sự gửi lệnh ghép.",
-  "跟练已经替你把这一步布好了，你只要点生成看回放。跟练不打开合成。退出后选中两段打开合成，顺序即成片顺序，不计积分。": "Bước này đã được chuẩn bị sẵn, bạn chỉ cần nhấn tạo và xem phát lại. Thực hành không mở phần ghép. Sau khi thoát, chọn hai đoạn rồi mở ghép; thứ tự chính là thứ tự video thành phẩm, không tính điểm."
+  "跟练已经替你把这一步布好了，你只要点生成看回放。跟练不打开合成。退出后选中两段打开合成，顺序即成片顺序，不计积分。": "Bước này đã được chuẩn bị sẵn, bạn chỉ cần nhấn tạo và xem phát lại. Thực hành không mở phần ghép. Sau khi thoát, chọn hai đoạn rồi mở ghép; thứ tự chính là thứ tự video thành phẩm, không tính điểm.",
+  "技能库": "Thư viện kỹ năng",
+  "技能广场": "Quảng trường kỹ năng",
+  "我创建的": "Do tôi tạo",
+  "技能广场分类": "Danh mục",
+  "全部技能": "Tất cả kỹ năng",
+  "加入技能库": "Thêm vào thư viện",
+  "已加入": "Đã thêm",
+  "移出技能库": "Xóa khỏi thư viện",
+  "已加入技能库": "Đã thêm vào thư viện",
+  "已移出技能库": "Đã xóa khỏi thư viện",
+  "已加入技能库，可在「我的技能」中查看": "Đã thêm. Xem trong \"Kỹ năng của tôi\".",
+  "把常用提示词、角色设定和创作方法，变成随时可用的能力。": "Biến prompt, thiết lập nhân vật và phương pháp sáng tạo quen dùng thành kỹ năng dùng được mọi lúc.",
+  "{n} 个": "{n}",
+  "删除中…": "Đang xóa…"
 }
