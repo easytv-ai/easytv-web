@@ -166,14 +166,14 @@ function stopPreview(event: MouseEvent) {
                   playsinline
                   preload="metadata"
                 />
+                <i class="show-card__play" aria-hidden="true">
+                  <span><UIcon name="i-lucide-play" class="size-5" /></span>
+                </i>
                 <span v-if="item.open_source === 1" class="show-card__open">
                   <UIcon name="i-lucide-git-fork" class="size-3" />
                   {{ t('开源') }}<template v-if="item.clone_count"> · {{ item.clone_count }}</template>
                 </span>
-                <span class="show-card__likes">
-                  <UIcon name="i-lucide-heart" class="size-3.5" />
-                  {{ item.like_count }}
-                </span>
+                <StudioWorkLike :work="item" />
               </div>
               <div class="show-card__meta">
                 <div class="show-card__text">

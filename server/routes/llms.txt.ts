@@ -8,7 +8,8 @@ export default defineEventHandler((event) => {
 
 ## 主要页面
 
-- 首页与精选成片: ${siteUrl}/
+- 首页: ${siteUrl}/agent
+- 精选成片: ${siteUrl}/studio
 - 定价（会员与积分）: ${siteUrl}/pricing
 - 作品播放页: ${siteUrl}/watch/{id}
 - 用户服务协议: ${siteUrl}/legal/terms

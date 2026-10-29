@@ -1,33 +1,31 @@
 /**
- * 需登录才可访问的路由中间件。
- * 令牌仍在 localStorage，服务端读不到。登录标记 cookie 只表示「这个浏览器登过」，
- * 没有标记就在服务端直接去登录页，避免受保护页先画出来再跳走。
- * 有标记才放行：客户端再按 localStorage 核对，坏掉的标记会在 hydrate 时清掉。
+ * 需登录才可访问的路由。
+ * 令牌在 localStorage，服务端只能看登录标记 cookie。
+ * 有标记就直接渲染页面；没有标记也留在当前页，客户端再弹出登录框。
+ * 不再把访客送到独立的 /login 页面。
  */
-import { buildLoginRedirectQuery } from '~/utils/auth-login-redirect'
 import { AUTH_SESSION_COOKIE, hasAuthSessionMarker } from '~/utils/auth-session-cookie'
+import { LOGIN_MODAL_REQUIRED } from '~/utils/login-modal'
 
 export default defineNuxtRouteMiddleware((to) => {
-  const localePath = useLocalePath()
-  const loginTo = () => localePath({
-    path: '/login',
-    query: buildLoginRedirectQuery(to.fullPath),
-  })
+  const required = useState(LOGIN_MODAL_REQUIRED, () => '')
 
   if (import.meta.server) {
-    if (hasAuthSessionMarker(useCookie(AUTH_SESSION_COOKIE).value))
+    if (hasAuthSessionMarker(useCookie(AUTH_SESSION_COOKIE).value)) {
+      required.value = ''
       return
-    return navigateTo(loginTo())
+    }
+    required.value = to.fullPath
+    return
   }
 
   const { user, hydrate } = useAuth()
   const isLoggedIn = useState('isLoggedIn', () => false)
   hydrate()
-
   if (user.value) {
     isLoggedIn.value = true
+    required.value = ''
     return
   }
-
-  return navigateTo(loginTo())
+  required.value = to.fullPath
 })

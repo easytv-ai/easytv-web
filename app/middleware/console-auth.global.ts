@@ -1,6 +1,6 @@
 /**
  * 已下线的 /console、/setting 以及登录 ticket 兑换。
- * 旧地址统一进工作室；未登录先去登录页。
+ * 旧地址统一进首页；未登录则弹出登录框。
  */
 import {
   clearConsoleAccessTicketFromRoute,
@@ -9,23 +9,10 @@ import {
   useConsoleAccessTicket,
 } from '~/composables/useConsoleAccessTicket'
 import { pathWithoutLocale } from '~/utils/app-path'
-import { buildLoginRedirectQuery } from '~/utils/auth-login-redirect'
 
 function isRetiredConsolePath(path: string): boolean {
   const base = pathWithoutLocale(path)
   return base.startsWith('/console') || base === '/setting' || base.startsWith('/setting/')
-}
-
-function stripTicketFromFullPath(fullPath: string): string {
-  const [pathAndQuery = '', hash = ''] = fullPath.split('#')
-  const [pathname = '', search = ''] = pathAndQuery.split('?')
-  if (!search)
-    return fullPath
-  const params = new URLSearchParams(search)
-  params.delete('ticket')
-  const nextSearch = params.toString()
-  const nextPath = nextSearch ? `${pathname}?${nextSearch}` : pathname
-  return hash ? `${nextPath}#${hash}` : nextPath
 }
 
 export default defineNuxtRouteMiddleware(async (to) => {
@@ -36,6 +23,7 @@ export default defineNuxtRouteMiddleware(async (to) => {
     return
 
   const localePath = useLocalePath()
+  const { openLogin } = useLoginModal()
   const { user, hydrate } = useAuth()
   const { exchangeFromRoute, processing } = useConsoleAccessTicket()
   hydrate()
@@ -48,7 +36,7 @@ export default defineNuxtRouteMiddleware(async (to) => {
 
     if (res.ok) {
       if (isRetiredConsolePath(to.path))
-        return navigateTo(localePath('/studio'), { replace: true })
+        return navigateTo(localePath('/agent'), { replace: true })
       return
     }
 
@@ -56,7 +44,7 @@ export default defineNuxtRouteMiddleware(async (to) => {
       if (ticket)
         await clearConsoleAccessTicketFromRoute(to)
       if (isRetiredConsolePath(to.path))
-        return navigateTo(localePath('/studio'), { replace: true })
+        return navigateTo(localePath('/agent'), { replace: true })
       return
     }
 
@@ -69,22 +57,17 @@ export default defineNuxtRouteMiddleware(async (to) => {
         title: res.message,
         color: 'error',
       })
-      const redirectPath = stripTicketFromFullPath(to.fullPath) || '/'
-      return navigateTo(localePath({
-        path: '/login',
-        query: buildLoginRedirectQuery(redirectPath),
-      }), { replace: true })
+      openLogin({ redirect: '/agent' })
+      return navigateTo(localePath('/agent'), { replace: true })
     }
   }
 
   if (user.value) {
     if (isRetiredConsolePath(to.path))
-      return navigateTo(localePath('/studio'), { replace: true })
+      return navigateTo(localePath('/agent'), { replace: true })
     return
   }
 
-  return navigateTo(localePath({
-    path: '/login',
-    query: buildLoginRedirectQuery(to.fullPath),
-  }))
+  openLogin({ redirect: '/agent' })
+  return navigateTo(localePath('/agent'), { replace: true })
 })

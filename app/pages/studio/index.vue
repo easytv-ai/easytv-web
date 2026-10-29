@@ -139,7 +139,7 @@ onBeforeUnmount(() => {
         <StudioSectionTabs :items="homeTabs" :label="t('首页')" />
       </div>
     </div>
-    <div class="show-page__inner">
+    <div class="show-page__inner show-page__stack">
       <StudioHeroCarousel />
       <StudioGrowthTasks />
       <StudioCampaignStrip />
@@ -188,28 +188,30 @@ onBeforeUnmount(() => {
       </div>
     </header>
 
-    <section v-if="showHot" class="show-page__inner studio-hot" :aria-label="t('本周热门')">
-      <div class="studio-hot__head">
-        <strong>
-          <UIcon name="i-lucide-flame" class="size-4" />
-          {{ t('本周热门') }}
-        </strong>
-        <NuxtLink :to="localePath('/rank')" class="studio-hot__more">{{ t('查看榜单') }}<UIcon name="i-lucide-chevron-right" class="size-3.5" /></NuxtLink>
-      </div>
-      <ol class="studio-hot__list">
-        <li v-for="(row, idx) in hotRows" :key="row.work.id">
-          <NuxtLink :to="localePath(`/watch/${row.work.id}`)">
-            <i class="studio-hot__rank" :class="{ 'is-top': idx < 3 }">{{ idx + 1 }}</i>
-            <img v-if="row.work.cover_url" :src="resolveMediaUrl(row.work.cover_url)" :alt="row.work.title" loading="lazy">
-            <span v-else class="studio-hot__thumb-fallback"><UIcon name="i-lucide-clapperboard" class="size-4" /></span>
-            <span class="studio-hot__text">
-              <b>{{ row.work.title }}</b>
-              <small><UIcon name="i-lucide-heart" class="size-3" />{{ formatCount(row.likes_in_period) }} · {{ row.work.author?.nickname || t('创作者') }}</small>
-            </span>
-          </NuxtLink>
-        </li>
-      </ol>
-    </section>
+    <div v-if="showHot" class="show-page__inner">
+      <section class="studio-hot" :aria-label="t('本周热门')">
+        <div class="studio-hot__head">
+          <strong>
+            <UIcon name="i-lucide-flame" class="size-4" />
+            {{ t('本周热门') }}
+          </strong>
+          <NuxtLink :to="localePath('/rank')" class="studio-hot__more">{{ t('查看榜单') }}<UIcon name="i-lucide-chevron-right" class="size-3.5" /></NuxtLink>
+        </div>
+        <ol class="studio-hot__list">
+          <li v-for="(row, idx) in hotRows" :key="row.work.id">
+            <NuxtLink :to="localePath(`/watch/${row.work.id}`)">
+              <i class="studio-hot__rank" :class="idx === 0 ? 'is-gold' : idx === 1 ? 'is-silver' : idx === 2 ? 'is-bronze' : undefined">{{ idx + 1 }}</i>
+              <img v-if="row.work.cover_url" :src="resolveMediaUrl(row.work.cover_url)" :alt="row.work.title" loading="lazy">
+              <span v-else class="studio-hot__thumb-fallback"><UIcon name="i-lucide-clapperboard" class="size-4" /></span>
+              <span class="studio-hot__text">
+                <b>{{ row.work.title }}</b>
+                <small><UIcon name="i-lucide-heart" class="size-3" />{{ formatCount(row.likes_in_period) }} · {{ row.work.author?.nickname || t('创作者') }}</small>
+              </span>
+            </NuxtLink>
+          </li>
+        </ol>
+      </section>
+    </div>
 
     <div class="show-page__inner">
       <StudioPaging
@@ -253,14 +255,14 @@ onBeforeUnmount(() => {
                 playsinline
                 preload="metadata"
               />
+              <i class="show-card__play" aria-hidden="true">
+                <span><UIcon name="i-lucide-play" class="size-5" /></span>
+              </i>
               <span v-if="item.open_source === 1" class="show-card__open">
                 <UIcon name="i-lucide-git-fork" class="size-3" />
                 {{ t('开源') }}<template v-if="item.clone_count"> · {{ item.clone_count }}</template>
               </span>
-              <span class="show-card__likes">
-                <UIcon name="i-lucide-heart" class="size-3.5" />
-                {{ item.like_count }}
-              </span>
+              <StudioWorkLike :work="item" />
             </div>
             <div class="show-card__meta">
               <span class="show-card__avatar show-card__avatar--link" role="link" :aria-label="t('查看作者主页')" @click.prevent.stop="goAuthor(item)">
@@ -268,8 +270,8 @@ onBeforeUnmount(() => {
                 <span class="canvas-tip canvas-tip--up">{{ t('查看作者主页') }}</span>
               </span>
               <div class="show-card__text">
-                <strong class="show-card__author-link" role="link" @click.prevent.stop="goAuthor(item)">{{ authorName(item) }}</strong>
-                <span>{{ item.title }}</span>
+                <strong>{{ item.title }}</strong>
+                <span class="show-card__author-link" role="link" @click.prevent.stop="goAuthor(item)">{{ authorName(item) }}</span>
               </div>
             </div>
           </NuxtLink>

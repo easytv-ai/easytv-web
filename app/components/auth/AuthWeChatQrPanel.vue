@@ -331,31 +331,16 @@ const showConfirming = computed(() => wechatOAuthResolving.value && !qrLoading.v
 
 .ea-wechat-qr-panel.is-embedded .ea-wechat-qr-box {
   flex-shrink: 0;
-  width: 168px;
+  width: 188px;
   height: auto;
   margin: 0 auto;
-  padding: 18px 0 14px;
+  padding: 12px 0;
   overflow: hidden;
   border: 1px solid var(--st-border);
   border-radius: 12px;
   box-sizing: border-box;
 }
 
-@media (min-width: 1440px) {
-  .ea-wechat-qr-panel.is-embedded .ea-wechat-qr-box.is-embed-box {
-    width: 180px;
-    padding-top: 22px;
-    padding-bottom: 16px;
-  }
-}
-
-@media (min-width: 1680px) {
-  .ea-wechat-qr-panel.is-embedded .ea-wechat-qr-box.is-embed-box {
-    width: 188px;
-    padding-top: 24px;
-    padding-bottom: 18px;
-  }
-}
 
 .ea-wechat-qr-panel.is-embedded .ea-wechat-qr-host {
   display: flex;
@@ -366,8 +351,12 @@ const showConfirming = computed(() => wechatOAuthResolving.value && !qrLoading.v
   justify-content: center;
 }
 
+.ea-wechat-qr-panel.is-embedded .xyq-login__label {
+  margin-bottom: 16px;
+}
+
 .ea-wechat-qr-panel__hint.is-embed {
-  margin-top: 10px;
+  margin-top: 12px;
   font-size: 12px;
   line-height: 1.4;
 }

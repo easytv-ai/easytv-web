@@ -62,7 +62,7 @@ onActivated(() => {
     <div class="recent__grid">
       <button type="button" class="recent-card recent-card--create" @click="openNewProject">
         <span class="recent-card__thumb">
-          <UIcon name="i-lucide-plus" class="size-6" />
+          <i class="recent-card__plus"><UIcon name="i-lucide-plus" class="size-5" /></i>
         </span>
         <span class="recent-card__title">{{ t('新建项目') }}</span>
       </button>
@@ -77,6 +77,9 @@ onActivated(() => {
           <span class="recent-card__thumb">
             <img v-if="item.cover_url" :src="item.cover_url" :alt="item.name">
             <UIcon v-else name="i-lucide-workflow" class="size-6 recent-card__ph" />
+            <i class="show-card__play" aria-hidden="true">
+              <span><UIcon name="i-lucide-play" class="size-4" /></span>
+            </i>
           </span>
           <span class="recent-card__title">{{ item.name }}</span>
           <span class="recent-card__sub">{{ fmtDate(item.updated_at) }}</span>
@@ -88,9 +91,10 @@ onActivated(() => {
         <p v-else-if="!projects.length" class="recent__empty">{{ t('还没有项目，从新建开始。') }}</p>
       </template>
       <template v-else>
-        <div v-for="n in 3" :key="n" class="recent-card recent-card--skeleton">
+        <div v-for="n in 3" :key="n" class="recent-card recent-card--skeleton" aria-hidden="true">
           <USkeleton class="recent-card__thumb" />
           <USkeleton class="h-3.5 w-3/5" />
+          <USkeleton class="h-3 w-2/5" />
         </div>
       </template>
     </div>

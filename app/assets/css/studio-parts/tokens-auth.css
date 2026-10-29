@@ -1,23 +1,24 @@
 ﻿/* EasyTV 创作台 + 小云雀风登录 */
 
 :root {
-  --st-bg: #f3f3f5;
-  --st-bg-deep: #ececee;
+  --st-bg: #f8f9fa;
+  --st-bg-deep: #f1f2f4;
   --st-sidebar: #f7f7f8;
   --st-elevated: #ffffff;
   --st-card: #ffffff;
-  --st-text: #18181b;
+  --st-text: #111111;
   --st-text-soft: #3f3f46;
-  --st-muted: #71717a;
-  --st-border: rgba(24, 24, 27, 0.1);
-  --st-hover: rgba(24, 24, 27, 0.06);
+  --st-muted: #8a8a8a;
+  --st-border: rgba(24, 24, 27, 0.08);
+  --st-hover: rgba(24, 24, 27, 0.05);
   --st-chip-bg: #ffffff;
-  --st-chip-border: rgba(24, 24, 27, 0.1);
+  --st-chip-border: rgba(24, 24, 27, 0.08);
   --st-pop: #ffffff;
   --st-on: #18181b;
   --st-on-text: #ffffff;
   --st-switch: #d4d4d8;
   --st-shadow: 0 16px 40px rgba(0, 0, 0, 0.12);
+  --st-shadow-soft: 0 4px 20px rgba(0, 0, 0, 0.04);
   --st-scroll: #c4c4cc;
   --st-scroll-track: #f3f3f5;
   --st-canvas: #ececee;
@@ -48,6 +49,7 @@ html.dark {
   --st-on-text: #111111;
   --st-switch: #2f2f35;
   --st-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
+  --st-shadow-soft: 0 8px 24px rgba(0, 0, 0, 0.28);
   --st-scroll: #5c5c66;
   --st-scroll-track: #111;
   --st-canvas: #161618;
@@ -60,9 +62,17 @@ html.dark {
   --st-plan-soft: rgba(59, 130, 246, 0.16);
 }
 
-/* 暗色骨架：Nuxt UI 默认用 neutral-900，和页面底、卡片几乎同色，文字占位条看不清。 */
-html.dark .animate-pulse {
-  --ui-bg-elevated: color-mix(in srgb, var(--st-text) 22%, var(--st-elevated));
+/* 骨架占位：Nuxt UI 默认亮色接近白、暗色接近底，都看不清。统一成文字色 22% 混底。 */
+.animate-pulse {
+  --ui-bg-elevated: color-mix(in srgb, var(--st-text) 22%, var(--st-card, var(--st-elevated)));
+  background-color: var(--ui-bg-elevated);
+}
+
+/* 盖过封面/缩略图自己的底色（与 .animate-pulse 同优先级时会把骨架灰盖掉） */
+[class*="--skel"] .animate-pulse,
+[class*="--skel"].animate-pulse,
+[class*="__skel"] .animate-pulse,
+[class*="__skel"].animate-pulse {
   background-color: var(--ui-bg-elevated);
 }
 
@@ -106,9 +116,92 @@ html:has(.xyq-auth-root) #__nuxt {
 }
 
 .xyq-auth-root {
+  position: relative;
+  display: flex;
   height: 100dvh;
+  align-items: center;
+  justify-content: center;
   overflow: hidden;
-  background: var(--st-bg);
+  background: #09090b;
+  color: var(--st-text);
+}
+
+.xyq-auth-wall {
+  position: absolute;
+  inset: -6%;
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 12px;
+  opacity: 0.72;
+  pointer-events: none;
+}
+
+.xyq-auth-wall img {
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  object-fit: cover;
+  border-radius: 12px;
+}
+
+.xyq-auth-dim {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.42);
+  pointer-events: none;
+}
+
+.login-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(0, 0, 0, 0.55);
+}
+
+html:has(.login-modal),
+html:has(.login-modal) body {
+  overflow: hidden;
+}
+
+.xyq-auth-dialog {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1.08fr) minmax(300px, 0.92fr);
+  width: min(960px, calc(100vw - 40px));
+  height: min(600px, calc(100dvh - 40px));
+  overflow: hidden;
+  border-radius: 20px;
+  background: #fff;
+  box-shadow: 0 28px 80px rgba(0, 0, 0, 0.38);
+}
+
+html.dark .xyq-auth-dialog {
+  background: #141416;
+}
+
+.xyq-auth-close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 3;
+  display: inline-flex;
+  width: 32px;
+  height: 32px;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--st-muted);
+  cursor: pointer;
+}
+
+.xyq-auth-close:hover {
+  background: var(--st-hover);
   color: var(--st-text);
 }
 
@@ -154,34 +247,24 @@ html:has(.xyq-auth-root) #__nuxt {
 
 .xyq-theme {
   position: absolute;
-  top: 20px;
-  right: 24px;
+  top: 14px;
+  right: 52px;
   z-index: 2;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 4px;
 }
 
 .xyq-theme .ea-icon-btn {
   color: var(--st-text) !important;
 }
 
-.xyq-split {
-  display: grid;
-  height: 100%;
-  min-height: 0;
-  grid-template-columns: 1fr 1fr;
-}
-
-.xyq-split:has(.xyq-form--login) {
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-}
-
 .xyq-split__visual {
   position: relative;
   height: 100%;
   min-height: 0;
-  padding: 20px;
+  overflow: hidden;
+  background: #111;
 }
 
 .xyq-split__video {
@@ -190,22 +273,46 @@ html:has(.xyq-auth-root) #__nuxt {
   height: 100%;
   object-fit: cover;
   object-position: center;
-  border-radius: 24px;
   background: #111;
   pointer-events: none;
 }
 
-.xyq-split__caption {
+.xyq-split__meta {
   position: absolute;
-  left: 50%;
-  bottom: 40px;
-  transform: translateX(-50%);
-  margin: 0;
-  white-space: nowrap;
-  font-size: 12px;
-  letter-spacing: 0.08em;
-  color: rgba(255, 255, 255, 0.82);
-  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.45);
+  right: 0;
+  bottom: 0;
+  left: 0;
+  padding: 48px 22px 18px;
+  background: linear-gradient(180deg, transparent, rgba(0, 0, 0, 0.72));
+}
+
+.xyq-split__caption {
+  margin: 0 0 10px;
+  color: #fff;
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.35);
+}
+
+.xyq-split__dots {
+  display: flex;
+  gap: 6px;
+}
+
+.xyq-split__dots button {
+  width: 6px;
+  height: 6px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.4);
+  cursor: pointer;
+}
+
+.xyq-split__dots button.is-on {
+  width: 16px;
+  background: #fff;
 }
 
 .xyq-split__form {
@@ -217,7 +324,31 @@ html:has(.xyq-auth-root) #__nuxt {
   align-items: center;
   justify-content: center;
   overflow: auto;
-  padding: 48px 32px 72px;
+  padding: 56px 36px 28px;
+}
+
+/* 中文登录：手机号表单 + 微信扫码左右分栏，弹窗加宽给右侧表单区 */
+.xyq-auth-dialog:has(.xyq-login.is-split) {
+  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+  width: min(1120px, calc(100vw - 40px));
+}
+
+.xyq-auth-dialog:has(.xyq-login.is-split) .xyq-split__form {
+  padding: 48px 32px 28px;
+}
+
+.xyq-form--login:has(.xyq-login.is-split) {
+  width: 100%;
+  max-width: 600px;
+}
+
+.xyq-form--login:has(.xyq-login.is-split) .xyq-form__icon {
+  margin-bottom: 14px;
+}
+
+.xyq-form--login:has(.xyq-login.is-split) .xyq-form__lead {
+  display: block;
+  margin: 10px 0 24px;
 }
 
 .xyq-form {
@@ -227,8 +358,12 @@ html:has(.xyq-auth-root) #__nuxt {
 }
 
 .xyq-form--login {
-  width: min(640px, 100%);
-  max-width: 640px;
+  width: min(360px, 100%);
+  max-width: 360px;
+}
+
+.xyq-form--login .xyq-form__lead {
+  display: none;
 }
 
 .xyq-form__icon {
@@ -262,14 +397,43 @@ html:has(.xyq-auth-root) #__nuxt {
 }
 
 .xyq-login {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 1px 176px;
-  align-items: stretch;
-  gap: 0 28px;
-  padding: 22px 22px 20px;
-  border: 1px solid var(--st-border);
-  border-radius: 20px;
-  background: var(--st-elevated);
+  display: block;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.xyq-login-tabs {
+  display: flex;
+  gap: 22px;
+  margin: 4px 0 22px;
+}
+
+.xyq-login-tabs button {
+  position: relative;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--st-muted);
+  font-size: 15px;
+  cursor: pointer;
+}
+
+.xyq-login-tabs button.is-on {
+  color: var(--st-text);
+  font-weight: 700;
+}
+
+.xyq-login-tabs button.is-on::after {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--st-text);
+  content: '';
 }
 
 .xyq-login__label {
@@ -294,26 +458,44 @@ html:has(.xyq-auth-root) #__nuxt {
   border-radius: 12px;
 }
 
-.xyq-login__rule {
-  display: block;
-  width: 1px;
-  margin: 6px 0;
-  background: var(--st-border);
-  font-style: normal;
-}
-
 .xyq-login__qr {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   min-width: 0;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--st-border);
   text-align: center;
 }
 
 .xyq-login__qr .xyq-login__label {
   width: 100%;
   text-align: center;
+}
+
+.xyq-login.is-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 1px 196px;
+  gap: 28px;
+  align-items: stretch;
+  padding: 28px 28px 30px;
+  border: 1px solid var(--st-border);
+  border-radius: 20px;
+  background: var(--st-card);
+}
+
+.xyq-login.is-split .xyq-login__divider {
+  width: 1px;
+  background: var(--st-border);
+}
+
+.xyq-login.is-split .xyq-login__qr {
+  justify-content: flex-start;
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
 }
 
 .xyq-phone {
@@ -740,150 +922,39 @@ html:has(.xyq-auth-root) #__nuxt {
   color: #52525b;
 }
 
-@media (min-width: 1440px) {
-  .xyq-split:has(.xyq-form--login) {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  }
-
-  .xyq-split__form {
-    padding: 56px 36px 80px;
-  }
-
-  .xyq-form--login {
-    width: 100%;
-    max-width: 720px;
-  }
-
-  .xyq-form--login .xyq-form__icon {
-    margin-bottom: 26px;
-  }
-
-  .xyq-form--login .xyq-form__title {
-    font-size: 32px;
-  }
-
-  .xyq-form--login .xyq-form__lead {
-    margin: 12px 0 32px;
-  }
-
-  .xyq-login {
-    grid-template-columns: minmax(0, 1fr) 1px 188px;
-    gap: 0 32px;
-    padding: 28px 28px 26px;
-  }
-
-  .xyq-login__label {
-    margin-bottom: 18px;
-  }
-
-  .xyq-login__phone .xyq-field {
-    margin-bottom: 18px;
-  }
-
-  .xyq-login__phone .xyq-btn-primary {
-    margin-top: 8px;
-    height: 52px;
-  }
-
-  .xyq-form--login .xyq-agree {
-    margin-top: 24px;
-  }
-}
-
-@media (min-width: 1680px) {
-  .xyq-split:has(.xyq-form--login) {
-    grid-template-columns: minmax(0, 0.94fr) minmax(0, 1.06fr);
-  }
-
-  .xyq-split__form {
-    padding: 64px 40px 88px;
-  }
-
-  .xyq-form--login {
-    width: 100%;
-    max-width: 780px;
-  }
-
-  .xyq-form--login .xyq-form__icon,
-  .xyq-form--login .xyq-form__icon img {
-    width: 44px;
-    height: 44px;
-  }
-
-  .xyq-form--login .xyq-form__icon {
-    margin-bottom: 28px;
-  }
-
-  .xyq-form--login .xyq-form__title {
-    font-size: 34px;
-  }
-
-  .xyq-form--login .xyq-form__lead {
-    margin: 14px 0 36px;
-    font-size: 15px;
-  }
-
-  .xyq-login {
-    grid-template-columns: minmax(0, 1fr) 1px 200px;
-    gap: 0 36px;
-    padding: 32px 32px 28px;
-    border-radius: 22px;
-  }
-
-  .xyq-login__label {
-    margin-bottom: 20px;
-  }
-
-  .xyq-login__phone .xyq-field {
-    margin-bottom: 20px;
-  }
-
-  .xyq-form--login .xyq-phone .xyq-input,
-  .xyq-form--login .xyq-input {
-    height: 52px;
-  }
-
-  .xyq-login__phone .xyq-btn-primary {
-    margin-top: 10px;
-    height: 54px;
-  }
-
-  .xyq-form--login .xyq-agree {
-    margin-top: 28px;
-  }
-}
-
-@media (max-width: 960px) {
-  .xyq-split,
-  .xyq-split:has(.xyq-form--login) {
+@media (max-width: 860px) {
+  .xyq-auth-dialog {
     grid-template-columns: 1fr;
+    width: min(420px, calc(100vw - 28px));
+    height: auto;
+    max-height: calc(100dvh - 28px);
   }
 
   .xyq-split__visual {
     display: none;
   }
-}
 
-@media (max-width: 720px) {
-  .xyq-form--login {
-    width: min(420px, 100%);
-    max-width: 420px;
+  .xyq-split__form,
+  .xyq-auth-dialog:has(.xyq-login.is-split) .xyq-split__form {
+    padding: 48px 24px 24px;
   }
 
-  .xyq-login {
+  .xyq-auth-dialog:has(.xyq-login.is-split) {
     grid-template-columns: 1fr;
-    gap: 0;
-    padding: 20px 18px 18px;
+    width: min(420px, calc(100vw - 28px));
   }
 
-  .xyq-login__rule {
-    width: auto;
-    height: 1px;
-    margin: 18px 0 16px;
-  }
-
-  .xyq-login__qr {
+  .xyq-login.is-split {
+    grid-template-columns: 1fr;
+    gap: 20px;
     padding: 0;
+    border: 0;
+    background: transparent;
+  }
+
+  .xyq-login.is-split .xyq-login__divider {
+    width: 100%;
+    height: 1px;
   }
 }
 

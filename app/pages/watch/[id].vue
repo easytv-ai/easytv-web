@@ -2,11 +2,10 @@
 import workApi from '~/api/work'
 import type { ClonePreview, Work, WorkProcess } from '~/types/creative'
 import { resolveMediaUrl } from '~/utils/media'
-import { buildLoginRedirectQuery } from '~/utils/auth-login-redirect'
-import { useTrack } from '~/composables/useTrack'
 import { getUserId } from '~/utils/auth-user'
 import { workLangForLocale } from '~/utils/work-lang'
 import { classifyPublicWorkResponse } from '~/utils/watch-load'
+import { useTrack } from '~/composables/useTrack'
 
 const { t, locale } = useI18n()
 
@@ -21,12 +20,9 @@ const localePath = useLocalePath()
 const route = useRoute()
 const router = useRouter()
 const toast = useToast()
-const { isLoggedIn, requireLogin, loginPath } = useRequireLogin()
+const { isLoggedIn, requireLogin } = useRequireLogin()
+const { openLogin } = useLoginModal()
 const { track } = useTrack()
-
-/** 头部「登录 / 注册」链接：登录后回到本页 */
-const loginHref = computed(() => loginPath(route.fullPath))
-const registerHref = computed(() => localePath({ path: '/register', query: buildLoginRedirectQuery(route.fullPath) }))
 
 const workId = computed(() => Number(Array.isArray(route.params.id) ? route.params.id[0] : route.params.id) || 0)
 
@@ -548,12 +544,12 @@ function onGlobalKeydown(event: KeyboardEvent) {
   }
 }
 
-/** 返回：有站内来路就走浏览器历史（列表页保留滚动位置），否则回创作台首页 */
+/** 返回：有站内来路就走浏览器历史（列表页保留滚动位置），否则回首页 */
 function goBack() {
   if (import.meta.client && window.history.state?.back)
     router.back()
   else
-    void router.push(localePath('/studio'))
+    void router.push(localePath('/agent'))
 }
 
 onMounted(() => {
@@ -601,9 +597,9 @@ onUnmounted(() => window.removeEventListener('keydown', onGlobalKeydown))
         <!-- 登录态只在客户端有（localStorage），用 ClientOnly 避免 SSR 与客户端首帧不一致 -->
         <ClientOnly>
           <div v-if="!isLoggedIn" class="watch-bar__auth">
-            <NuxtLink :to="loginHref" class="watch-auth-link">{{ t('登录') }}</NuxtLink>
+            <button type="button" class="watch-auth-link" @click="openLogin({ tab: 'login' })">{{ t('登录') }}</button>
             <span class="watch-bar__auth-split" aria-hidden="true">/</span>
-            <NuxtLink :to="registerHref" class="watch-auth-link is-solid">{{ t('注册') }}</NuxtLink>
+            <button type="button" class="watch-auth-link is-solid" @click="openLogin({ tab: 'register' })">{{ t('注册') }}</button>
           </div>
         </ClientOnly>
       </div>

@@ -11,7 +11,7 @@ const { t } = useI18n()
 
 /**
  * 邀请落地页：/invite/:code，匿名可看、SSR（GET /invite/:code + GET /author/:id + GET /work?user_id=）。
- * 落地即把邀请码写进归因 cookie，「注册领取」跳 /register?ref=<code>；已登录直接去创作台。
+ * 落地即把邀请码写进归因 cookie，「注册领取」在当前页弹出注册框。
  */
 definePageMeta({
   layout: false,
@@ -61,8 +61,15 @@ const invalid = computed(() => !pending.value && !invite.value)
 const signupPoints = computed(() => data.value?.growth?.signup_points || growth.value?.signup_points || 0)
 const inviteePoints = computed(() => data.value?.growth?.invite_invitee_points || growth.value?.invite_invitee_points || 100)
 
-const registerHref = computed(() => localePath({ path: '/register', query: { ref: code.value } }))
-const loginHref = computed(() => localePath({ path: '/login', query: { ref: code.value } }))
+const { openLogin } = useLoginModal()
+
+function openInviteRegister() {
+  openLogin({ tab: 'register', ref: code.value, redirect: '/agent' })
+}
+
+function openInviteLogin() {
+  openLogin({ tab: 'login', ref: code.value, redirect: '/agent' })
+}
 
 useHead({
   title: computed(() => invite.value ? t('{name} 邀请你加入 EasyTV', { name: name.value }) : t('邀请你加入 EasyTV')),
@@ -75,7 +82,7 @@ useSeoMeta({
 })
 
 function gotoStudio() {
-  void navigateTo(localePath('/studio'), { replace: true })
+  void navigateTo(localePath('/agent'), { replace: true })
 }
 
 onMounted(() => {
@@ -170,10 +177,10 @@ function stopPreview(event: MouseEvent) {
                   playsinline
                   preload="none"
                 />
-                <span class="show-card__likes">
-                  <UIcon name="i-lucide-heart" class="size-3.5" />
-                  {{ item.like_count }}
-                </span>
+                <i class="show-card__play" aria-hidden="true">
+                  <span><UIcon name="i-lucide-play" class="size-5" /></span>
+                </i>
+                <StudioWorkLike :work="item" />
               </div>
               <div class="show-card__meta">
                 <div class="show-card__text">
@@ -188,8 +195,8 @@ function stopPreview(event: MouseEvent) {
     </main>
 
     <footer v-if="!invalid && invite" class="invite-actions">
-      <NuxtLink :to="registerHref" class="plan-btn plan-btn--solid invite-actions__primary">{{ t('注册领取') }}</NuxtLink>
-      <NuxtLink :to="loginHref" class="invite-actions__login">{{ t('已有账号，登录') }}</NuxtLink>
+      <button type="button" class="plan-btn plan-btn--solid invite-actions__primary" @click="openInviteRegister">{{ t('注册领取') }}</button>
+      <button type="button" class="invite-actions__login" @click="openInviteLogin">{{ t('已有账号，登录') }}</button>
     </footer>
   </div>
 </template>

@@ -8,7 +8,8 @@ const { pricingOpen, pricingTab, gotoPricing } = usePricingModal()
 const { isLoggedIn, hydrate } = useAuth()
 const { wallet, formatBalance, refresh, walletOpen, openWallet } = useWallet()
 const { openInbox, unreadCount, refreshUnread } = useStudioInbox()
-const { requireLogin, loginPath } = useRequireLogin()
+const { requireLogin } = useRequireLogin()
+const { openLogin } = useLoginModal()
 const { checkinPending, loadCheckin } = useGrowth()
 const { activeCount } = useTaskActivity()
 const { isTeam, currentTeam, loadTeams } = useWorkspace()
@@ -20,7 +21,6 @@ useTaskActivityPolling()
  */
 const sessionCookie = useCookie(AUTH_SESSION_COOKIE)
 const showUser = computed(() => isLoggedIn.value || String(sessionCookie.value ?? '') === '1')
-const loginHref = computed(() => loginPath())
 
 if (import.meta.client)
   hydrate()
@@ -58,7 +58,7 @@ watch(isLoggedIn, (on) => {
 
 <template>
   <header class="studio-header">
-    <NuxtLink :to="localePath('/studio')" class="studio-header__brand">
+    <NuxtLink :to="localePath('/agent')" class="studio-header__brand">
       <img src="/images/logo.svg" alt="EasyTV" width="24" height="24" class="size-6">
       EasyTV
     </NuxtLink>
@@ -91,10 +91,10 @@ watch(isLoggedIn, (on) => {
         {{ activeCount }}
       </span>
     </button>
-    <NuxtLink v-else :to="loginHref" class="studio-chip">
+    <button v-else type="button" class="studio-chip" @click="openLogin({ tab: 'login' })">
       <UIcon name="i-lucide-log-in" class="size-4" />
       {{ t('登录') }}
-    </NuxtLink>
+    </button>
     <button
       type="button"
       class="studio-chip studio-chip--gold"

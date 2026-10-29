@@ -202,8 +202,8 @@ onUnmounted(() => {
         <h2>{{ current.title }}</h2>
         <p v-if="current.subtitle">{{ current.subtitle }}</p>
         <span class="show-hero__cta">
+          <UIcon name="i-lucide-play" class="size-4" />
           {{ current.cta }}
-          <UIcon name="i-lucide-arrow-right" class="size-4" />
         </span>
       </div>
     </NuxtLink>

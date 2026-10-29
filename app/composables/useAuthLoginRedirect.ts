@@ -1,18 +1,15 @@
 import {
   AUTH_LOGIN_REDIRECT_QUERY,
-  buildLoginRedirectQuery,
   storeLoginRedirect,
 } from '~/utils/auth-login-redirect'
 
-/** 跳转登录页，并携带登录成功后的回跳路径 */
+/** 在当前页打开登录弹窗，并记下登录成功后的回跳路径 */
 export function useAuthLoginRedirect() {
-  const localePath = useLocalePath()
   const route = useRoute()
+  const { openLogin } = useLoginModal()
 
   function goToLogin(redirectPath?: string) {
-    const target = redirectPath ?? route.fullPath
-    const query = buildLoginRedirectQuery(target)
-    return navigateTo(localePath({ path: '/login', query }))
+    openLogin({ tab: 'login', redirect: redirectPath ?? route.fullPath })
   }
 
   function persistRedirectFromRoute() {

@@ -87,7 +87,7 @@ onBeforeUnmount(() => {
     <div class="studio-sidebar__top">
       <NuxtLink
         v-if="!collapsed"
-        :to="localePath('/studio')"
+        :to="localePath('/agent')"
         class="studio-sidebar__brand"
       >
         <img src="/images/logo.svg" alt="EasyTV" width="28" height="28">

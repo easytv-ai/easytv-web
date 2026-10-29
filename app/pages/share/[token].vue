@@ -7,7 +7,6 @@ import canvasApi from '~/api/canvas'
 import type { SharedCanvas } from '~/types/creative'
 import ShareCanvasNode from '~/components/share/ShareCanvasNode.vue'
 import CanvasMediaPreview from '~/components/canvas/CanvasMediaPreview.vue'
-import { buildLoginRedirectQuery } from '~/utils/auth-login-redirect'
 import { canvasStageSize, type CanvasNodeData, type CanvasNodeKind } from '~/utils/canvas-node-kinds'
 import { isMediaUrl, resolveMediaUrl } from '~/utils/media'
 
@@ -25,6 +24,7 @@ const route = useRoute()
 const localePath = useLocalePath()
 const toast = useToast()
 const { isLoggedIn, hydrate } = useAuth()
+const { requireLogin } = useRequireLogin()
 
 const token = computed(() => String(Array.isArray(route.params.token) ? route.params.token[0] : route.params.token))
 const loading = ref(true)
@@ -139,10 +139,8 @@ async function load() {
 async function copyToMine() {
   if (copying.value)
     return
-  if (!isLoggedIn.value) {
-    void navigateTo(localePath({ path: '/login', query: buildLoginRedirectQuery(route.fullPath) }))
+  if (!requireLogin())
     return
-  }
   copying.value = true
   try {
     const res = await canvasApi.copyShared(token.value)
@@ -167,7 +165,7 @@ onMounted(() => {
 <template>
   <div class="share-page">
     <header class="share-bar">
-      <NuxtLink :to="localePath('/studio')" class="share-brand">
+      <NuxtLink :to="localePath('/agent')" class="share-brand">
         <img src="/images/logo.svg" alt="EasyTV" width="22" height="22">
         EasyTV
       </NuxtLink>

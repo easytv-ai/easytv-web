@@ -29,6 +29,13 @@ export default defineNuxtConfig({
     },
 
     routeRules: {
+      '/': { redirect: { to: '/agent', statusCode: 301 } },
+      '/zh-tw': { redirect: { to: '/zh-tw/agent', statusCode: 301 } },
+      '/en': { redirect: { to: '/en/agent', statusCode: 301 } },
+      '/fr': { redirect: { to: '/fr/agent', statusCode: 301 } },
+      '/ja': { redirect: { to: '/ja/agent', statusCode: 301 } },
+      '/ru': { redirect: { to: '/ru/agent', statusCode: 301 } },
+      '/vi': { redirect: { to: '/vi/agent', statusCode: 301 } },
       '/oauth/**': { prerender: false, ssr: false },
       // 哈希文件名可变，长期缓存；HTML 不缓存，避免发版后还指向已删除的 /_nuxt/*.js
       '/_nuxt/**': { headers: { 'cache-control': 'public, max-age=31536000, immutable' } },

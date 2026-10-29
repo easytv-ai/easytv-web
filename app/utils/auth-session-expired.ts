@@ -2,6 +2,7 @@ import { useAuth } from '~/composables/useAuth'
 import { AUTH_EXPIRED_STORAGE_KEY, getAccessToken } from '~/utils/auth-user'
 import { pathWithoutLocale } from '~/utils/app-path'
 import { buildLoginPath } from '~/utils/auth-login-redirect'
+import { openLoginModalState } from '~/utils/login-modal'
 
 let redirecting = false
 
@@ -112,9 +113,15 @@ export function handleSessionExpiredIfNeeded(data: unknown, status?: number): bo
     redirecting = true
     clearAuthSession()
     sessionStorage.setItem(AUTH_EXPIRED_STORAGE_KEY, '1')
-    const prefix = window.location.pathname.match(/^\/(zh-tw|zh|en|fr|ja|ru|vi)(?=\/|$)/i)?.[0] ?? ''
     const returnPath = `${window.location.pathname}${window.location.search}${window.location.hash}`
-    window.location.assign(buildLoginPath(returnPath, { localePrefix: prefix }))
+    try {
+      openLoginModalState({ redirect: returnPath, tab: 'login' })
+    }
+    catch {
+      redirecting = false
+      const prefix = window.location.pathname.match(/^\/(zh-tw|zh|en|fr|ja|ru|vi)(?=\/|$)/i)?.[0] ?? ''
+      window.location.assign(buildLoginPath(returnPath, { localePrefix: prefix }))
+    }
   }
   return true
 }

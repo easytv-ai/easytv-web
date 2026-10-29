@@ -303,14 +303,18 @@ onMounted(() => {
                 playsinline
                 preload="metadata"
               />
+              <i class="show-card__play" aria-hidden="true">
+                <span><UIcon name="i-lucide-play" class="size-5" /></span>
+              </i>
               <span v-if="settled && entry.rank > 0" class="campaign-rank" :class="rankClass(entry.rank)">
                 <UIcon name="i-lucide-medal" class="size-3.5" />
                 {{ t('第 {n} 名', { n: entry.rank }) }}
                 <template v-if="entry.prize_points > 0"> · {{ t('{n} 积分', { n: entry.prize_points }) }}</template>
               </span>
-              <span class="show-card__likes">
+              <StudioWorkLike v-if="entry.work" :work="entry.work" />
+              <span v-else class="show-card__likes">
                 <UIcon name="i-lucide-heart" class="size-3.5" />
-                {{ entry.work?.like_count ?? entry.likes_snapshot }}
+                {{ entry.likes_snapshot }}
               </span>
             </div>
             <div class="show-card__meta">

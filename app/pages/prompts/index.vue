@@ -249,7 +249,7 @@ onUnmounted(() => {
         :load-more="loadMore"
       >
         <template #skeleton>
-          <article v-for="n in 6" :key="n" class="prompt-card">
+          <article v-for="n in 6" :key="n" class="prompt-card prompt-card--skeleton" aria-hidden="true">
             <USkeleton class="prompt-card__thumb" />
             <div class="prompt-card__body">
               <USkeleton class="h-4 w-2/3" />

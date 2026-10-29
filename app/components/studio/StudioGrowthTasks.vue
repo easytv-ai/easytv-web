@@ -84,7 +84,7 @@ watch(isLoggedIn, (on) => {
         <strong>{{ todayDone ? t('今日已签到') : t('每日签到') }}</strong>
         <small v-if="checkin?.streak">{{ t('已连续 {n} 天', { n: checkin.streak }) }}</small>
         <small v-else-if="checkinPoints">{{ t('签到得 {n} 积分', { n: checkinPoints }) }}</small>
-        <button type="button" class="plan-btn plan-btn--solid" :disabled="todayDone || checkinBusy" @click="onCheckin">
+        <button type="button" class="plan-btn" :class="todayDone ? 'plan-btn--ghost' : 'plan-btn--solid'" :disabled="todayDone || checkinBusy" @click="onCheckin">
           {{ todayDone ? t('已签到') : t('签到') }}
         </button>
       </div>

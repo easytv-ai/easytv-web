@@ -14,7 +14,7 @@ definePageMeta({
   keepalive: true,
 })
 
-useHead({ title: 'EasyTV Agent' })
+useHead({ title: t('首页') })
 
 const toast = useToast()
 const { confirm } = useConfirm()

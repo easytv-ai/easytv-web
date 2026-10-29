@@ -2,14 +2,15 @@ export function useStudioNav() {
   const localePath = useLocalePath()
 
   /**
-   * 左侧主导航只放五个入口；关注 / 榜单并进首页标签，资产 / 主体 / 提示词并进项目标签，
+   * 左侧主导航只放五个入口。首页是 EasyTV Agent；
+   * 关注 / 榜单并进推荐标签，资产 / 主体 / 提示词并进项目标签，
    * 任务收进积分钱包，设置等收进右上角头像菜单。match 里的路径访问时高亮对应入口。
    */
   const resourceLinks = [
-    { to: '/studio', label: '首页', icon: 'i-lucide-house', match: ['/following', '/rank'] },
+    { to: '/agent', label: '首页', icon: 'i-lucide-house', match: [] },
     { to: '/create', label: '创作', icon: 'i-lucide-wand-sparkles', match: [] },
     { to: '/projects', label: '项目', icon: 'i-lucide-folder', match: ['/assets', '/subjects', '/prompts'] },
-    { to: '/agent', label: 'EasyTV Agent', icon: 'i-lucide-sparkles', match: [] },
+    { to: '/studio', label: '推荐', icon: 'i-lucide-clapperboard', match: ['/following', '/rank'] },
     { to: '/campaign', label: '活动', icon: 'i-lucide-trophy', match: [] },
   ] as const
 

@@ -637,9 +637,13 @@ html.dark .canvas-promo__chip {
 }
 
 .invite-actions__login {
+  border: 0;
+  background: transparent;
   color: var(--st-muted);
+  font: inherit;
   font-size: 13px;
   text-decoration: none;
+  cursor: pointer;
 }
 
 .invite-actions__login:hover {
@@ -2428,6 +2432,11 @@ html.dark .canvas-promo__chip {
 
 .campaign-card--skeleton {
   pointer-events: none;
+  --ui-bg-elevated: color-mix(in srgb, var(--st-text) 22%, var(--st-card, var(--st-elevated)));
+}
+
+.campaign-card--skeleton .animate-pulse {
+  background-color: var(--ui-bg-elevated);
 }
 
 .campaign-card__banner {
@@ -3167,6 +3176,10 @@ html.dark .canvas-promo__chip {
   border: 1px solid var(--st-border);
   border-radius: 12px;
   background: var(--st-card);
+}
+
+.rank-row--skeleton {
+  pointer-events: none;
 }
 
 .rank-row__no {
@@ -4367,6 +4380,17 @@ html.dark .canvas-inspector__cam-clear:hover {
 
 .prompt-card:hover {
   border-color: var(--st-text);
+}
+
+.prompt-card--skeleton {
+  pointer-events: none;
+  cursor: default;
+  --ui-bg-elevated: color-mix(in srgb, var(--st-text) 22%, var(--st-card, var(--st-elevated)));
+}
+
+.prompt-card--skeleton .animate-pulse,
+.prompt-card--skeleton .prompt-card__thumb {
+  background-color: var(--ui-bg-elevated);
 }
 
 .prompt-card__thumb {

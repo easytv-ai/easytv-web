@@ -165,7 +165,7 @@ onMounted(() => {
         :load-more="() => loadShelves(false)"
       >
         <template #skeleton>
-          <section v-for="n in 2" :key="n" class="follow-shelf" aria-hidden="true">
+          <section v-for="n in 2" :key="n" class="follow-shelf follow-shelf--skeleton" aria-hidden="true">
             <div class="follow-shelf__head">
               <USkeleton class="size-11 shrink-0 rounded-full" />
               <div class="follow-shelf__id">
@@ -234,14 +234,14 @@ onMounted(() => {
                     playsinline
                     preload="metadata"
                   />
+                  <i class="show-card__play" aria-hidden="true">
+                    <span><UIcon name="i-lucide-play" class="size-5" /></span>
+                  </i>
                   <span v-if="item.open_source === 1" class="show-card__open">
                     <UIcon name="i-lucide-git-fork" class="size-3" />
                     {{ t('开源') }}<template v-if="item.clone_count"> · {{ item.clone_count }}</template>
                   </span>
-                  <span class="show-card__likes">
-                    <UIcon name="i-lucide-heart" class="size-3.5" />
-                    {{ item.like_count }}
-                  </span>
+                  <StudioWorkLike :work="item" />
                 </div>
                 <div class="show-card__meta">
                   <div class="show-card__text">

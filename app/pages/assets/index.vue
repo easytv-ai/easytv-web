@@ -564,7 +564,7 @@ onBeforeUnmount(() => {
               :load-more="loadMoreTrash"
             >
               <template #skeleton>
-                <article v-for="n in 6" :key="n" class="trash-card">
+                <article v-for="n in 6" :key="n" class="trash-card trash-card--skeleton" aria-hidden="true">
                   <USkeleton class="trash-card__thumb" />
                   <USkeleton class="mt-2 h-3.5 w-3/5" />
                   <USkeleton class="mt-1.5 h-3 w-2/5" />

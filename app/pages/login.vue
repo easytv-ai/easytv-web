@@ -6,7 +6,8 @@ useHead({
 })
 
 definePageMeta({
-  layout: 'auth',
+  layout: false,
+  middleware: 'open-login-modal',
   pageTransition: false,
 })
 </script>

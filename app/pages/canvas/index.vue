@@ -1009,7 +1009,7 @@ function onResizeStart(event: PointerEvent) {
   >
     <div class="canvas-editor__main">
       <header class="canvas-editor__bar">
-        <NuxtLink :to="localePath('/studio')" class="canvas-editor__brand">
+        <NuxtLink :to="localePath('/agent')" class="canvas-editor__brand">
           <img src="/images/logo.svg" alt="EasyTV" width="22" height="22">
           EasyTV
         </NuxtLink>

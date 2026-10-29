@@ -8,7 +8,7 @@ function escapeXml(value: string): string {
 }
 
 /** 公开页：首页、定价、法律页；作品播放页从 API 动态取（最多 500 条） */
-const PUBLIC_PATHS = ['/', '/pricing', '/legal/terms', '/legal/privacy', '/legal/ai-guidelines']
+const PUBLIC_PATHS = ['/agent', '/studio', '/pricing', '/legal/terms', '/legal/privacy', '/legal/ai-guidelines']
 
 export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig()
@@ -19,7 +19,7 @@ export default defineEventHandler(async (event) => {
   const entries: { loc: string, lastmod: string, priority: string }[] = PUBLIC_PATHS.map(path => ({
     loc: `${siteUrl}${path}`,
     lastmod: now,
-    priority: path === '/' ? '1.0' : '0.6',
+    priority: path === '/agent' ? '1.0' : '0.6',
   }))
 
   if (apiBase) {

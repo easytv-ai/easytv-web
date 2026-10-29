@@ -382,7 +382,7 @@ onBeforeUnmount(() => {
       :load-more="loadMore"
     >
       <template #skeleton>
-        <li v-for="n in 4" :key="n" class="tasks-item">
+        <li v-for="n in 4" :key="n" class="tasks-item tasks-item--skeleton" aria-hidden="true">
           <USkeleton class="tasks-item__thumb" />
           <div class="tasks-item__main">
             <USkeleton class="h-4 w-2/5" />

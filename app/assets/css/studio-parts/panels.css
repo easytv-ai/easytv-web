@@ -752,6 +752,15 @@ video.cnode__media {
   cursor: pointer;
 }
 
+.asset-picker__item--skeleton {
+  pointer-events: none;
+  cursor: default;
+}
+
+.asset-picker__item--skeleton .animate-pulse {
+  background-color: var(--ui-bg-elevated);
+}
+
 .asset-picker__thumb {
   position: relative;
   display: flex;
@@ -4424,6 +4433,14 @@ html.dark .canvas-history__tag.is-now {
   border-radius: 16px 0 0 16px;
   background: #ef4444;
   content: "";
+}
+
+.tasks-item--skeleton {
+  pointer-events: none;
+}
+
+.tasks-item--skeleton .animate-pulse {
+  background-color: var(--ui-bg-elevated);
 }
 
 .tasks-item__thumb {

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * 登录 / 注册合一卡片：路由 /login、/register 共用本组件，Tab 与路径同步。
+ * 登录 / 注册合一卡片：在登录弹窗里切换 Tab，不离开当前页。
  * 登录 / 注册对接 POST /api/user/login、/api/user/register（见 ~/api/user-auth、useAuth）。
  * 邀请注册：URL ?aff= 会作为 aff_code 提交，?pcode= 会作为 pcode 提交（渠道伙伴归属），登录/注册 Tab 切换时保留这两个参数。
  * 推广口令：注册表单可手填口令（URL ?code= 预填），注册并登录后调用领取接口绑定归属并发放红包。
@@ -10,7 +10,6 @@
 import { PASSWORD_MAX, PASSWORD_MIN } from '~/utils/password'
 import { AUTH_EXPIRED_STORAGE_KEY, getAccessToken } from '~/utils/auth-user'
 import { resetSessionExpiryRedirectState } from '~/utils/auth-session-expired'
-import { AUTH_LOGIN_REDIRECT_QUERY, sanitizeLoginRedirectPath } from '~/utils/auth-login-redirect'
 import { pathWithoutLocale } from '~/utils/app-path'
 import { cnMobileError, digitsOnly, isValidCnMobile, normalizeMobile } from '~/utils/phone'
 import userAuth, { VERIFICATION_ACTION } from '~/api/user-auth'
@@ -57,8 +56,8 @@ const props = withDefaults(
 )
 
 const route = useRoute()
-const router = useRouter()
 const localePath = useLocalePath()
+const { inviteRef, inviteAff, invitePcode, open: loginModalOpen, tab: loginModalTab } = useLoginModal()
 const toast = useToast()
 const { tryLogin, tryPhoneLogin, tryRegister, hydrate, setUser } = useAuth()
 const { persistRedirectFromRoute } = useAuthLoginRedirect()
@@ -113,7 +112,7 @@ const formTitle = computed(() => {
     return t('注册 EasyTV')
   if (activeTab.value === 'forgot')
     return t('重置密码')
-  return t('欢迎使用 EasyTV')
+  return t('欢迎登录')
 })
 
 const formLead = computed(() => {
@@ -142,9 +141,16 @@ function tabFromPath(path: string): 'login' | 'register' | 'forgot' {
 const activeTab = ref<'login' | 'register' | 'forgot'>(tabFromPath(route.path))
 
 watch(() => route.path, (path) => {
+  if (loginModalOpen.value)
+    return
   const next = tabFromPath(path)
   if (activeTab.value !== next)
     activeTab.value = next
+})
+
+watch(() => props.initialTab, (tab) => {
+  if (tab && activeTab.value !== tab)
+    activeTab.value = tab
 })
 
 watch(activeTab, (tab) => {
@@ -152,26 +158,20 @@ watch(activeTab, (tab) => {
     void resolveInviter()
 })
 
-/** 邀请注册码，来自 URL ?aff= */
-const inviteAffCode = computed(() => {
-  const aff = route.query.aff
-  const raw = Array.isArray(aff) ? aff[0] : aff
+function queryText(key: string) {
+  const value = route.query[key]
+  const raw = Array.isArray(value) ? value[0] : value
   return String(raw ?? '').trim()
-})
+}
 
-/** 渠道伙伴邀请码，来自 URL ?pcode=（注册即绑定伙伴归属） */
-const invitePartnerCode = computed(() => {
-  const pcode = route.query.pcode
-  const raw = Array.isArray(pcode) ? pcode[0] : pcode
-  return String(raw ?? '').trim()
-})
+/** 邀请注册码：URL ?aff=，或打开弹窗时带入 */
+const inviteAffCode = computed(() => queryText('aff') || inviteAff.value)
 
-/** 邀请码（增长域）：URL ?ref= 优先，其次 ?aff=，最后落地时写进归因 cookie 的 ref */
-const inviteRefQuery = computed(() => {
-  const ref = route.query.ref
-  const raw = Array.isArray(ref) ? ref[0] : ref
-  return String(raw ?? '').trim()
-})
+/** 渠道伙伴邀请码：URL ?pcode=，或打开弹窗时带入 */
+const invitePartnerCode = computed(() => queryText('pcode') || invitePcode.value)
+
+/** 邀请码（增长域）：URL ?ref= 优先，其次弹窗带入，最后归因 cookie */
+const inviteRefQuery = computed(() => queryText('ref') || inviteRef.value)
 const inviterName = ref('')
 let inviterResolvedFor = ''
 
@@ -486,28 +486,8 @@ function validateRegister(): boolean {
 
 function switchTab(tab: 'login' | 'register' | 'forgot') {
   activeTab.value = tab
-  const aff = inviteAffCode.value
-  const redirect = route.query[AUTH_LOGIN_REDIRECT_QUERY]
-  const rawRedirect = Array.isArray(redirect) ? redirect[0] : redirect
-  const safeRedirect = sanitizeLoginRedirectPath(String(rawRedirect ?? ''))
-  const query: Record<string, string> = {}
-  if (aff)
-    query.aff = aff
-  if (inviteRefQuery.value)
-    query.ref = inviteRefQuery.value
-  if (invitePartnerCode.value)
-    query.pcode = invitePartnerCode.value
-  if (safeRedirect)
-    query[AUTH_LOGIN_REDIRECT_QUERY] = safeRedirect
-  const path = tab === 'register'
-    ? '/register'
-    : tab === 'forgot'
-      ? '/forgot-password'
-      : '/login'
-  const dest = localePath({ path, query })
-  if (pathWithoutLocale(route.path) === path)
-    return
-  void router.replace(dest)
+  if (loginModalOpen.value)
+    loginModalTab.value = tab
 }
 
 function validateForgot(): boolean {
@@ -783,9 +763,9 @@ async function onForgotSubmit() {
 
 <template>
   <div class="xyq-form" :class="{ 'xyq-form--login': activeTab === 'login' }">
-        <NuxtLink :to="localePath('/')" class="xyq-form__icon" :aria-label="t('返回首页')">
+        <span class="xyq-form__icon" aria-hidden="true">
           <img src="/images/logo.svg" alt="" width="40" height="40">
-        </NuxtLink>
+        </span>
         <h1 class="xyq-form__title">
           {{ formTitle }}
         </h1>
@@ -793,7 +773,7 @@ async function onForgotSubmit() {
           {{ formLead }}
         </p>
 
-        <div v-if="activeTab === 'login'" class="xyq-login">
+        <div v-if="activeTab === 'login'" class="xyq-login" :class="{ 'is-split': isZhLocale }">
           <!-- 非中文界面：邮箱 + 密码登录（短信只支持 +86） -->
           <form v-if="!isZhLocale" class="xyq-login__phone" @submit.prevent="onLoginSubmit">
             <p class="xyq-login__label">{{ t('邮箱登录') }}</p>
@@ -876,8 +856,8 @@ async function onForgotSubmit() {
               {{ loginLoading ? t('登录中…') : t('登录') }}
             </button>
           </form>
-          <i class="xyq-login__rule" aria-hidden="true" />
-          <aside class="xyq-login__qr">
+          <span v-if="isZhLocale" class="xyq-login__divider" aria-hidden="true" />
+          <aside v-if="isZhLocale" class="xyq-login__qr">
             <ClientOnly>
               <AuthWeChatQrPanel embedded />
               <template #fallback>
@@ -1080,10 +1060,10 @@ async function onForgotSubmit() {
 
         <p v-if="activeTab !== 'forgot'" class="xyq-agree">
           {{ t('继续即表示您同意') }}
-          <NuxtLink :to="localePath('/legal/terms')">{{ t('《用户服务协议》') }}</NuxtLink>{{ t('、') }}
-          <NuxtLink :to="localePath('/legal/privacy')">{{ t('《隐私政策》') }}</NuxtLink>
+          <NuxtLink :to="localePath('/legal/terms')" target="_blank">{{ t('《用户服务协议》') }}</NuxtLink>{{ t('、') }}
+          <NuxtLink :to="localePath('/legal/privacy')" target="_blank">{{ t('《隐私政策》') }}</NuxtLink>
           {{ t('和') }}
-          <NuxtLink :to="localePath('/legal/ai-guidelines')">{{ t('《AI功能使用规范》') }}</NuxtLink>
+          <NuxtLink :to="localePath('/legal/ai-guidelines')" target="_blank">{{ t('《AI功能使用规范》') }}</NuxtLink>
         </p>
 
         <!-- <p v-if="activeTab === 'login'" class="xyq-switch">

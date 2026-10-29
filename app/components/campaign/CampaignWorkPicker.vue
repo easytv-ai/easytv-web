@@ -137,7 +137,7 @@ onUnmounted(() => {
           >
             <template #skeleton>
               <div class="asset-picker__grid">
-                <div v-for="n in 8" :key="n" class="asset-picker__item" aria-hidden="true">
+                <div v-for="n in 8" :key="n" class="asset-picker__item asset-picker__item--skeleton" aria-hidden="true">
                   <span class="asset-picker__thumb">
                     <USkeleton class="size-full rounded-[inherit]" />
                   </span>

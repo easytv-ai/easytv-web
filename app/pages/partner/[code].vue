@@ -9,7 +9,7 @@ const { t } = useI18n()
 
 /**
  * 渠道伙伴落地页：/partner/:code，匿名可看、SSR（GET /partner/:code）。
- * 落地即把伙伴码写进归因 cookie，「注册开始创作」跳 /register?pcode=<code>；已登录直接去创作台。
+ * 落地即把伙伴码写进归因 cookie，「注册开始创作」在当前页弹出注册框。
  */
 definePageMeta({
   layout: false,
@@ -48,8 +48,15 @@ const invalid = computed(() => !pending.value && !partner.value)
 const signupPoints = computed(() => data.value?.growth?.signup_points || growth.value?.signup_points || 0)
 const inviteePoints = computed(() => data.value?.growth?.invite_invitee_points || growth.value?.invite_invitee_points || 100)
 
-const registerHref = computed(() => localePath({ path: '/register', query: { pcode: code.value } }))
-const loginHref = computed(() => localePath({ path: '/login', query: { pcode: code.value } }))
+const { openLogin } = useLoginModal()
+
+function openPartnerRegister() {
+  openLogin({ tab: 'register', pcode: code.value, redirect: '/agent' })
+}
+
+function openPartnerLogin() {
+  openLogin({ tab: 'login', pcode: code.value, redirect: '/agent' })
+}
 
 useHead({
   title: computed(() => partner.value ? t('{name} 邀请你加入 EasyTV', { name: name.value }) : t('邀请你加入 EasyTV')),
@@ -62,7 +69,7 @@ useSeoMeta({
 })
 
 function gotoStudio() {
-  void navigateTo(localePath('/studio'), { replace: true })
+  void navigateTo(localePath('/agent'), { replace: true })
 }
 
 onMounted(() => {
@@ -123,8 +130,8 @@ watch(isLoggedIn, (on) => {
     </main>
 
     <footer v-if="!invalid && partner" class="invite-actions">
-      <NuxtLink :to="registerHref" class="plan-btn plan-btn--solid invite-actions__primary">{{ t('注册开始创作') }}</NuxtLink>
-      <NuxtLink :to="loginHref" class="invite-actions__login">{{ t('已有账号，登录') }}</NuxtLink>
+      <button type="button" class="plan-btn plan-btn--solid invite-actions__primary" @click="openPartnerRegister">{{ t('注册开始创作') }}</button>
+      <button type="button" class="invite-actions__login" @click="openPartnerLogin">{{ t('已有账号，登录') }}</button>
     </footer>
   </div>
 </template>

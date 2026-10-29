@@ -20,11 +20,12 @@
 
 /* ---- 首页新手任务卡 ---- */
 .growth-tasks {
-  margin: 20px 0 0;
-  padding: 16px 18px;
-  border: 1px solid var(--st-border);
-  border-radius: 16px;
-  background: var(--st-card);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 .growth-tasks__head {
@@ -42,8 +43,10 @@
 
 .growth-tasks__title h2 {
   margin: 0;
-  font-size: 16px;
+  color: var(--st-text);
+  font-size: 20px;
   font-weight: 700;
+  letter-spacing: -0.02em;
 }
 
 .growth-tasks__count {
@@ -74,8 +77,8 @@
 }
 
 .growth-tasks__bar {
-  height: 6px;
-  margin: 10px 0 14px;
+  height: 3px;
+  margin: 12px 0 16px;
   overflow: hidden;
   border-radius: 999px;
   background: var(--st-hover);
@@ -85,7 +88,7 @@
   display: block;
   height: 100%;
   border-radius: 999px;
-  background: linear-gradient(90deg, var(--st-plan), #22c55e);
+  background: var(--st-plan);
   transition: width 0.3s ease;
 }
 
@@ -133,7 +136,7 @@
 .growth-tasks__reward {
   font-size: 12px;
   font-weight: 600;
-  color: #f59e0b;
+  color: var(--st-plan);
   font-variant-numeric: tabular-nums;
 }
 
@@ -160,9 +163,14 @@
   flex-direction: column;
   align-items: flex-start;
   gap: 4px;
-  padding: 12px 14px;
+  padding: 16px 18px;
   border-radius: 12px;
-  background: linear-gradient(135deg, rgba(245, 158, 11, 0.16), rgba(239, 68, 68, 0.08));
+  background: #f0f2f5;
+  color: var(--st-text);
+}
+
+html.dark .growth-tasks__checkin {
+  background: var(--st-hover);
 }
 
 .growth-tasks__checkin strong {
@@ -175,9 +183,18 @@
 }
 
 .growth-tasks__checkin .plan-btn {
-  margin-top: 6px;
-  padding: 6px 14px;
+  width: auto;
+  min-height: 32px;
+  margin-top: 8px;
+  padding: 0 14px;
   font-size: 13px;
+}
+
+.growth-tasks__checkin .plan-btn--ghost {
+  border-color: transparent;
+  background: transparent;
+  color: var(--st-muted);
+  font-weight: 500;
 }
 
 @media (max-width: 720px) {
@@ -516,18 +533,19 @@ html.dark .studio-promo-banner {
   flex-wrap: wrap;
   align-items: center;
   gap: 6px 12px;
-  margin: 0 0 10px;
-  padding: 9px 14px;
-  border: 1px solid var(--st-border);
-  border-radius: 999px;
+  margin: 0;
+  padding: 16px 20px;
+  border: 0;
+  border-radius: 16px;
   background: var(--st-card);
+  box-shadow: var(--st-shadow-soft);
   color: inherit;
   font-size: 13px;
   text-decoration: none;
 }
 
 .campaign-strip:hover {
-  border-color: var(--st-plan);
+  background: color-mix(in srgb, var(--st-plan) 8%, var(--st-card));
 }
 
 .campaign-strip__icon {
@@ -569,7 +587,12 @@ html.dark .studio-promo-banner {
 
 /* ---- 创作台「本周热门」 ---- */
 .studio-hot {
-  margin-bottom: 14px;
+  width: 100%;
+  margin: 0 0 28px;
+  padding: 24px;
+  border-radius: 16px;
+  background: var(--st-card);
+  box-shadow: var(--st-shadow-soft);
 }
 
 .studio-hot__head {
@@ -584,12 +607,12 @@ html.dark .studio-promo-banner {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 13px;
-  font-weight: 600;
+  font-size: 15px;
+  font-weight: 700;
 }
 
 .studio-hot__head strong .iconify {
-  color: #ef4444;
+  color: var(--st-plan);
 }
 
 .studio-hot__more {
@@ -620,9 +643,9 @@ html.dark .studio-promo-banner {
   align-items: center;
   gap: 8px;
   padding: 8px 10px;
-  border: 1px solid var(--st-border);
-  border-radius: 10px;
-  background: var(--st-card);
+  border: 0;
+  border-radius: 12px;
+  background: var(--st-hover);
   color: var(--st-text);
   text-decoration: none;
 }
@@ -646,9 +669,19 @@ html.dark .studio-promo-banner {
   font-weight: 700;
 }
 
-.studio-hot__rank.is-top {
-  background: rgba(239, 68, 68, 0.16);
-  color: #dc2626;
+.studio-hot__rank.is-gold {
+  background: #f3d48a;
+  color: #7a4e00;
+}
+
+.studio-hot__rank.is-silver {
+  background: #d8dbe2;
+  color: #4b5563;
+}
+
+.studio-hot__rank.is-bronze {
+  background: #e4bfa3;
+  color: #7c4a2d;
 }
 
 .studio-hot__list img,
@@ -804,8 +837,10 @@ html.dark .studio-promo-banner {
 }
 
 .show-lang-tags__pills button.is-on {
-  background: var(--st-on);
-  color: var(--st-on-text);
+  background: var(--st-elevated);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+  color: var(--st-text);
+  font-weight: 600;
 }
 
 @media (max-width: 640px) {

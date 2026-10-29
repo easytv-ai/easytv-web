@@ -406,7 +406,7 @@ onUnmounted(() => {
 
         <div class="asset-picker__body">
           <div v-if="busy" class="asset-picker__grid" role="status" aria-busy="true">
-            <div v-for="n in pageSize" :key="n" class="asset-picker__item">
+            <div v-for="n in pageSize" :key="n" class="asset-picker__item asset-picker__item--skeleton" aria-hidden="true">
               <USkeleton class="asset-picker__thumb" />
               <USkeleton class="mt-2 h-3 w-3/5" />
             </div>
