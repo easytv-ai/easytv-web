@@ -111,7 +111,7 @@ describe('alignedPositions / distributedPositions', () => {
     expect(inspector).toContain('const writeBlocked = computed(() => props.readonly || props.locked)')
     expect(inspector).toContain(':disabled="readonly"')
     expect(inspector).toContain(':disabled="writeBlocked"')
-    expect(inspector).toContain(':disabled="talkingNoModel || submitting || locked"')
+    expect(inspector).toContain(':disabled="noModels || talkingNoModel || submitting || locked"')
     const groups = readFileSync('app/composables/useCanvasGroups.ts', 'utf8')
     expect(groups).toContain('isNodeLocked')
     expect(groups).toContain('if (!group || isNodeLocked(group, opts.nodes.value))')

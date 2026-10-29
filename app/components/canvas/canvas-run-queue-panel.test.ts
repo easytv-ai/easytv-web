@@ -171,7 +171,7 @@ describe('画布接线', () => {
     // 对话栏的文本 / 结合画布任务不走节点轮询：由 chat emit → 页面 → 工作区
     const chat = read(CHAT)
     expect(chat).toContain('taskStarted: []')
-    expect(chat.match(/emit\('taskStarted'\)/g)?.length).toBe(2)
+    expect(chat.match(/emit\('taskStarted'\)/g)?.length).toBe(3)
     expect(read(PAGE)).toContain('@task-started="workspace?.refreshRunQueue()"')
     expect(workspace).toContain('openStyleLibrary, refreshRunQueue, locateNode, commentNodeHint })')
   })

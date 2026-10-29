@@ -112,7 +112,7 @@ describe('创作台样式入口', () => {
     const css = readFileSync(resolve(cssDir, 'studio-parts/canvas.css'), 'utf8')
     expect(css).toContain('grid-template-columns: repeat(2, minmax(0, 1fr))')
     expect(css).toContain('@container canvas-chat-skills (max-width: 360px)')
-    expect(css).toMatch(/button\.canvas-chat__tool \{\s*flex-shrink: 0;/)
+    expect(css).toMatch(/\.canvas-chat__tool \{\s*flex-shrink: 0;/)
   })
 
   it('技能弹层分类条能在窄栏里横滑而不撑破', () => {
