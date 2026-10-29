@@ -4,7 +4,19 @@ import rankApi from '~/api/rank'
 import type { RankWorkItem, Work } from '~/types/creative'
 import { resolveMediaUrl } from '~/utils/media'
 
-/** 精选成片：分类 / 语言 / 搜索 + 本周热门 + 成片网格（GET /work、GET /rank/works） */
+/** 成片信息流：分类 / 语言 / 搜索 + 本周热门 + 成片网格（GET /work、GET /rank/works） */
+const props = withDefaults(defineProps<{
+  /** 只看运营精选（GET /work?featured=1），首页用；探索页看全部已发布 */
+  featured?: boolean
+  /** 是否展示本周热门 */
+  hot?: boolean
+  title?: string
+}>(), {
+  featured: false,
+  hot: true,
+  title: '',
+})
+
 const { t } = useI18n()
 const localePath = useLocalePath()
 const toast = useToast()
@@ -44,6 +56,7 @@ const {
       keyword: q || undefined,
       category: activeTag.value === ALL_TAG ? undefined : activeTag.value,
       lang: activeLang.value || undefined,
+      featured: props.featured ? 1 : undefined,
     })
     if (!res?.success || !res.data) {
       toast.add({ title: res?.message || t('成片加载失败'), color: 'error', close: false, progress: false, orientation: 'horizontal' })
@@ -56,7 +69,12 @@ const {
 // ---- 本周热门（GET /rank/works?period=week，API.md 9.2）：只取前 5，不足 3 条不展示 ----
 const HOT_LIMIT = 5
 const hotRows = ref<RankWorkItem[]>([])
-const showHot = computed(() => hotRows.value.length >= 3)
+const showHot = computed(() => props.hot && hotRows.value.length >= 3)
+const heading = computed(() => props.title || t('精选成片'))
+const emptyTitle = computed(() => props.featured ? t('暂无精选成片') : t('暂无成片'))
+const emptyDescription = computed(() => props.featured
+  ? t('去探索页看看全部作品。')
+  : t('换个分类或关键词试试，也可以去创作台生成新的作品。'))
 
 async function loadHot() {
   try {
@@ -124,7 +142,8 @@ watch(keyword, () => {
 
 onMounted(() => {
   void loadCategories()
-  void loadHot()
+  if (props.hot)
+    void loadHot()
   void reload()
 })
 
@@ -157,7 +176,12 @@ onBeforeUnmount(() => {
 
   <header class="show-toolbar">
     <div class="show-page__inner show-toolbar__row">
-      <h2>{{ t('精选成片') }}</h2>
+      <div class="show-toolbar__title">
+        <h2>{{ heading }}</h2>
+        <NuxtLink v-if="featured" :to="localePath('/explore')" class="studio-hot__more">
+          {{ t('查看全部') }}<UIcon name="i-lucide-chevron-right" class="size-3.5" />
+        </NuxtLink>
+      </div>
       <div class="show-toolbar__right">
         <div class="show-lang-tags" role="group" :aria-label="t('作品语言')">
           <UIcon name="i-lucide-languages" class="size-4 show-lang-tags__icon" />
@@ -205,8 +229,8 @@ onBeforeUnmount(() => {
       :loading-more="loadingMore"
       :has-more="hasMore"
       :count="items.length"
-      :empty-title="t('暂无成片')"
-      :empty-description="t('换个分类或关键词试试，也可以去创作台生成新的作品。')"
+      :empty-title="emptyTitle"
+      :empty-description="emptyDescription"
       :load-more="loadMore"
     >
       <template #skeleton>

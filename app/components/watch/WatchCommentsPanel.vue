@@ -8,12 +8,19 @@ const { t } = useI18n()
  * 播放页评论抽屉：GET /work/:id/comments（一级分页 + 每条前 3 条回复），
  * 发表 / 回复 POST /user/work/:id/comment，删除 DELETE /user/comment/:id，举报交给父组件复用举报弹窗。
  */
-const props = defineProps<{
-  open: boolean
+const props = withDefaults(defineProps<{
+  open?: boolean
   workId: number
   /** 作品作者：可删除任何评论 */
   ownerId: number
-}>()
+  /** 嵌在播放页右栏：不弹抽屉、不抢焦点，换作品时自动重新加载 */
+  inline?: boolean
+}>(), {
+  open: false,
+  inline: false,
+})
+
+const active = computed(() => props.inline || props.open)
 
 const emit = defineEmits<{
   close: []
@@ -239,7 +246,7 @@ async function remove(item: WorkComment, parent?: WorkComment) {
 }
 
 function onKeydown(event: KeyboardEvent) {
-  if (event.key === 'Escape' && props.open) {
+  if (event.key === 'Escape' && props.open && !props.inline) {
     event.stopPropagation()
     emit('close')
   }
@@ -252,16 +259,17 @@ function onInputKeydown(event: KeyboardEvent) {
   }
 }
 
-watch(() => [props.open, props.workId] as const, ([open]) => {
-  if (open) {
-    draft.value = ''
-    replyTo.value = null
-    void load().then(() => nextTick(() => {
-      fitInput()
+watch(() => [active.value, props.workId] as const, ([on]) => {
+  if (!on || !import.meta.client)
+    return
+  draft.value = ''
+  replyTo.value = null
+  void load().then(() => nextTick(() => {
+    fitInput()
+    if (!props.inline)
       inputRef.value?.focus()
-    }))
-  }
-})
+  }))
+}, { immediate: true })
 
 watch(draft, () => nextTick(fitInput))
 
@@ -270,15 +278,21 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown, true))
 </script>
 
 <template>
-  <Teleport to="body">
-    <div v-if="open" class="inbox-mask" @click.self="emit('close')">
-      <aside class="inbox-panel watch-comments" role="dialog" aria-modal="true" aria-labelledby="watch-comments-title">
+  <Teleport to="body" :disabled="inline">
+    <div v-if="active" :class="inline ? 'watch-comments-inline' : 'inbox-mask'" @click.self="!inline && emit('close')">
+      <aside
+        class="watch-comments"
+        :class="{ 'inbox-panel': !inline }"
+        :role="inline ? 'region' : 'dialog'"
+        :aria-modal="inline ? undefined : true"
+        aria-labelledby="watch-comments-title"
+      >
         <header class="watch-comments__head">
           <div>
             <h2 id="watch-comments-title">{{ t('评论') }} <small>{{ total }}</small></h2>
-            <p>{{ t('聊聊这部作品，或给作者一点建议') }}</p>
+            <p v-if="!inline">{{ t('聊聊这部作品，或给作者一点建议') }}</p>
           </div>
-          <button type="button" class="inbox-panel__close" :aria-label="t('关闭')" @click="emit('close')">
+          <button v-if="!inline" type="button" class="inbox-panel__close" :aria-label="t('关闭')" @click="emit('close')">
             <UIcon name="i-lucide-x" class="size-4" />
           </button>
         </header>

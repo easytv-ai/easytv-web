@@ -6384,6 +6384,7 @@ audio.canvas-crew__clip {
   text-align: center;
 }
 
+/* ===== 作品播放页：左播放 + 信息，右作者 + 评论 ===== */
 .watch-page {
   display: flex;
   height: 100dvh;
@@ -6399,34 +6400,8 @@ audio.canvas-crew__clip {
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding: 16px 24px 8px;
-}
-
-.watch-bar__left,
-.watch-bar__right {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-width: 0;
-}
-
-.watch-bar__right {
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 2px;
-  color: var(--st-muted);
-  font-size: 12px;
-}
-
-.watch-bar__right p {
-  margin: 0;
-}
-
-.watch-bar__end {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  min-width: 0;
+  height: 52px;
+  padding: 0 24px;
 }
 
 /* 匿名访客：头部登录 / 注册入口 */
@@ -6443,9 +6418,9 @@ audio.canvas-crew__clip {
 
 .watch-auth-link {
   display: inline-flex;
-  height: 30px;
+  height: 32px;
   align-items: center;
-  padding: 0 12px;
+  padding: 0 14px;
   border: 0;
   border-radius: 999px;
   background: transparent;
@@ -6453,11 +6428,11 @@ audio.canvas-crew__clip {
   font: inherit;
   text-decoration: none;
   cursor: pointer;
-  transition: background-color 0.15s;
+  transition: background-color 0.15s, opacity 0.15s;
 }
 
 .watch-auth-link:hover {
-  background: var(--st-chip-bg);
+  background: var(--st-hover);
 }
 
 .watch-auth-link.is-solid {
@@ -6471,60 +6446,55 @@ audio.canvas-crew__clip {
 
 .watch-back {
   display: inline-flex;
-  height: 32px;
-  border: 0;
-  font: inherit;
-  cursor: pointer;
+  height: 36px;
   align-items: center;
   gap: 4px;
-  padding: 0 12px;
-  border-radius: 10px;
-  background: var(--st-hover);
-  color: var(--st-text);
-  font-size: 13px;
-  text-decoration: none;
-}
-
-.watch-avatar {
-  display: flex;
-  width: 28px;
-  height: 28px;
-  flex-shrink: 0;
-  align-items: center;
-  justify-content: center;
+  padding: 0 14px 0 10px;
+  border: 1px solid var(--st-border);
   border-radius: 999px;
-  background: #111;
-  color: #fff;
-  font-size: 12px;
-  font-weight: 600;
+  background: var(--st-chip-bg);
+  color: var(--st-text);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.15s, border-color 0.15s;
 }
 
-.watch-bar__split {
-  width: 1px;
-  height: 14px;
-  background: var(--st-border);
+.watch-back:hover {
+  border-color: color-mix(in srgb, var(--st-text) 22%, transparent);
 }
 
-.watch-bar h1 {
-  margin: 0;
+.watch-layout {
+  display: grid;
+  min-height: 0;
+  flex: 1;
+  grid-template-columns: minmax(0, 1fr) 400px;
+  gap: 20px;
+  padding: 0 24px 20px;
+}
+
+/* 左栏一屏放下：播放器吃剩余高度，信息 / 简介 / 推荐条固定在下方，不滚动 */
+.watch-main {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
   overflow: hidden;
-  font-size: 15px;
-  font-weight: 600;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
+/* ---- 播放器 ---- */
 .watch-stage {
   position: relative;
   display: flex;
-  min-height: 0;
+  width: 100%;
+  min-height: 240px;
   flex: 1;
   align-items: center;
   justify-content: center;
-  margin: 8px 24px 0;
   overflow: hidden;
-  border-radius: 20px;
-  background: #111;
+  border-radius: 18px;
+  background: #000;
 }
 
 .watch-fallback {
@@ -6550,7 +6520,7 @@ audio.canvas-crew__clip {
   display: block;
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
 }
 
 .watch-stage video {
@@ -6572,161 +6542,369 @@ audio.canvas-crew__clip {
   position: absolute;
   inset: 0;
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: flex-end;
-  padding: 0 24px 72px;
-  background: linear-gradient(180deg, transparent 40%, rgba(0, 0, 0, 0.72));
-}
-
-.watch-hero h2 {
-  margin: 0 0 18px;
-  color: #fff;
-  font-size: clamp(28px, 4vw, 42px);
-  font-weight: 700;
-}
-
-.watch-hero__actions {
-  pointer-events: auto;
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
-
-.watch-hero__tools {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.watch-play,
-.watch-icon {
-  position: relative;
-  display: inline-flex;
   align-items: center;
   justify-content: center;
-  border: 0;
-  border-radius: 999px;
-  cursor: pointer;
+  background: radial-gradient(circle at center, rgba(0, 0, 0, 0.28), transparent 60%);
 }
 
 .watch-play {
-  width: 56px;
-  height: 56px;
-  background: #fff;
-  color: #111;
-}
-
-.watch-icon {
-  min-width: 40px;
-  height: 40px;
-  padding: 0 12px;
-  gap: 6px;
-  background: rgba(255, 255, 255, 0.18);
-  color: #fff;
-}
-
-.watch-icon:not(:has(.watch-icon__count)) {
-  width: 40px;
-  padding: 0;
-}
-
-.watch-icon.is-on {
-  background: rgba(239, 68, 68, 0.28);
-  color: #fb7185;
-}
-
-.watch-chip {
+  pointer-events: auto;
   display: inline-flex;
-  height: 40px;
+  width: 72px;
+  height: 72px;
   align-items: center;
-  gap: 6px;
-  padding: 0 14px;
-  border: 0;
+  justify-content: center;
+  padding-left: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.28);
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.16);
   color: #fff;
-  font-size: 13px;
   cursor: pointer;
+  backdrop-filter: blur(12px);
+  transition: transform 0.2s ease, background-color 0.2s ease;
+}
+
+.watch-play:hover {
+  background: rgba(255, 255, 255, 0.28);
+  transform: scale(1.08);
 }
 
 .watch-controls {
   position: absolute;
-  right: 16px;
-  bottom: 16px;
-  left: 16px;
+  right: 0;
+  bottom: 0;
+  left: 0;
   display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 12px;
-  border-radius: 12px;
-  background: rgba(0, 0, 0, 0.48);
+  flex-direction: column;
+  padding: 28px 16px 10px;
+  background: linear-gradient(180deg, transparent, rgba(0, 0, 0, 0.62));
   opacity: 0;
-  transition: opacity 0.16s ease;
+  transition: opacity 0.2s ease;
 }
 
 .watch-controls.is-on {
   opacity: 1;
 }
 
-.watch-controls button {
+.watch-controls__row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.watch-controls__row button {
   display: inline-flex;
+  height: 32px;
+  min-width: 32px;
   align-items: center;
   justify-content: center;
   border: 0;
+  border-radius: 8px;
   background: transparent;
   color: #fff;
   cursor: pointer;
+  transition: background-color 0.15s;
 }
 
-.watch-controls span {
-  flex-shrink: 0;
-  color: #e4e4e7;
-  font-size: 12px;
+.watch-controls__row button:hover {
+  background: rgba(255, 255, 255, 0.16);
 }
 
-.watch-controls input[type="range"] {
-  flex: 1;
-  accent-color: #fff;
-}
-
-.watch-controls__rate {
-  min-width: 44px;
-  padding: 0 4px;
+.watch-controls__time {
+  margin-left: 4px;
+  color: rgba(255, 255, 255, 0.86);
   font-size: 12px;
   font-variant-numeric: tabular-nums;
 }
 
-.watch-rail {
+.watch-controls__spacer {
+  flex: 1;
+}
+
+.watch-controls__rate {
+  padding: 0 8px;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 进度条：可点击区域 16px 高，可见轨道 3px，悬停 / 拖动时加粗并显示圆点 */
+.watch-progress {
+  position: relative;
+  display: flex;
+  height: 16px;
+  align-items: center;
+  margin-bottom: 4px;
+  cursor: pointer;
+  touch-action: none;
+  outline: none;
+}
+
+.watch-progress__track {
+  position: relative;
+  width: 100%;
+  height: 3px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.2);
+  transition: height 0.15s ease;
+}
+
+.watch-progress:hover .watch-progress__track,
+.watch-progress.is-scrubbing .watch-progress__track,
+.watch-progress:focus-visible .watch-progress__track {
+  height: 5px;
+}
+
+.watch-progress__buffer,
+.watch-progress__hover,
+.watch-progress__fill {
+  position: absolute;
+  inset: 0;
+  transform-origin: left center;
+}
+
+.watch-progress__buffer {
+  background: rgba(255, 255, 255, 0.32);
+}
+
+.watch-progress__hover {
+  background: rgba(255, 255, 255, 0.28);
+}
+
+.watch-progress__fill {
+  background: #fff;
+}
+
+.watch-progress__thumb {
+  position: absolute;
+  top: 50%;
+  width: 13px;
+  height: 13px;
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.18), 0 1px 4px rgba(0, 0, 0, 0.4);
+  pointer-events: none;
+  transform: translate(-50%, -50%) scale(0);
+  transition: transform 0.15s ease;
+}
+
+.watch-progress:hover .watch-progress__thumb,
+.watch-progress:focus-visible .watch-progress__thumb {
+  transform: translate(-50%, -50%) scale(1);
+}
+
+.watch-progress.is-scrubbing .watch-progress__thumb {
+  transform: translate(-50%, -50%) scale(1.15);
+}
+
+.watch-progress__tip {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  padding: 3px 7px;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.78);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+
+/* ---- 标题 / 操作 / 简介 ---- */
+.watch-info {
+  display: flex;
+  flex-shrink: 0;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.watch-info__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-width: 0;
+}
+
+.watch-info__row h1 {
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.watch-info__actions {
   display: flex;
   flex-shrink: 0;
   align-items: center;
-  gap: 10px;
-  min-height: 136px;
-  padding: 16px 24px 22px;
-  box-sizing: border-box;
+  gap: 8px;
+}
+
+.watch-btn {
+  position: relative;
+  display: inline-flex;
+  height: 36px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 14px;
+  border: 1px solid var(--st-border);
+  border-radius: 999px;
+  background: var(--st-chip-bg);
+  color: var(--st-text);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.watch-btn:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--st-text) 24%, transparent);
+}
+
+.watch-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.watch-btn--icon {
+  width: 36px;
+  padding: 0;
+}
+
+.watch-btn--primary {
+  border-color: transparent;
+  background: var(--st-text);
+  color: var(--st-bg);
+  font-weight: 600;
+}
+
+.watch-btn--primary:hover:not(:disabled) {
+  border-color: transparent;
+  opacity: 0.88;
+}
+
+.watch-btn__count {
+  font-weight: 500;
+  opacity: 0.65;
+}
+
+.watch-btn .iconify {
+  transition: transform 0.2s ease;
+}
+
+.watch-btn:not(.watch-btn--primary):hover:not(:disabled) .iconify {
+  transform: scale(1.12);
+}
+
+.watch-btn.is-liked {
+  border-color: rgba(244, 63, 94, 0.32);
+  background: rgba(244, 63, 94, 0.1);
+  color: #f43f5e;
+}
+
+.watch-btn.is-liked .iconify {
+  fill: currentColor;
+}
+
+.watch-info__desc {
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: var(--st-hover);
+}
+
+.watch-info__desc p {
+  display: -webkit-box;
+  margin: 0 0 6px;
+  overflow: hidden;
+  color: var(--st-text-soft);
+  font-size: 13px;
+  line-height: 1.6;
+  word-break: break-word;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.watch-info__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 14px;
+  color: var(--st-muted);
+  font-size: 12px;
+}
+
+.watch-info__tag {
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--st-hover);
+  color: var(--st-text-soft);
+}
+
+.watch-info__ai {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* ---- 精选推荐 ---- */
+.watch-rail {
+  flex-shrink: 0;
+  margin-top: 14px;
+}
+
+.watch-rail__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.watch-rail__head h2 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.watch-rail__nav {
+  display: flex;
+  gap: 6px;
 }
 
 .watch-rail__arrow {
   display: inline-flex;
-  width: 32px;
-  height: 32px;
+  width: 28px;
+  height: 28px;
   flex-shrink: 0;
   align-items: center;
   justify-content: center;
-  border: 0;
+  border: 1px solid var(--st-border);
   border-radius: 999px;
-  background: var(--st-hover);
+  background: var(--st-chip-bg);
   color: var(--st-text);
   cursor: pointer;
+  transition: border-color 0.15s;
+}
+
+.watch-rail__arrow:hover {
+  border-color: color-mix(in srgb, var(--st-text) 24%, transparent);
 }
 
 .watch-rail__list {
   display: flex;
-  min-width: 0;
-  flex: 1;
   gap: 12px;
-  overflow: auto;
+  overflow-x: auto;
+  scroll-snap-type: x proximity;
   scrollbar-width: none;
 }
 
@@ -6736,14 +6914,26 @@ audio.canvas-crew__clip {
 
 .watch-thumb {
   position: relative;
-  width: 168px;
+  width: 160px;
   flex-shrink: 0;
   overflow: hidden;
   padding: 0;
-  border: 2px solid transparent;
+  border: 0;
   border-radius: 12px;
   background: #111;
   cursor: pointer;
+  scroll-snap-align: start;
+}
+
+.watch-thumb::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: 2px solid transparent;
+  border-radius: inherit;
+  background: linear-gradient(180deg, transparent 50%, rgba(0, 0, 0, 0.66));
+  pointer-events: none;
+  transition: border-color 0.15s;
 }
 
 .watch-thumb img {
@@ -6751,24 +6941,221 @@ audio.canvas-crew__clip {
   width: 100%;
   aspect-ratio: 16 / 9;
   object-fit: cover;
+  transition: transform 0.35s ease;
+}
+
+.watch-thumb:hover img {
+  transform: scale(1.05);
 }
 
 .watch-thumb span {
   position: absolute;
-  right: 8px;
+  z-index: 1;
+  right: 10px;
   bottom: 8px;
-  left: 8px;
+  left: 10px;
   overflow: hidden;
   color: #fff;
   font-size: 12px;
   font-weight: 600;
+  text-align: left;
   text-overflow: ellipsis;
   white-space: nowrap;
-  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.7);
 }
 
-.watch-thumb.is-on {
+.watch-thumb.is-on::after {
   border-color: var(--st-on);
+}
+
+/* ---- 右栏：作者 + 评论 ---- */
+.watch-side {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--st-border);
+  border-radius: 18px;
+  background: var(--st-card);
+}
+
+.watch-side__author {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 18px 18px 0;
+}
+
+.watch-side .watch-author {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+  color: inherit;
+  text-decoration: none;
+}
+
+.watch-avatar {
+  display: flex;
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: var(--st-text);
+  color: var(--st-bg);
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.watch-author__text {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.watch-author__text strong {
+  overflow: hidden;
+  font-size: 15px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.watch-author__text small {
+  color: var(--st-muted);
+  font-size: 12px;
+}
+
+.watch-side__stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 16px 18px 0;
+  padding: 12px 0;
+  border-radius: 12px;
+  background: var(--st-hover);
+}
+
+.watch-side__stats div {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.watch-side__stats div + div {
+  border-left: 1px solid var(--st-border);
+}
+
+.watch-side__stats dt {
+  color: var(--st-muted);
+  font-size: 12px;
+}
+
+.watch-side__stats dd {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.watch-comments-inline {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+}
+
+.watch-comments-inline .watch-comments {
+  display: flex;
+  width: 100%;
+  min-height: 0;
+  flex-direction: column;
+}
+
+.watch-comments-inline .watch-comments__head {
+  padding: 18px 18px 12px;
+}
+
+.watch-comments-inline .watch-comments__head h2 {
+  font-size: 15px;
+}
+
+.watch-comments-inline .watch-comments__list {
+  padding: 4px 18px 16px;
+}
+
+.watch-comments-inline .watch-comments__list::-webkit-scrollbar-thumb {
+  border-color: var(--st-card);
+}
+
+.watch-comments-inline .watch-comments__input {
+  background: var(--st-card);
+}
+
+@media (max-width: 1100px) {
+  .watch-layout {
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+  }
+
+  .watch-main {
+    flex: none;
+    overflow: visible;
+  }
+
+  .watch-side {
+    flex: none;
+  }
+
+  .watch-stage {
+    min-height: 0;
+    flex: none;
+    aspect-ratio: 16 / 9;
+  }
+
+  .watch-side {
+    height: min(640px, 80dvh);
+  }
+}
+
+@media (max-width: 640px) {
+  .watch-bar {
+    padding: 0 14px;
+  }
+
+  .watch-layout {
+    padding: 0 14px 16px;
+  }
+
+  .watch-info__row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .watch-info__row h1 {
+    white-space: normal;
+  }
+
+  .watch-info__actions {
+    flex-wrap: wrap;
+  }
+
+  .watch-thumb {
+    width: 168px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .watch-play,
+  .watch-thumb img,
+  .watch-btn .iconify,
+  .watch-progress__track,
+  .watch-progress__thumb {
+    transition: none;
+  }
 }
 
 .trash-modal__body .studio-empty {
@@ -6919,10 +7306,6 @@ audio.canvas-crew__clip {
 .skill-modal__actions .studio-icon-btn.is-on {
   background: var(--st-chip-border);
   color: var(--st-text);
-}
-
-.skill-modal__actions .studio-icon-btn.is-on {
-  color: #facc15;
 }
 
 .skill-modal__add {

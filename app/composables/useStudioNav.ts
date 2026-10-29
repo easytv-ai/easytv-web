@@ -2,13 +2,14 @@ export function useStudioNav() {
   const localePath = useLocalePath()
 
   /**
-   * 左侧主导航只放五个入口。首页是 EasyTV Agent；
+   * 左侧主导航只放六个入口。首页是 EasyTV Agent + 精选成片，探索是全部已发布作品；
    * 技能是技能库（广场 / 我的 / 我创建的），资产 / 主体 / 提示词并进项目标签，
    * 任务收进积分钱包，设置等收进右上角头像菜单。match 里的路径访问时高亮对应入口。
    * auth：未登录点击时不跳转，先弹登录框，登录成功后再进入该页。
    */
   const resourceLinks = [
     { to: '/agent', label: '首页', icon: 'i-lucide-house', match: [], auth: false },
+    { to: '/explore', label: '探索', icon: 'i-lucide-compass', match: [], auth: false },
     { to: '/create', label: '创作', icon: 'i-lucide-wand-sparkles', match: [], auth: true },
     { to: '/projects', label: '项目', icon: 'i-lucide-folder', match: ['/assets', '/subjects', '/prompts'], auth: true },
     { to: '/skills', label: '技能', icon: 'i-lucide-sparkles', match: [], auth: false },

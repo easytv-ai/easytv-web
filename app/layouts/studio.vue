@@ -24,6 +24,9 @@ onMounted(() => {
     <StudioInbox />
     <StudioWalletPanel />
     <StudioPricingModal />
+    <ClientOnly>
+      <StudioGrowthTasks />
+    </ClientOnly>
   </div>
 </template>
 

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import workApi from '~/api/work'
 import type { ClonePreview, Work, WorkProcess } from '~/types/creative'
-import { resolveMediaUrl } from '~/utils/media'
+import { formatCount, resolveMediaUrl } from '~/utils/media'
 import { getUserId } from '~/utils/auth-user'
 import { workLangForLocale } from '~/utils/work-lang'
 import { classifyPublicWorkResponse } from '~/utils/watch-load'
@@ -85,6 +85,7 @@ const railRef = ref<HTMLElement | null>(null)
 const playing = ref(false)
 const currentTime = ref(0)
 const duration = ref(0)
+const buffered = ref(0)
 const muted = ref(false)
 const liked = ref(false)
 const liking = ref(false)
@@ -118,7 +119,6 @@ watch(current, (work) => {
     return
   void loadAuthorFollow(work.user_id)
 }, { immediate: true })
-const fullTitle = computed(() => current.value ? t('概念短片《{title}》', { title: current.value.title }) : '')
 const videoSrc = computed(() => resolveMediaUrl(current.value?.video_url))
 const poster = computed(() => resolveMediaUrl(current.value?.cover_url))
 
@@ -149,6 +149,7 @@ watch(current, (work, prev) => {
   played.value = false
   currentTime.value = 0
   duration.value = 0
+  buffered.value = 0
   nextTick(() => {
     videoRef.value?.pause()
   })
@@ -180,6 +181,7 @@ function onTimeUpdate() {
     return
   currentTime.value = video.currentTime
   duration.value = video.duration || 0
+  onBufferProgress()
 }
 
 const PLAYBACK_RATES = [0.5, 1, 1.25, 1.5, 2]
@@ -229,12 +231,65 @@ async function togglePlay() {
   }
 }
 
-function seek(event: Event) {
+// ---- 自定义进度条：点击 / 拖动跳转、缓冲段、悬停时间提示 ----
+const progressRef = ref<HTMLElement | null>(null)
+const scrubbing = ref(false)
+const hoverRatio = ref<number | null>(null)
+
+function ratioAt(clientX: number) {
+  const rect = progressRef.value?.getBoundingClientRect()
+  if (!rect?.width)
+    return 0
+  return Math.min(1, Math.max(0, (clientX - rect.left) / rect.width))
+}
+
+function seekToRatio(ratio: number) {
   const video = videoRef.value
-  const input = event.target as HTMLInputElement
   if (!video || !duration.value)
     return
-  video.currentTime = (Number(input.value) / 1000) * duration.value
+  video.currentTime = ratio * duration.value
+  currentTime.value = video.currentTime
+}
+
+function onProgressDown(event: PointerEvent) {
+  if (event.button !== 0 || !duration.value)
+    return
+  scrubbing.value = true
+  seekToRatio(ratioAt(event.clientX))
+  progressRef.value?.setPointerCapture(event.pointerId)
+}
+
+function onProgressMove(event: PointerEvent) {
+  const ratio = ratioAt(event.clientX)
+  hoverRatio.value = ratio
+  if (scrubbing.value)
+    seekToRatio(ratio)
+}
+
+function onProgressUp(event: PointerEvent) {
+  if (!scrubbing.value)
+    return
+  scrubbing.value = false
+  progressRef.value?.releasePointerCapture(event.pointerId)
+}
+
+function onProgressLeave() {
+  if (!scrubbing.value)
+    hoverRatio.value = null
+}
+
+function onBufferProgress() {
+  const video = videoRef.value
+  if (!video?.duration)
+    return
+  const ranges = video.buffered
+  for (let i = 0; i < ranges.length; i++) {
+    if (ranges.start(i) <= video.currentTime && video.currentTime <= ranges.end(i)) {
+      buffered.value = ranges.end(i) / video.duration
+      return
+    }
+  }
+  buffered.value = 0
 }
 
 function toggleMute() {
@@ -267,7 +322,8 @@ function openShow(id: number) {
 }
 
 function scrollRail(dir: -1 | 1) {
-  railRef.value?.scrollBy({ left: dir * 280, behavior: 'smooth' })
+  const list = railRef.value
+  list?.scrollBy({ left: dir * Math.max(280, list.clientWidth * 0.8), behavior: 'smooth' })
 }
 
 async function toggleLike() {
@@ -397,9 +453,7 @@ watch(workId, () => {
   sourceError.value = ''
 })
 
-// ---- 评论抽屉 ----
-const commentsOpen = ref(false)
-
+// ---- 右栏评论 ----
 function onCommentCount(delta: number) {
   if (current.value)
     current.value.comment_count = Math.max(0, (current.value.comment_count || 0) + delta)
@@ -470,7 +524,7 @@ watch(current, (work) => {
   track('share_open', { work_id: work.id, ref })
 }, { immediate: true })
 
-const progress = computed(() => duration.value ? (currentTime.value / duration.value) * 1000 : 0)
+const progress = computed(() => duration.value ? Math.min(1, currentTime.value / duration.value) : 0)
 
 function isTypingTarget(target: EventTarget | null) {
   const el = target as HTMLElement | null
@@ -480,7 +534,7 @@ function isTypingTarget(target: EventTarget | null) {
 }
 
 function playerOverlayOpen() {
-  return commentsOpen.value || clonePreviewOpen.value || shareOpen.value || reportOpen.value
+  return clonePreviewOpen.value || shareOpen.value || reportOpen.value
 }
 
 /** 快捷键：Esc 返回；空格播放；←/→ 快进退；M 静音；F 全屏；L 点赞。弹层或输入中不触发。 */
@@ -496,7 +550,7 @@ function onGlobalKeydown(event: KeyboardEvent) {
         reportOpen.value = false
       return
     }
-    if (commentsOpen.value || clonePreviewOpen.value || shareOpen.value)
+    if (clonePreviewOpen.value || shareOpen.value)
       return
     goBack()
     return
@@ -560,49 +614,22 @@ onUnmounted(() => window.removeEventListener('keydown', onGlobalKeydown))
 <template>
   <div class="watch-page">
     <header class="watch-bar">
-      <div class="watch-bar__left">
-        <button type="button" class="watch-back" @click="goBack">
-          <UIcon name="i-lucide-chevron-left" class="size-4" />
-          {{ t('返回') }}
-        </button>
-        <NuxtLink v-if="current?.user_id" :to="localePath(`/author/${current.user_id}`)" class="watch-author">
-          <span class="watch-avatar">{{ authorName.slice(0, 1) }}</span>
-          <strong>{{ authorName }}</strong>
-        </NuxtLink>
-        <template v-else>
-          <span class="watch-avatar">{{ authorName.slice(0, 1) }}</span>
-          <strong>{{ authorName }}</strong>
-        </template>
-        <ClientOnly>
-          <StudioFollowButton
-            v-if="canFollowAuthor"
-            :author-id="current?.user_id ?? 0"
-            :name="authorName"
-            :following="authorFollowing"
-            :followers="authorFollowers"
-            size="compact"
-            @change="onAuthorFollowChange"
-          />
-        </ClientOnly>
-        <span class="watch-bar__split" />
-        <h1>{{ fullTitle }}</h1>
-      </div>
-      <div class="watch-bar__end">
-        <div v-if="current" class="watch-bar__right">
-          <p>{{ t('更新时间') }}: {{ formatDate(current.published_at || current.updated_at) }}</p>
-          <p>{{ t('含 AI 生成内容') }}</p>
+      <button type="button" class="watch-back" @click="goBack">
+        <UIcon name="i-lucide-chevron-left" class="size-4" />
+        {{ t('返回') }}
+      </button>
+      <!-- 登录态只在客户端有（localStorage），用 ClientOnly 避免 SSR 与客户端首帧不一致 -->
+      <ClientOnly>
+        <div v-if="!isLoggedIn" class="watch-bar__auth">
+          <button type="button" class="watch-auth-link" @click="openLogin({ tab: 'login' })">{{ t('登录') }}</button>
+          <span class="watch-bar__auth-split" aria-hidden="true">/</span>
+          <button type="button" class="watch-auth-link is-solid" @click="openLogin({ tab: 'register' })">{{ t('注册') }}</button>
         </div>
-        <!-- 登录态只在客户端有（localStorage），用 ClientOnly 避免 SSR 与客户端首帧不一致 -->
-        <ClientOnly>
-          <div v-if="!isLoggedIn" class="watch-bar__auth">
-            <button type="button" class="watch-auth-link" @click="openLogin({ tab: 'login' })">{{ t('登录') }}</button>
-            <span class="watch-bar__auth-split" aria-hidden="true">/</span>
-            <button type="button" class="watch-auth-link is-solid" @click="openLogin({ tab: 'register' })">{{ t('注册') }}</button>
-          </div>
-        </ClientOnly>
-      </div>
+      </ClientOnly>
     </header>
 
+    <div class="watch-layout">
+    <main class="watch-main">
     <div
       class="watch-stage"
       @mouseenter="hover = true"
@@ -613,7 +640,7 @@ onUnmounted(() => window.removeEventListener('keydown', onGlobalKeydown))
       </div>
       <div v-else-if="watchError" class="watch-fallback">
         <p>{{ watchError }}</p>
-        <button type="button" class="watch-chip" :disabled="loading" @click="retryWork">
+        <button type="button" class="watch-btn" :disabled="loading" @click="retryWork">
           {{ loading ? t('加载中…') : t('重试') }}
         </button>
       </div>
@@ -627,6 +654,7 @@ onUnmounted(() => window.removeEventListener('keydown', onGlobalKeydown))
         @click="togglePlay"
         @timeupdate="onTimeUpdate"
         @loadedmetadata="onLoaded"
+        @progress="onBufferProgress"
         @ended="playing = false"
       />
       
@@ -639,66 +667,97 @@ onUnmounted(() => window.removeEventListener('keydown', onGlobalKeydown))
       >
 
       <div v-if="current && !playing" class="watch-hero">
-        <h2>{{ current.title }}</h2>
-        <div class="watch-hero__actions">
-          <button type="button" class="watch-play" :aria-label="t('播放')" @click="togglePlay">
-            <UIcon name="i-lucide-play" class="size-6" />
-          </button>
-          <button v-if="isOpenSource" type="button" class="watch-chip watch-chip--primary" :disabled="cloning" @click="onClone">
-            <UIcon name="i-lucide-copy-plus" class="size-4" />
-            {{ cloning ? t('复制中…') : t('做同款') }}
-            <b v-if="cloneCount > 0" class="watch-chip__count">· {{ cloneCount }}</b>
-          </button>
-          <NuxtLink v-if="(current.show_process && current.canvas_id) || isOpenSource" :to="localePath(`/process/${current.id}`)" class="watch-chip">
-            <UIcon name="i-lucide-file-text" class="size-4" />
-            {{ t('查看制作过程') }}
-          </NuxtLink>
-          <div class="watch-hero__tools">
-            <button type="button" class="watch-icon" :class="{ 'is-on': liked }" :aria-label="liked ? t('取消喜欢') : t('喜欢')" :disabled="liking" @click="toggleLike">
-              <UIcon name="i-lucide-heart" class="size-4" />
-              <span v-if="current.like_count" class="watch-icon__count">{{ current.like_count }}</span>
-              <span class="canvas-tip canvas-tip--up">{{ liked ? t('取消喜欢') : t('喜欢') }}</span>
-            </button>
-            <button type="button" class="watch-icon" :class="{ 'is-on': commentsOpen }" :aria-label="t('评论')" @click="commentsOpen = true">
-              <UIcon name="i-lucide-message-circle" class="size-4" />
-              <span v-if="current.comment_count" class="watch-icon__count">{{ current.comment_count }}</span>
-              <span class="canvas-tip canvas-tip--up">{{ t('评论') }}</span>
-            </button>
-            <button type="button" class="watch-icon" :aria-label="t('分享')" @click="onShare">
-              <UIcon name="i-lucide-share-2" class="size-4" />
-              <span class="canvas-tip canvas-tip--up">{{ t('分享') }}</span>
-            </button>
-            <button type="button" class="watch-icon" :aria-label="t('举报')" @click="openReport()">
-              <UIcon name="i-lucide-octagon-alert" class="size-4" />
-              <span class="canvas-tip canvas-tip--up">{{ t('举报') }}</span>
-            </button>
-          </div>
-        </div>
+        <button type="button" class="watch-play" :aria-label="t('播放')" @click="togglePlay">
+          <UIcon name="i-lucide-play" class="size-7" />
+        </button>
       </div>
 
-      <div v-else-if="current" class="watch-controls" :class="{ 'is-on': hover }">
-        <button type="button" :aria-label="t('播放或暂停')" @click="togglePlay">
-          <UIcon :name="playing ? 'i-lucide-pause' : 'i-lucide-play'" class="size-4" />
-        </button>
-        <span>{{ formatTime(currentTime) }} / {{ formatTime(duration) }}</span>
-        <input
-          type="range"
-          min="0"
-          max="1000"
-          :value="progress"
-          @input="seek"
+      <div v-else-if="current" class="watch-controls" :class="{ 'is-on': hover || scrubbing }">
+        <div
+          ref="progressRef"
+          class="watch-progress"
+          :class="{ 'is-scrubbing': scrubbing }"
+          role="slider"
+          tabindex="0"
+          :aria-label="t('播放进度')"
+          aria-valuemin="0"
+          :aria-valuemax="Math.round(duration)"
+          :aria-valuenow="Math.round(currentTime)"
+          :aria-valuetext="`${formatTime(currentTime)} / ${formatTime(duration)}`"
+          @pointerdown="onProgressDown"
+          @pointermove="onProgressMove"
+          @pointerup="onProgressUp"
+          @pointercancel="onProgressUp"
+          @pointerleave="onProgressLeave"
         >
-        <button type="button" class="watch-controls__rate" :aria-label="t('watch.player.rate', { n: playbackRate })" @click="cyclePlaybackRate">
-          {{ t('watch.player.rate', { n: playbackRate }) }}
-        </button>
-        <button type="button" :aria-label="t('静音')" @click="toggleMute">
-          <UIcon :name="muted ? 'i-lucide-volume-off' : 'i-lucide-volume-2'" class="size-4" />
-        </button>
-        <button type="button" :aria-label="t('全屏')" @click="toggleFullscreen">
-          <UIcon name="i-lucide-maximize" class="size-4" />
-        </button>
+          <div class="watch-progress__track">
+            <span class="watch-progress__buffer" :style="{ transform: `scaleX(${buffered})` }" />
+            <span v-if="hoverRatio !== null" class="watch-progress__hover" :style="{ transform: `scaleX(${hoverRatio})` }" />
+            <span class="watch-progress__fill" :style="{ transform: `scaleX(${progress})` }" />
+          </div>
+          <span class="watch-progress__thumb" :style="{ left: `${progress * 100}%` }" />
+          <span v-if="hoverRatio !== null && duration" class="watch-progress__tip" :style="{ left: `${hoverRatio * 100}%` }">
+            {{ formatTime(hoverRatio * duration) }}
+          </span>
+        </div>
+        <div class="watch-controls__row">
+          <button type="button" :aria-label="t('播放或暂停')" @click="togglePlay">
+            <UIcon :name="playing ? 'i-lucide-pause' : 'i-lucide-play'" class="size-4" />
+          </button>
+          <span class="watch-controls__time">{{ formatTime(currentTime) }} / {{ formatTime(duration) }}</span>
+          <span class="watch-controls__spacer" />
+          <button type="button" class="watch-controls__rate" :aria-label="t('watch.player.rate', { n: playbackRate })" @click="cyclePlaybackRate">
+            {{ t('watch.player.rate', { n: playbackRate }) }}
+          </button>
+          <button type="button" :aria-label="t('静音')" @click="toggleMute">
+            <UIcon :name="muted ? 'i-lucide-volume-off' : 'i-lucide-volume-2'" class="size-4" />
+          </button>
+          <button type="button" :aria-label="t('全屏')" @click="toggleFullscreen">
+            <UIcon name="i-lucide-maximize" class="size-4" />
+          </button>
+        </div>
       </div>
     </div>
+
+    <section v-if="current" class="watch-info">
+      <div class="watch-info__row">
+        <h1 :title="current.title">{{ current.title }}</h1>
+        <div class="watch-info__actions">
+          <button v-if="isOpenSource" type="button" class="watch-btn watch-btn--primary" :disabled="cloning" @click="onClone">
+            <UIcon name="i-lucide-copy-plus" class="size-4" />
+            {{ cloning ? t('复制中…') : t('做同款') }}
+            <b v-if="cloneCount > 0" class="watch-btn__count">{{ cloneCount }}</b>
+          </button>
+          <NuxtLink v-if="(current.show_process && current.canvas_id) || isOpenSource" :to="localePath(`/process/${current.id}`)" class="watch-btn">
+            <UIcon name="i-lucide-git-fork" class="size-4" />
+            {{ t('查看制作过程') }}
+          </NuxtLink>
+          <button type="button" class="watch-btn" :class="{ 'is-liked': liked }" :aria-label="liked ? t('取消喜欢') : t('喜欢')" :disabled="liking" @click="toggleLike">
+            <UIcon name="i-lucide-heart" class="size-4" />
+            {{ formatCount(current.like_count || 0) }}
+          </button>
+          <button type="button" class="watch-btn watch-btn--icon" :aria-label="t('分享')" @click="onShare">
+            <UIcon name="i-lucide-share-2" class="size-4" />
+            <span class="canvas-tip canvas-tip--up">{{ t('分享') }}</span>
+          </button>
+          <button type="button" class="watch-btn watch-btn--icon" :aria-label="t('举报')" @click="openReport()">
+            <UIcon name="i-lucide-flag" class="size-4" />
+            <span class="canvas-tip canvas-tip--up">{{ t('举报') }}</span>
+          </button>
+        </div>
+      </div>
+      <div class="watch-info__desc">
+        <p v-if="current.description">{{ current.description }}</p>
+        <div class="watch-info__meta">
+          <span>{{ t('更新时间') }} {{ formatDate(current.published_at || current.updated_at) }}</span>
+          <span v-if="current.category" class="watch-info__tag">{{ t(current.category) }}</span>
+          <span class="watch-info__ai">
+            <UIcon name="i-lucide-sparkles" class="size-3.5" />
+            {{ t('含 AI 生成内容') }}
+          </span>
+        </div>
+      </div>
+    </section>
 
     <section v-if="current && isOpenSource" class="watch-source" :class="{ 'is-open': sourceOpen }">
       <button type="button" class="watch-source__head" :aria-expanded="sourceOpen" @click="toggleSource">
@@ -727,10 +786,18 @@ onUnmounted(() => window.removeEventListener('keydown', onGlobalKeydown))
       </div>
     </section>
 
-    <div class="watch-rail">
-      <button type="button" class="watch-rail__arrow" :aria-label="t('上一组')" @click="scrollRail(-1)">
-        <UIcon name="i-lucide-chevron-left" class="size-4" />
-      </button>
+    <section v-if="rail.length" class="watch-rail">
+      <header class="watch-rail__head">
+        <h2>{{ t('精选推荐') }}</h2>
+        <div class="watch-rail__nav">
+          <button type="button" class="watch-rail__arrow" :aria-label="t('上一组')" @click="scrollRail(-1)">
+            <UIcon name="i-lucide-chevron-left" class="size-4" />
+          </button>
+          <button type="button" class="watch-rail__arrow" :aria-label="t('下一组')" @click="scrollRail(1)">
+            <UIcon name="i-lucide-chevron-right" class="size-4" />
+          </button>
+        </div>
+      </header>
       <div ref="railRef" class="watch-rail__list">
         <button
           v-for="item in rail"
@@ -741,25 +808,60 @@ onUnmounted(() => window.removeEventListener('keydown', onGlobalKeydown))
           @mousedown.prevent
           @click="openShow(item.id)"
         >
-          <img :src="resolveMediaUrl(item.cover_url)" :alt="item.title">
+          <img :src="resolveMediaUrl(item.cover_url)" :alt="item.title" loading="lazy">
           <span>{{ item.title }}</span>
         </button>
       </div>
-      <button type="button" class="watch-rail__arrow" :aria-label="t('下一组')" @click="scrollRail(1)">
-        <UIcon name="i-lucide-chevron-right" class="size-4" />
-      </button>
+    </section>
+    </main>
+
+    <aside class="watch-side">
+      <div class="watch-side__author">
+        <NuxtLink v-if="current?.user_id" :to="localePath(`/author/${current.user_id}`)" class="watch-author">
+          <span class="watch-avatar">{{ authorName.slice(0, 1) }}</span>
+          <span class="watch-author__text">
+            <strong>{{ authorName }}</strong>
+            <small v-if="authorFollowers">{{ t('{n} 位粉丝', { n: formatCount(authorFollowers) }) }}</small>
+          </span>
+        </NuxtLink>
+        <ClientOnly>
+          <StudioFollowButton
+            v-if="canFollowAuthor"
+            :author-id="current?.user_id ?? 0"
+            :name="authorName"
+            :following="authorFollowing"
+            :followers="authorFollowers"
+            size="compact"
+            @change="onAuthorFollowChange"
+          />
+        </ClientOnly>
+      </div>
+      <dl v-if="current" class="watch-side__stats">
+        <div>
+          <dt>{{ t('获赞') }}</dt>
+          <dd>{{ formatCount(current.like_count || 0) }}</dd>
+        </div>
+        <div>
+          <dt>{{ t('浏览') }}</dt>
+          <dd>{{ formatCount(current.view_count || 0) }}</dd>
+        </div>
+        <div>
+          <dt>{{ t('评论') }}</dt>
+          <dd>{{ formatCount(current.comment_count || 0) }}</dd>
+        </div>
+      </dl>
+      <WatchCommentsPanel
+        inline
+        :work-id="current?.id ?? 0"
+        :owner-id="current?.user_id ?? 0"
+        @count-change="onCommentCount"
+        @report="onReportComment"
+      />
+    </aside>
     </div>
 
   <WatchClonePreview :open="clonePreviewOpen" :preview="clonePreview" :loading="clonePreviewLoading" :cloning="cloning" @close="clonePreviewOpen = false" @confirm="confirmClone" />
   <StudioShareModal :open="shareOpen" :work="current ?? null" @close="shareOpen = false" />
-  <WatchCommentsPanel
-    :open="commentsOpen"
-    :work-id="current?.id ?? 0"
-    :owner-id="current?.user_id ?? 0"
-    @close="commentsOpen = false"
-    @count-change="onCommentCount"
-    @report="onReportComment"
-  />
   <Teleport to="body">
     <div v-if="reportOpen" class="studio-modal-mask watch-report-mask" @click.self="!reporting && (reportOpen = false)">
       <div class="studio-modal publish-modal watch-report" role="dialog" aria-modal="true" aria-labelledby="report-title">

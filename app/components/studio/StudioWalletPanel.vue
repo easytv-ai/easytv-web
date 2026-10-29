@@ -15,7 +15,6 @@ const teamLogsHidden = computed(() => isTeam.value && teamInfo.value?.permission
 const { gotoPricing } = usePricingModal()
 const { memberDay, memberDayActive, load: loadBillingCatalog } = useBillingCatalog()
 const localePath = useLocalePath()
-const route = useRoute()
 const { tasks: growthTasks, allDone: tasksAllDone, checkin, todayDone, checkinBusy, lastCompleted, loadTasks, loadCheckin, checkinWithToast } = useGrowth()
 const { growth } = useStudioAppConfig()
 
@@ -54,14 +53,11 @@ async function onCheckin() {
     void reloadLogs()
 }
 
+const growthDockOpen = useGrowthDock()
+
 function goTasks() {
   closeWallet()
-  const target = localePath({ path: '/studio', hash: '#tasks' })
-  if (route.path === localePath('/studio')) {
-    document.getElementById('tasks')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-    return
-  }
-  void navigateTo(target)
+  growthDockOpen.value = true
 }
 
 const lots = ref<PointsLot[]>([])

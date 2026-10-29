@@ -24,7 +24,6 @@ useHead({
     </div>
     <div class="show-page__inner show-page__stack">
       <StudioHeroCarousel />
-      <StudioGrowthTasks />
       <StudioCampaignStrip />
       <StudioRecentProjects />
     </div>

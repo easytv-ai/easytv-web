@@ -359,10 +359,17 @@ onBeforeUnmount(() => {
       >
         <template #skeleton>
           <article v-for="n in 6" :key="n" class="subject-card subject-card--skeleton">
-            <USkeleton class="subject-card__thumb" />
+            <div class="subject-card__thumb animate-pulse" />
             <div class="subject-card__body">
-              <USkeleton class="h-4 w-2/5" />
-              <USkeleton class="mt-2 h-3 w-3/5" />
+              <div class="subject-card__head">
+                <USkeleton class="h-4 w-28" />
+                <USkeleton class="h-3 w-14" />
+              </div>
+              <USkeleton class="h-3 w-full" />
+              <USkeleton class="h-3 w-4/5" />
+              <div class="subject-card__actions">
+                <USkeleton v-for="i in 3" :key="i" class="subject-card__chip-sk" />
+              </div>
             </div>
           </article>
         </template>

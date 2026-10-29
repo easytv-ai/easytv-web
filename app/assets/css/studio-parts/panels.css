@@ -1363,12 +1363,6 @@ html.dark .canvas-inspector__chip.is-on:hover {
   min-width: 108px;
 }
 
-.watch-icon__count {
-  margin-left: 4px;
-  font-size: 12px;
-}
-
-
 /* ===== 设置页 ===== */
 .settings-layout {
   display: grid;

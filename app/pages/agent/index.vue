@@ -74,7 +74,7 @@ watch(() => route.query.skill, gotoSkillFromQuery)
 <template>
   <section class="agent-page">
     <div class="agent-hero">
-      <h1>{{ t('canvas.chat.skill.ready') }}<em>{{ t('canvas.chat.skill.readyEm') }}</em></h1>
+      <h1>{{ t('EasyTV，') }}<em>{{ t('让每个想法都成片') }}</em></h1>
       <CanvasChat
         ref="entryChat"
         entry
@@ -86,7 +86,7 @@ watch(() => route.query.skill, gotoSkillFromQuery)
     </div>
 
     <div class="agent-feed">
-      <StudioWorkFeed />
+      <StudioWorkFeed featured />
     </div>
 
     <StudioSkillEditor :open="editorOpen" :skill="null" @close="editorOpen = false" />
