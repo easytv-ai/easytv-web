@@ -406,8 +406,8 @@ function readNamedSection(body: string, heads: string[], limit: number): BriefCh
     const hit = line.match(/^([^，,：:]{1,24})[，,：:]\s*(.+)$/)
     if (!hit)
       continue
-    const name = hit[1].trim()
-    const look = hit[2].trim()
+    const name = (hit[1] ?? '').trim()
+    const look = (hit[2] ?? '').trim()
     if (!name || !look || seen.has(name))
       continue
     seen.add(name)
@@ -499,7 +499,7 @@ export function briefVoices(shots: BriefShot[]): BriefVoice[] {
     const hit = String(shot.line || '').trim().match(/^([^：:]{1,16})[：:]\s*\S/)
     if (!hit)
       continue
-    const name = hit[1].trim()
+    const name = (hit[1] ?? '').trim()
     if (!name)
       continue
     const list = map.get(name) || []
@@ -559,7 +559,7 @@ function readShotLines(body: string): BriefShot[] {
     if (!hit)
       continue
     const no = hit[1]
-    const parts = splitShotRest(hit[3])
+    const parts = splitShotRest(hit[3] ?? '')
     if (!no || !parts.picture || seen.has(no))
       continue
     seen.add(no)

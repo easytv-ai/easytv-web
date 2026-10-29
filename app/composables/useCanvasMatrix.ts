@@ -333,7 +333,7 @@ export function useCanvasMatrix(opts: {
     try {
       // 落图：锚点（源节点 / 首帧图）复用既有 id，派生节点用新 id；边由 matrixPlaceGraph 走
       // placeWorkflowGraph + workflowNodesToFlow 生成，这里只负责塞进画布
-      const origin = matrixNextOrigin(absPosition(source, opts.nodes.value), opts.nodes.value)
+      const origin = matrixNextOrigin(absPosition(source, opts.nodes.value), opts.nodes.value as any)
       const placed = matrixPlaceGraph(plan, origin, kind => nextId(kind))
       if (!placed.nodes.length) {
         patchState({ error: t('没有可以落图（派生）的版本') })

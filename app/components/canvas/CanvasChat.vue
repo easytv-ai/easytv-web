@@ -1755,6 +1755,10 @@ function asChoiceCard(card: BriefCard | undefined): BriefAskCard | BriefVoiceCar
   return card?.kind === 'ask' || card?.kind === 'voice' || card?.kind === 'generate' || card?.kind === 'video' || card?.kind === 'compose' ? card : null
 }
 
+function isDocCard(card: BriefCard | undefined): card is BriefDocCard {
+  return card?.kind === 'draft' || card?.kind === 'anchors' || card?.kind === 'board'
+}
+
 function currentAsk(card: BriefCard) {
   const ask = asChoiceCard(card)
   if (!ask)
@@ -1992,8 +1996,8 @@ function skipBriefAsk(item: ChatMsg) {
 }
 
 function submitBriefAsk(item: ChatMsg) {
-  const card = item.card
-  if (!card || !asChoiceCard(card) || card.locked || busy.value)
+  const card = asChoiceCard(item.card)
+  if (!card || card.locked || busy.value)
     return
   const step = card.step || 0
   const question = card.questions[step]
@@ -2468,7 +2472,7 @@ async function confirmBriefAsk(item: ChatMsg) {
 
 async function confirmBriefDoc(item: ChatMsg) {
   const card = item.card
-  if (!card || card.kind === 'ask' || card.kind === 'voice' || card.kind === 'generate' || card.kind === 'video' || card.kind === 'compose' || card.kind === 'board' || card.locked || busy.value)
+  if (!isDocCard(card) || card.kind === 'board' || card.locked || busy.value)
     return
   card.locked = true
   const ask = [...messages.value].reverse().find(row => row.card?.kind === 'ask')
@@ -2623,7 +2627,7 @@ function send(text?: string) {
   attachments.value = []
   scrollToEnd()
   if (openBrief) {
-    void confirmBriefAsk(openBrief, raw)
+    void confirmBriefAsk(openBrief)
     return
   }
   if (startBriefNow) {
@@ -3214,7 +3218,7 @@ function promoOf(item: GenerationModel) {
                 </div>
               </template>
             </div>
-            <div v-else-if="item.card && item.card.kind !== 'ask' && item.card.kind !== 'voice' && item.card.kind !== 'generate' && item.card.kind !== 'video' && item.card.kind !== 'compose'" class="canvas-brief">
+            <div v-else-if="isDocCard(item.card)" class="canvas-brief">
               <details v-if="item.card.thinking" class="canvas-brief__think">
                 <summary>{{ t('canvas.chat.brief.thinking') }}</summary>
                 <p>{{ item.card.thinking }}</p>
@@ -3256,7 +3260,7 @@ function promoOf(item: GenerationModel) {
               </button>
             </div>
           </div>
-          <div v-if="!item.pending && item.card?.kind !== 'invite'" class="canvas-chat__msg-actions">
+          <div v-if="!item.pending && (item.card as any)?.kind !== 'invite'" class="canvas-chat__msg-actions">
             <button v-if="!item.card" type="button" :disabled="busy" :aria-label="t('刷新')" @click="rerunReply(item)">
               <UIcon name="i-lucide-refresh-cw" class="size-3.5" />
               <span class="canvas-tip canvas-tip--up">{{ t('刷新') }}</span>

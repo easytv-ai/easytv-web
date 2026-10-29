@@ -1108,15 +1108,17 @@ function rememberBriefPlaced(ids: string[], items: { group?: string }[]) {
   })
 }
 
-function briefGroupNodes(group: string) {
+type BriefNode = CanvasFlowNode & { data: CanvasNodeData }
+
+function briefGroupNodes(group: string): BriefNode[] {
   const marked = briefPlaced
     .filter(item => item.group === group)
-    .map(item => findNode(item.id))
-    .filter((node): node is CanvasFlowNode => Boolean(node && isContentNode(node)))
+    .map(item => findNode(item.id) as any)
+    .filter((node): node is BriefNode => isContentNode(node))
   if (marked.length)
     return marked
   if (group === 'video') {
-    return nodes.value.filter((node): node is CanvasFlowNode => {
+    return nodes.value.filter((node): node is BriefNode => {
       if (!isContentNode(node) || node.data.kind !== 'video')
         return false
       const label = String(node.data.label || '')
@@ -1134,7 +1136,7 @@ function briefGroupNodes(group: string) {
           : ''
   if (!suffix)
     return []
-  return nodes.value.filter((node): node is CanvasFlowNode => {
+  return nodes.value.filter((node): node is BriefNode => {
     if (!isContentNode(node) || node.data.kind !== 'image')
       return false
     const label = String(node.data.label || '')
@@ -1144,7 +1146,7 @@ function briefGroupNodes(group: string) {
   })
 }
 
-function briefAnchorName(node: CanvasFlowNode) {
+function briefAnchorName(node: BriefNode) {
   return briefTitleHead(String(node.data.label || ''))
 }
 
@@ -1231,7 +1233,7 @@ function briefNodesToGenerate(groups?: string[]) {
   const allow = groups?.length ? new Set(groups) : null
   const fromPlaced = briefPlaced
     .filter(item => !allow || allow.has(item.group))
-    .map(item => findNode(item.id))
+    .map(item => findNode(item.id) as any)
     .filter((node): node is CanvasFlowNode => Boolean(node && idleBriefNode(node)))
   if (fromPlaced.length)
     return fromPlaced
@@ -1446,7 +1448,7 @@ function placeBriefVideos(only?: string[]) {
 function briefVideoSources(): ComposeSource[] {
   const marked = briefGroupNodes('video')
   const list = (marked.length ? marked : nodes.value)
-    .filter((node): node is CanvasFlowNode => Boolean(node && isContentNode(node) && node.data.kind === 'video' && Number(node.data.assetId) > 0))
+    .filter((node): node is BriefNode => Boolean(node && isContentNode(node) && node.data.kind === 'video' && Number(node.data.assetId) > 0))
   return composeOrder(list.map((node) => {
     const abs = absPosition(node, nodes.value)
     const size = nodeSize(node)

@@ -31,7 +31,7 @@ export default defineEventHandler(async (event) => {
   const res = await fetch(target.toString(), { redirect: 'error' })
   if (!res.ok)
     throw createError({ statusCode: 502, statusMessage: '封面读取失败' })
-  const type = (res.headers.get('content-type') || '').split(';')[0].trim().toLowerCase()
+  const type = ((res.headers.get('content-type') || '').split(';')[0] ?? '').trim().toLowerCase()
   if (!type.startsWith('image/'))
     throw createError({ statusCode: 400, statusMessage: '不是图片' })
   const bytes = new Uint8Array(await res.arrayBuffer())
