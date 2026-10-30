@@ -73,7 +73,7 @@ export default defineEventHandler(async (event) => {
 
   setHeader(event, 'content-type', type || 'video/mp4')
   if (length > 0)
-    setHeader(event, 'content-length', String(length))
+    setHeader(event, 'content-length', length)
   setHeader(event, 'cache-control', 'private, max-age=3600')
   return sendStream(event, Readable.fromWeb(res.body as WebReadableStream))
 })
