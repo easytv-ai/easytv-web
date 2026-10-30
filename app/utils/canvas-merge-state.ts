@@ -33,6 +33,12 @@ export function publishMergeProgress(next: MergeVideoProgress | null) {
     return
   }
   const prev = canvasMergeProgress.value
+  // 裁剪、分割和拼接共用一条进度。换了任务就从头计，避免上一次的百分比把新任务挡住。
+  if (prev && prev.job !== next.job) {
+    paintedAt = Date.now()
+    canvasMergeProgress.value = next
+    return
+  }
   const progress = forwardMergeProgress(prev?.progress ?? null, next.progress)
   if (prev && progress === prev.progress && next.progress < prev.progress)
     return

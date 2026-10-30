@@ -3980,6 +3980,17 @@
       "label": "Merged · {n} clips",
       "prompt": "Merge {n} videos in the selected order"
     },
+    "cut": {
+      "loading": "Loading the trim tool",
+      "reading": "Reading the video",
+      "trimming": "Trimming the clip",
+      "splitting": "Splitting the video",
+      "uploading": "Uploading the result",
+      "busy": "A video is already being processed. Please wait",
+      "trimOk": "Clip trimmed. A new node was added",
+      "splitOk": "Video split into two clips",
+      "uploadFail": "The result is on the canvas, but the upload failed. Check the network and try again, or it will disappear after a refresh."
+    },
     "align": {
       "menu": "Align",
       "left": "Align left",

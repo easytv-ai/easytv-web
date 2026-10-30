@@ -3955,6 +3955,17 @@
       "label": "Bản ghép · {n} đoạn",
       "prompt": "Ghép {n} video theo thứ tự đã chọn"
     },
+    "cut": {
+      "loading": "Đang tải công cụ cắt",
+      "reading": "Đang đọc video",
+      "trimming": "Đang cắt đoạn",
+      "splitting": "Đang tách video",
+      "uploading": "Đang tải kết quả lên",
+      "busy": "Đang xử lý một video khác. Hãy đợi",
+      "trimOk": "Đã cắt đoạn và thêm nút mới",
+      "splitOk": "Đã tách video thành hai đoạn",
+      "uploadFail": "Kết quả đã nằm trên khung vẽ, nhưng tải lên thất bại. Kiểm tra mạng rồi làm lại, nếu không làm mới trang sẽ mất."
+    },
     "align": {
       "menu": "Căn chỉnh",
       "left": "Căn trái",

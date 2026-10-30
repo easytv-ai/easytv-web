@@ -12,6 +12,7 @@ import {
   mergeTsConcatArgs,
   MergeVideoError,
   parseClockDuration,
+  trimVideoArgs,
   type MergeVideoProgress,
 } from '~/utils/canvas-video-merge'
 
@@ -210,16 +211,126 @@ export async function mergeVideoBlobs(
     }
     if (exitCode !== 0)
       throw new MergeVideoError('encode')
-    const output = await ffmpeg.readFile('merged.mp4')
-    if (typeof output === 'string' || !output.byteLength)
-      throw new MergeVideoError('encode')
-    const copy = new ArrayBuffer(output.byteLength)
-    new Uint8Array(copy).set(output)
-    return new Blob([copy], { type: 'video/mp4' })
+    return await outputBlob(ffmpeg, 'merged.mp4')
   }
   finally {
     await Promise.all([...names, 'merged.mp4'].map(file => ffmpeg.deleteFile(file).catch(() => undefined)))
   }
+}
+
+/** 浏览器里裁一段。start / end 是秒。 */
+export async function trimVideoBlob(
+  url: string,
+  start: number,
+  end: number,
+  onProgress?: (progress: MergeVideoProgress) => void,
+) {
+  if (!import.meta.client)
+    throw new MergeVideoError('browser')
+  if (!(end > start + 0.05))
+    throw new MergeVideoError('encode')
+  const report = (progress: MergeVideoProgress) => onProgress?.({ ...progress, job: 'trim' })
+  const ffmpeg = await loadFfmpeg(report)
+  const input = 'cut-in.mp4'
+  const output = 'cut-out.mp4'
+  try {
+    report({ phase: 'reading', progress: 12 })
+    await writeSource(ffmpeg, url, input)
+    report({ phase: 'encoding', progress: 40 })
+    const code = await encodeRange(ffmpeg, input, output, start, end, (progress) => {
+      report({ phase: 'encoding', progress: 40 + Math.round(progress * 55) })
+    })
+    if (code !== 0)
+      throw new MergeVideoError('encode')
+    return await outputBlob(ffmpeg, output)
+  }
+  finally {
+    await Promise.all([input, output].map(file => ffmpeg.deleteFile(file).catch(() => undefined)))
+  }
+}
+
+/** 在 at 秒处切成前后两段。 */
+export async function splitVideoBlob(
+  url: string,
+  at: number,
+  duration: number,
+  onProgress?: (progress: MergeVideoProgress) => void,
+) {
+  if (!import.meta.client)
+    throw new MergeVideoError('browser')
+  if (!(at >= 0.3) || !(duration > at + 0.3))
+    throw new MergeVideoError('encode')
+  const report = (progress: MergeVideoProgress) => onProgress?.({ ...progress, job: 'split' })
+  const ffmpeg = await loadFfmpeg(report)
+  const input = 'split-in.mp4'
+  const headName = 'split-head.mp4'
+  const tailName = 'split-tail.mp4'
+  try {
+    report({ phase: 'reading', progress: 12 })
+    await writeSource(ffmpeg, url, input)
+    report({ phase: 'encoding', progress: 30 })
+    const headCode = await encodeRange(ffmpeg, input, headName, 0, at, (progress) => {
+      report({ phase: 'encoding', progress: 30 + Math.round(progress * 30) })
+    })
+    if (headCode !== 0)
+      throw new MergeVideoError('encode')
+    const head = await outputBlob(ffmpeg, headName)
+    await ffmpeg.deleteFile(headName).catch(() => undefined)
+    const tailCode = await encodeRange(ffmpeg, input, tailName, at, duration, (progress) => {
+      report({ phase: 'encoding', progress: 62 + Math.round(progress * 34) })
+    })
+    if (tailCode !== 0)
+      throw new MergeVideoError('encode')
+    const tail = await outputBlob(ffmpeg, tailName)
+    return { head, tail }
+  }
+  finally {
+    await Promise.all([input, headName, tailName].map(file => ffmpeg.deleteFile(file).catch(() => undefined)))
+  }
+}
+
+async function writeSource(ffmpeg: FfmpegHandle, url: string, name: string) {
+  const blob = await readVideoBlob(url)
+  if (!blob.size)
+    throw new MergeVideoError('read', 1)
+  const { fetchFile } = await import('@ffmpeg/util')
+  await ffmpeg.writeFile(name, await fetchFile(blob))
+}
+
+async function encodeRange(
+  ffmpeg: FfmpegHandle,
+  input: string,
+  output: string,
+  start: number,
+  end: number,
+  onRatio?: (progress: number) => void,
+) {
+  const onEncode = ({ progress }: { progress: number }) => {
+    const value = Number(progress)
+    if (Number.isFinite(value))
+      onRatio?.(Math.max(0, Math.min(1, value)))
+  }
+  ffmpeg.on('progress', onEncode)
+  try {
+    let code = await ffmpeg.exec(trimVideoArgs(input, output, start, end, true))
+    if (code !== 0) {
+      await ffmpeg.deleteFile(output).catch(() => undefined)
+      code = await ffmpeg.exec(trimVideoArgs(input, output, start, end, false))
+    }
+    return code
+  }
+  finally {
+    ffmpeg.off('progress', onEncode)
+  }
+}
+
+async function outputBlob(ffmpeg: FfmpegHandle, name: string) {
+  const output = await ffmpeg.readFile(name)
+  if (typeof output === 'string' || !output.byteLength)
+    throw new MergeVideoError('encode')
+  const copy = new ArrayBuffer(output.byteLength)
+  new Uint8Array(copy).set(output)
+  return new Blob([copy], { type: 'video/mp4' })
 }
 
 const VIDEO_BITSTREAM_FILTERS = ['h264_mp4toannexb', 'hevc_mp4toannexb']

@@ -12,6 +12,8 @@ import {
   mergeVideoOrder,
   parseClockDuration,
   forwardMergeProgress,
+  trimVideoArgs,
+  ffmpegClock,
 } from './canvas-video-merge'
 
 describe('mergeVideoOrder', () => {
@@ -68,6 +70,23 @@ describe('mergeShotIndex', () => {
   it('没有序号时不编一个', () => {
     expect(mergeShotIndex({ params: {} })).toBeUndefined()
     expect(mergeShotIndex(null)).toBeUndefined()
+  })
+})
+
+describe('trimVideoArgs', () => {
+  it('按起止秒裁切，没有音轨时去掉音频', () => {
+    expect(ffmpegClock(1.2)).toBe('1.200')
+    expect(trimVideoArgs('cut-in.mp4', 'cut-out.mp4', 1.25, 4.5, true)).toEqual([
+      '-ss', '1.250',
+      '-to', '4.500',
+      '-i', 'cut-in.mp4',
+      '-c:v', 'libx264',
+      '-preset', 'veryfast',
+      '-c:a', 'aac',
+      '-movflags', '+faststart',
+      'cut-out.mp4',
+    ])
+    expect(trimVideoArgs('cut-in.mp4', 'cut-out.mp4', 0, 2, false)).toContain('-an')
   })
 })
 

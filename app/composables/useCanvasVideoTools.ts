@@ -4,6 +4,9 @@
  */
 import { nextTick, watch, type ComputedRef, type Ref } from 'vue'
 import assetApi from '~/api/asset'
+import { canvasMergeRunning, publishMergeProgress, trackMergeUpload } from '~/utils/canvas-merge-state'
+import { MergeVideoError } from '~/utils/canvas-video-merge'
+import { resolveMediaUrl } from '~/utils/media'
 import type { CanvasOverlayKey } from '~/composables/useCanvasToolOverlays'
 import type { CanvasNodeData } from '~/utils/canvas-node-kinds'
 import {
@@ -141,8 +144,6 @@ export function useCanvasVideoTools(ctx: {
     const node = selected.value
     if (!node || !isContentNode(node) || node.data.kind !== 'video' || nodeFrozen(node))
       return
-    if (!ensureMediaAction('split'))
-      return
     const src = currentImageSrc(node)
     if (!src) {
       notify(t('请先生成或添加一段视频'), 'error')
@@ -155,7 +156,7 @@ export function useCanvasVideoTools(ctx: {
     void loadStripDuration(node)
   }
 
-  /** 视频分割：在分割点切成两段，前段落到源节点右侧、后段落在它下方，一个作业两份产物（API.md 30） */
+  /** 视频分割：浏览器 ffmpeg 在分割点切成两段，前段在右侧、后段在下方 */
   async function onSplitStripSubmit(payload: { seconds: number, start: number, end: number, duration: number }) {
     const node = findNode(splitStripNodeId.value)
     if (!node || !isContentNode(node) || node.data.kind !== 'video' || splitBusy.value || nodeFrozen(node))
@@ -170,26 +171,53 @@ export function useCanvasVideoTools(ctx: {
       notify(t('分割点太靠近首尾，请重新选择'), 'error')
       return
     }
-    const source = mediaSourceOf(node)
-    if (!source)
+    if (canvasMergeRunning.value) {
+      notify(t('canvas.cut.busy'))
       return
+    }
+    const src = resolveMediaUrl(splitStripSrc.value || String(node.data.content || ''))
     splitStripOpen.value = false
+    clipStripOpen.value = false
     const sourceLabel = node.data.label || t('视频节点')
     const size = nodeSize(node)
-    const first = spawnMediaNode(node, 'video', '分割', `${sourceLabel}_${t('分割')} 1 · 0-${formatFrameClock(at)}`, {
-      data: { prompt: String(node.data.prompt || '') },
-      select: true,
-    })
-    const second = spawnMediaNode(node, 'video', '分割', `${sourceLabel}_${t('分割')} 2 · ${formatFrameClock(at)}-${formatFrameClock(duration)}`, {
-      at: { x: node.position.x + size.w + 80, y: node.position.y + size.h + 48 },
-      data: { prompt: String(node.data.prompt || ''), taskStatus: 'running', taskProgress: 0 },
-    })
+    const prompt = String(node.data.prompt || '')
     splitBusy.value = true
+    canvasMergeRunning.value = true
+    publishMergeProgress({ phase: 'loading', progress: 0, job: 'split' })
     try {
-      await submitMediaJob(first, 'split', source, { at }, { label: '视频分割', dropOnFail: [first.id, second.id], linkedId: second.id })
+      const { splitVideoBlob } = await import('~/utils/canvas-video-merge.ffmpeg')
+      const parts = await splitVideoBlob(src, at, duration, publishMergeProgress)
+      const headUrl = URL.createObjectURL(parts.head)
+      const tailUrl = URL.createObjectURL(parts.tail)
+      const first = spawnMediaNode(node, 'video', '分割', `${sourceLabel}_${t('分割')} 1 · 0-${formatFrameClock(at)}`, {
+        select: true,
+        data: browserCutData(headUrl, prompt, 'split'),
+      })
+      const second = spawnMediaNode(node, 'video', '分割', `${sourceLabel}_${t('分割')} 2 · ${formatFrameClock(at)}-${formatFrameClock(duration)}`, {
+        at: { x: node.position.x + size.w + 80, y: node.position.y + size.h + 48 },
+        select: false,
+        data: browserCutData(tailUrl, prompt, 'split'),
+      })
+      pushHistory()
+      publishMergeProgress(null)
+      notify(t('canvas.cut.splitOk'))
+      const task = Promise.all([
+        saveBrowserCut(first.id, parts.head, headUrl, 'split-1.mp4'),
+        saveBrowserCut(second.id, parts.tail, tailUrl, 'split-2.mp4'),
+      ]).then(() => undefined)
+      trackMergeUpload(task)
+      void task.catch(() => undefined)
+    }
+    catch (error) {
+      notify(cutFailText(error), 'error')
     }
     finally {
       splitBusy.value = false
+      canvasMergeRunning.value = false
+      window.setTimeout(() => {
+        if (!canvasMergeRunning.value)
+          publishMergeProgress(null)
+      }, 700)
     }
   }
 
@@ -265,24 +293,88 @@ export function useCanvasVideoTools(ctx: {
     const node = findNode(clipStripNodeId.value)
     if (!node || !isContentNode(node) || node.data.kind !== 'video' || nodeFrozen(node))
       return
-    if (!ensureMediaAction('trim'))
-      return
     const range = rangeToSeconds({ start: payload.start, end: payload.end }, payload.duration, 0.1)
     if (!range) {
       notify(!(payload.duration > 0) ? t('还没读到视频时长，请稍后再试') : t('截取区间太短，请重新圈选'), 'error')
       return
     }
-    const source = mediaSourceOf(node)
-    if (!source)
+    if (canvasMergeRunning.value) {
+      notify(t('canvas.cut.busy'))
       return
+    }
+    const src = resolveMediaUrl(clipStripSrc.value || String(node.data.content || ''))
     clipStripOpen.value = false
     splitStripOpen.value = false
     const sourceLabel = node.data.label || t('视频节点')
-    const sibling = spawnMediaNode(node, 'video', '片段截取', `${sourceLabel}_${t('片段截取')} ${formatFrameClock(range.start)}-${formatFrameClock(range.end)}`, {
-      data: { prompt: String(node.data.prompt || '') },
-      select: true,
-    })
-    await submitMediaJob(sibling, 'trim', source, { start: range.start, end: range.end, accurate: true }, { label: '片段截取', dropOnFail: [sibling.id] })
+    const prompt = String(node.data.prompt || '')
+    canvasMergeRunning.value = true
+    publishMergeProgress({ phase: 'loading', progress: 0, job: 'trim' })
+    try {
+      const { trimVideoBlob } = await import('~/utils/canvas-video-merge.ffmpeg')
+      const blob = await trimVideoBlob(src, range.start, range.end, publishMergeProgress)
+      const localUrl = URL.createObjectURL(blob)
+      const sibling = spawnMediaNode(node, 'video', '片段截取', `${sourceLabel}_${t('片段截取')} ${formatFrameClock(range.start)}-${formatFrameClock(range.end)}`, {
+        select: true,
+        data: browserCutData(localUrl, prompt, 'trim'),
+      })
+      pushHistory()
+      publishMergeProgress(null)
+      notify(t('canvas.cut.trimOk'))
+      const task = saveBrowserCut(sibling.id, blob, localUrl, 'clip.mp4')
+      trackMergeUpload(task)
+      void task.catch(() => undefined)
+    }
+    catch (error) {
+      notify(cutFailText(error), 'error')
+    }
+    finally {
+      canvasMergeRunning.value = false
+      window.setTimeout(() => {
+        if (!canvasMergeRunning.value)
+          publishMergeProgress(null)
+      }, 700)
+    }
+  }
+
+  function browserCutData(content: string, prompt: string, operation: 'trim' | 'split'): Partial<CanvasNodeData> {
+    return {
+      content,
+      prompt,
+      taskStatus: 'succeeded',
+      taskProgress: 100,
+      taskError: '',
+      params: { videoEditOperation: operation },
+    }
+  }
+
+  function cutFailText(error: unknown) {
+    if (error instanceof MergeVideoError) {
+      if (error.code === 'load')
+        return t('canvas.merge.loadFail')
+      if (error.code === 'fetch')
+        return t('canvas.merge.fetchFail', { status: error.detail ?? '' })
+      if (error.code === 'read')
+        return t('canvas.merge.unreadable', { n: error.detail ?? '' })
+      if (error.code === 'encode')
+        return t('canvas.merge.encodeFail')
+      if (error.code === 'browser')
+        return t('canvas.merge.browserOnly')
+    }
+    return error instanceof Error && error.message ? error.message : t('canvas.merge.fail')
+  }
+
+  async function saveBrowserCut(nodeId: string, blob: Blob, localUrl: string, filename: string) {
+    try {
+      const file = new File([blob], filename, { type: 'video/mp4' })
+      const asset = await uploadCutFile(file)
+      updateNodeData(nodeId, { content: asset.url, assetId: asset.id })
+      pushHistory()
+      window.setTimeout(() => URL.revokeObjectURL(localUrl), 2000)
+    }
+    catch {
+      notify(t('canvas.cut.uploadFail'))
+      throw new Error('cut-upload')
+    }
   }
 
   /** 高清报价 / 提交共用的源时长：节点参数 → 资产库 → 浏览器探测 */
@@ -516,6 +608,19 @@ export function useCanvasVideoTools(ctx: {
     if (!source)
       return
     await submitMediaJob(node, 'motion_capture', source, { resolution }, { label: '深度动作捕捉' })
+  }
+
+  async function uploadCutFile(file: File) {
+    let last = ''
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      const uploaded = await assetApi.upload(file)
+      if (uploaded?.success && uploaded.data?.url)
+        return uploaded.data
+      last = uploaded?.message || ''
+      if (attempt < 2)
+        await new Promise(resolve => window.setTimeout(resolve, 600 * (attempt + 1)))
+    }
+    throw new Error(last)
   }
 
   return {

@@ -11,6 +11,15 @@ const label = computed(() => {
   const current = progress.value
   if (!current)
     return ''
+  if (current.job === 'trim' || current.job === 'split') {
+    if (current.phase === 'loading')
+      return t('canvas.cut.loading')
+    if (current.phase === 'reading')
+      return t('canvas.cut.reading')
+    if (current.phase === 'uploading')
+      return t('canvas.cut.uploading')
+    return t(current.job === 'split' ? 'canvas.cut.splitting' : 'canvas.cut.trimming')
+  }
   if (current.phase === 'loading')
     return t('canvas.merge.loading')
   if (current.phase === 'reading') {

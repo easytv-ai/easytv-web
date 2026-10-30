@@ -3955,6 +3955,17 @@
       "label": "Film fusionné · {n} clips",
       "prompt": "Fusionner {n} vidéos dans l’ordre sélectionné"
     },
+    "cut": {
+      "loading": "Chargement de l’outil de découpe",
+      "reading": "Lecture de la vidéo",
+      "trimming": "Découpe du passage",
+      "splitting": "Division de la vidéo",
+      "uploading": "Envoi du résultat",
+      "busy": "Une vidéo est déjà en cours de traitement. Patientez",
+      "trimOk": "Passage découpé. Un nouveau nœud a été ajouté",
+      "splitOk": "Vidéo coupée en deux",
+      "uploadFail": "Le résultat est sur le canevas, mais l’envoi a échoué. Vérifiez le réseau et réessayez, sinon il disparaîtra au rafraîchissement."
+    },
     "align": {
       "menu": "Aligner",
       "left": "Aligner à gauche",

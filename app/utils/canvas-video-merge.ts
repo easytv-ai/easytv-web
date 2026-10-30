@@ -11,6 +11,8 @@ export type MergeVideoProgress = {
   progress: number
   index?: number
   total?: number
+  /** 同一套进度条：拼接、裁剪、分割文案不同 */
+  job?: 'merge' | 'trim' | 'split'
 }
 
 export type MergeVideoClip = {
@@ -158,6 +160,32 @@ export function mergeReadableUrl(url: string, pageOrigin: string) {
 /** 浏览器拼接的成片。已经有画面，不再走模型生成。 */
 export function isMergeResult(data: { content?: string, params?: Record<string, unknown> } | null | undefined) {
   return data?.params?.videoEditOperation === 'concat' && isMediaUrl(data.content)
+}
+
+/** ffmpeg 时间参数，固定小数点，避免本地化把点写成逗号 */
+export function ffmpegClock(seconds: number) {
+  const value = Number.isFinite(seconds) ? Math.max(0, seconds) : 0
+  return value.toFixed(3)
+}
+
+/**
+ * 按时间裁一段。-ss / -to 放在 -i 前面，先跳到附近再转码。
+ * 没有音轨时第二次去掉音频。
+ */
+export function trimVideoArgs(input: string, output: string, start: number, end: number, withAudio: boolean) {
+  const args = [
+    '-ss', ffmpegClock(start),
+    '-to', ffmpegClock(end),
+    '-i', input,
+    '-c:v', 'libx264',
+    '-preset', 'veryfast',
+  ]
+  if (withAudio)
+    args.push('-c:a', 'aac')
+  else
+    args.push('-an')
+  args.push('-movflags', '+faststart', output)
+  return args
 }
 
 /** 成片落在最右侧视频的右边，顶边对齐最上面一段 */

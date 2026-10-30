@@ -169,9 +169,12 @@ const AUDIO_MEDIA_ITEMS = [
   { id: 'remove-silence', label: '去停顿', icon: 'i-lucide-scissors-line-dashed' },
 ] as const
 
+/** 片段裁剪、视频分割在浏览器里用 ffmpeg 完成，不看服务端清单 */
+const BROWSER_VIDEO_ITEMS = new Set(['clip-cut', 'video-split'])
+
 /** 清单拉到后，未开通的媒体动作从工具条拿掉，避免点了只看到「暂未开放」 */
 const visibleVideoItems = computed(() => VIDEO_ITEMS.filter(item => videoItemState(item.id).available))
-const visibleVideoEditItems = computed(() => VIDEO_EDIT_ITEMS.filter(item => videoItemState(item.id).available))
+const visibleVideoEditItems = computed(() => VIDEO_EDIT_ITEMS.filter(item => BROWSER_VIDEO_ITEMS.has(item.id) || videoItemState(item.id).available))
 const visibleAudioMediaItems = computed(() => AUDIO_MEDIA_ITEMS.filter(item => videoItemState(item.id).available))
 
 const TEXT_BG_COLORS = ['#ffffff', ...GROUP_COLORS]
