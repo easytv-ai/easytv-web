@@ -1,4 +1,4 @@
-/** 创作域实体类型，与 easytv-api/API.md 一一对应。 */
+/** 创作域实体类型，与后端接口一一对应。 */
 
 export type ApiResponse<T = unknown> = {
   success: boolean

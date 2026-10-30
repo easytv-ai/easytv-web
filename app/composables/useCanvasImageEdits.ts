@@ -352,7 +352,7 @@ async function runVideoPromptReverse(
   })
 }
 
-/** 反推提示词：图片一段词；视频抽多帧 → Timestamped prompts（对齐 OiiOii） */
+/** 反推提示词：图片一段词；视频抽多帧，按时间戳分段 */
 async function runPromptReverse() {
   const from = selected.value
   if (!from || !isContentNode(from) || reverseBusy.value)

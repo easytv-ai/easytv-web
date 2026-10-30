@@ -1,4 +1,4 @@
-/** 与 @lobehub/icons-static-svg 包版本保持一致（管理端 lobeIcon.ts 同一套） */
+/** 与 @lobehub/icons-static-svg 包版本保持一致 */
 const LOBE_ICON_STATIC_VERSION = '1.91.0'
 
 const LOBE_ICON_CDN_BASES = [
@@ -28,7 +28,7 @@ export function isExternalIconUrl(icon: string | null | undefined): boolean {
 }
 
 /**
- * 对齐管理端 getLobeIconSlugCandidates：
+ * 图标名转文件名：
  * ByteDance.Color → bytedance-color.svg，再回退 bytedance.svg
  * OpenAI.Color → openai.svg（没有 openai-color）
  */

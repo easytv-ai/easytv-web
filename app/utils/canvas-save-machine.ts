@@ -60,6 +60,11 @@ export function beginSave(m: SaveMachine): SaveMachine {
   return { ...m, inFlight: true, inFlightRevision: m.dirtyRevision }
 }
 
+/** 保存还没发出去就停掉（超限、用户取消清空）。不记成保存失败。 */
+export function releaseSave(m: SaveMachine): SaveMachine {
+  return { ...m, inFlight: false }
+}
+
 export function finishSave(m: SaveMachine, outcome: SaveOutcome): SaveMachine {
   const next: SaveMachine = { ...m, inFlight: false }
   if (outcome === 'ok') {
@@ -120,7 +125,7 @@ export function isSuspiciousWipe(baselineNodes: number, nextNodes: number) {
   return baselineNodes >= WIPE_GUARD_MIN_NODES && nextNodes <= WIPE_GUARD_MAX_LEFT
 }
 
-/** 后端乐观锁冲突没有错误码，只有这句话（easytv-api model.ErrCanvasVersionConflict） */
+/** 后端乐观锁冲突没有错误码，只有「已在其他地方修改」这句话 */
 export function isCanvasVersionConflictMessage(message: unknown) {
   return typeof message === 'string' && /已在其他地方修改/.test(message)
 }

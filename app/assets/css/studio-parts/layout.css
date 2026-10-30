@@ -1498,7 +1498,7 @@ html.dark .studio-chip--gold.is-on {
   gap: 28px 20px;
 }
 
-/* 即梦式卡片：封面 + 常驻底色信息区，悬停不变色、不放大 */
+/* 作品卡片：封面 + 常驻底色信息区，悬停不变色、不放大 */
 .show-card {
   position: relative;
   z-index: 0;

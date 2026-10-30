@@ -3934,6 +3934,27 @@
       "tag": "Assemblage",
       "label": "Film · {n} clips"
     },
+    "merge": {
+      "action": "Fusionner les vidéos sélectionnées ({n})",
+      "running": "Fusion en cours",
+      "loading": "Chargement de l’outil de fusion",
+      "reading": "Lecture de la vidéo {n}/{total}",
+      "encoding": "Fusion des vidéos",
+      "uploading": "Envoi de la vidéo fusionnée",
+      "needTwo": "Sélectionnez au moins deux vidéos",
+      "locked": "Un nœud est verrouillé. Déverrouillez-le avant de fusionner",
+      "fail": "Échec de la fusion vidéo",
+      "loadFail": "L’outil de fusion n’a pas pu se charger. Actualisez la page et réessayez",
+      "fetchFail": "Échec du téléchargement de la vidéo ({status})",
+      "uploadFail": "La vidéo fusionnée est sur le canevas, mais l'envoi a échoué. Vérifiez le réseau et fusionnez à nouveau, sinon elle disparaîtra au rafraîchissement.",
+      "unreadable": "Impossible de lire la vidéo {n}",
+      "encodeFail": "Échec de l’encodage. Vérifiez que les vidéos sont compatibles",
+      "browserOnly": "La fusion vidéo ne fonctionne que dans le navigateur",
+      "ok": "{n} vidéos fusionnées, le nœud a été ajouté",
+      "tag": "Fusion",
+      "label": "Film fusionné · {n} clips",
+      "prompt": "Fusionner {n} vidéos dans l’ordre sélectionné"
+    },
     "align": {
       "menu": "Aligner",
       "left": "Aligner à gauche",

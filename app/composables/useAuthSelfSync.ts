@@ -5,7 +5,7 @@ import { getAccessToken } from '~/utils/auth-user'
 import { isSessionExpiredResponse } from '~/utils/auth-session-expired'
 import { readSettingAvatar } from '~/utils/user-setting'
 
-/** 与密码登录一致，仅持久化这些字段到 easyapi_auth_user */
+/** 与密码登录一致，只把这些字段写入本地登录缓存 */
 const AUTH_USER_PERSIST_FIELDS = [
   'id',
   'username',

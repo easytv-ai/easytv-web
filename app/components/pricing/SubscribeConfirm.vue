@@ -56,7 +56,7 @@ async function fetchQuote() {
   }
 }
 
-/** 支付方式跟 easyapi 一样走充值配置接口，后台开了哪些就展示哪些 */
+/** 支付方式走充值配置接口，后台开了哪些就展示哪些 */
 async function fetchPayMethods() {
   payLoading.value = true
   try {

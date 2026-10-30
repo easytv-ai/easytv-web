@@ -6,13 +6,21 @@ node_modules
 dist
 .env
 .env.*
-!.env.development
-!.env.production
+!.env.example
 .DS_Store
 .seo-*.log
+
+# 内部调研与代理笔记，不随开源仓库发布
+.zcode/
+.agent/
+docs/oiioii-新手跟练交互契约.md
+docs/3D场景预演与新管线调研.md
+docs/工作流趋势与技术集成.md
+docs/跟练课程与交互升级.md
+docs/跟练升级交付报告.md
+docs/跟练与三件套验收记录.md
 
 # wrangler files
 .wrangler
 .dev.vars*
 !.dev.vars.example
-!.env.example

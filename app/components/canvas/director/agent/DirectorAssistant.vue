@@ -3,7 +3,7 @@
  * AI 导演助手（复刻自 open-director 的 DirectorAssistantPanel.tsx，MIT）。
  *
  * 和上游最大的区别是不让用户自带 API Key。上游把 baseUrl / apiKey / model
- * 存在 localStorage 里直连模型厂商；我们统一走 EasyAPI 网关：
+ * 存在 localStorage 里直连模型厂商；我们统一走自己的模型网关：
  * POST /user/ai-chat + 轮询 GET /user/task/:id。次数和画布「结合画布」对话共用，
  * 由服务端写免费标记，客户端不能自报。指令仍在本地解析执行。
  *

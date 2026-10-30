@@ -32,6 +32,8 @@ export type CanvasMediaSpawnLayout = {
   select?: boolean
   /** 默认从源节点连一条边。深度提取这类结果不连线 */
   link?: boolean
+  /** false：结果落在画布根上，不跟源节点进同一个组 */
+  parent?: boolean
 }
 
 /**
@@ -144,7 +146,7 @@ export function useCanvasMediaJobs(opts: {
         ...layout.data,
       },
     }
-    if (from.parentNode) {
+    if (from.parentNode && layout.parent !== false) {
       sibling.parentNode = from.parentNode
       sibling.extent = 'parent'
       sibling.expandParent = true

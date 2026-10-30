@@ -5,7 +5,7 @@
  * 口径（都能在仓库里对上，改之前先确认线上一致）：
  * - 平台规格的 ratio / resolution 取自 Inspector 的 RATIO_ITEMS / VIDEO_RES_ITEMS（非法值会被回落），
  *   与 `canvas-workflow-presets.ts` 的 `platform` 同形。
- * - 3:4 是**降级**规格：出图侧 `imageSizeFor`（easytv-api service/providers/easyapi.go）按方向分桶，
+ * - 3:4 是**降级**规格：出图侧按方向分桶，
  *   3:4 与 9:16 同落 portrait（2K 时都是 1440x2560）；合成侧 `composeOutputSize` 只认 9:16 / 1:1，
  *   其余回落 16:9。所以这条规格在 UI 上必须注明「出图与合成都不严格 3:4，要严格 3:4 得后期裁切」。
  * - 派生节点沿用源节点的模型与提示词（多语言时用译文）；产物清空，等生成。

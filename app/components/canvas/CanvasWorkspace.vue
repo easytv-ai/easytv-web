@@ -84,6 +84,7 @@ import { useCanvasImageEdits } from '~/composables/useCanvasImageEdits'
 import { useCanvasVideoTools } from '~/composables/useCanvasVideoTools'
 import { useCanvasMatrix } from '~/composables/useCanvasMatrix'
 import { useCanvasCompose } from '~/composables/useCanvasCompose'
+import { useCanvasVideoMerge } from '~/composables/useCanvasVideoMerge'
 import { useCanvasRunQueue } from '~/composables/useCanvasRunQueue'
 import { useTaskActivity } from '~/composables/useTaskActivity'
 import type { MatrixPlan, MatrixSource } from '~/utils/canvas-matrix'
@@ -92,6 +93,8 @@ import { gridPresetById, gridPresetPatch, gridPresetsFor } from '~/utils/canvas-
 import { montageOrder, montageReady, type MontageSource } from '~/utils/canvas-montage'
 import { audioKindParams, audioKindTag, audioMoodPrompt, isPreferredComposeBgm } from '~/utils/canvas-audio'
 import { composeClipDuration, composeGuessAspect, composeOrder, composeReady, type ComposeAudioSource, type ComposeOptions, type ComposeSource } from '~/utils/canvas-compose'
+import { isMergeResult, mergeShotIndex, mergeVideoOrder } from '~/utils/canvas-video-merge'
+import { flushMergeUploads } from '~/utils/canvas-merge-state'
 import { subtitleSourceNodes } from '~/utils/timeline'
 import { parseStyleExtract, styleExtractInstruction } from '~/utils/canvas-style-extract'
 import { dedupeRefNames, type RefCandidate } from '~/utils/canvas-autolink'
@@ -128,6 +131,7 @@ import { canvasCenterFlowPoint, canvasClampMenu, canvasOrganizePositions } from 
 import CanvasEmpty from '~/components/canvas/CanvasEmpty.vue'
 import CanvasToolsRail from '~/components/canvas/CanvasToolsRail.vue'
 import CanvasDock from '~/components/canvas/CanvasDock.vue'
+import CanvasMergeToast from '~/components/canvas/CanvasMergeToast.vue'
 import {
   buildWorkflowGraph,
   defaultWorkflowName,
@@ -462,6 +466,9 @@ const showInspector = computed(() => {
     return false
   // 高清 / 逐帧拉片节点用专用参数面板，不走普通 Inspector
   if (isHdNode(node.data) || isFramePullNode(node.data) || isDepthMotionNode(node.data))
+    return false
+  // 浏览器拼接的成片已经是视频，不再弹出模型生成栏
+  if (isMergeResult(node.data))
     return false
   return !barMode.value || barMode.value === 'text' || barMode.value === 'image' || barMode.value === 'video' || barMode.value === 'audio'
 })
@@ -1564,6 +1571,10 @@ function onFlowElementsChange(changes: Array<NodeChange | EdgeChange>) {
   })
 }
 
+function hasBlobMedia() {
+  return nodes.value.some(node => isContentNode(node) && String(node.data.content || '').startsWith('blob:'))
+}
+
 /** 导出当前画布（供页面保存）：摘掉 Vue Flow 运行时拷贝和 data URL，参考线只留两端 id。 */
 function getGraph(): CanvasGraph {
   return sanitizeGraphForSave({
@@ -2290,6 +2301,26 @@ const composeAvailable = computed(() => {
     return false
   return mediaActionIfListed(mediaActions.value, 'compose').available
 })
+
+/** 浏览器拼接：至少两段已经有画面的视频，不看合成接口开没开 */
+const mergeClipList = computed(() => {
+  const picked = selectedNodes.value.filter(isContentNode).filter(node => node.data.kind === 'video' && nodeMediaUrl(node))
+  return mergeVideoOrder(picked.map((node) => {
+    const abs = absPosition(node, nodes.value)
+    const size = nodeSize(node)
+    return {
+      id: node.id,
+      url: nodeMediaUrl(node),
+      x: abs.x,
+      y: abs.y,
+      w: size.w,
+      h: size.h,
+      shotIndex: mergeShotIndex(node.data),
+      parentId: node.parentNode,
+    }
+  }))
+})
+const mergeReady = computed(() => mergeClipList.value.length >= 2)
 const composeAudioSources = computed(() => {
   const out: ComposeAudioSource[] = []
   for (const node of nodes.value) {
@@ -3602,6 +3633,21 @@ function onSelAction(name: string) {
     composeOpen.value = true
     return
   }
+  if (name === 'merge-videos') {
+    const clips = mergeClipList.value
+    if (clips.length < 2) {
+      notify(t('canvas.merge.needTwo'), 'error')
+      return
+    }
+    if (clips.some(item => nodeLocked(findNode(item.id) as CanvasFlowNode | undefined))) {
+      notify(t('canvas.merge.locked'), 'error')
+      return
+    }
+    if (!canEditCanvas('放入'))
+      return
+    void mergeSelectedVideos(clips)
+    return
+  }
   if (name.startsWith('align-') || name.startsWith('distribute-')) {
     applySelectionAlign(name)
     return
@@ -4155,6 +4201,18 @@ const hdCost = computed(() => {
   if (!model)
     return undefined
   return estimateSpend(model, { duration: estimateSecondDuration(hdSourceSeconds.value) }) || undefined
+})
+
+const { running: mergeRunning, mergeClips: mergeSelectedVideos } = useCanvasVideoMerge({
+  nodes,
+  findNode: id => findNode(id) as CanvasFlowNode | undefined,
+  spawnMediaNode,
+  addEdges: edge => addEdges({ ...edge, ...defaultEdgeOptions } as any),
+  updateNodeData,
+  pushHistory,
+  notify,
+  t: tx,
+  blocked: () => practiceLocked.value,
 })
 
 const { run: composeRun, submit: submitCompose, resume: composeResume } = useCanvasCompose({
@@ -4762,7 +4820,7 @@ function openStyleLibrary(target: '' | 'extend' | 'chat' = '') {
   styleLibOpen.value = true
 }
 
-defineExpose({ getGraph, loadGraph, addNodeAtCenter, insertTextNode, insertImageNodes, insertAudioNodes, insertVideoNodes, resetBriefPlaced, generateBriefPlaced, estimateBriefPlaced, placeBriefVideos, composeBrief, pickAssetFromChat, addAssetNodeAtCenter, selectionLabels, assistContext, applyAssistChanges, undoAssistChanges, openStyleLibrary, refreshRunQueue, locateNode, commentNodeHint })
+defineExpose({ getGraph, loadGraph, flushMergeUploads, hasBlobMedia, addNodeAtCenter, insertTextNode, insertImageNodes, insertAudioNodes, insertVideoNodes, resetBriefPlaced, generateBriefPlaced, estimateBriefPlaced, placeBriefVideos, composeBrief, pickAssetFromChat, addAssetNodeAtCenter, selectionLabels, assistContext, applyAssistChanges, undoAssistChanges, openStyleLibrary, refreshRunQueue, locateNode, commentNodeHint })
 
 function commentNodeHint(nodeId: string) {
   return canvasCommentNodeHint(nodes.value, nodeId, t)
@@ -6339,6 +6397,8 @@ const styleLibValue = computed(() => {
       @pick="onBoardNodePick"
     />
 
+    <CanvasMergeToast />
+
     <CanvasSelBar
       v-if="overlay && barMode && !practiceLocked && !showHelp && !smartEditOpen && !depthOpen && !lightOpen && !angleOpen && !cropOpen && !eraseOpen && !mattingOpen && !viralOpen && !outpaintOpen && !flipOpen && !markOpen && !extendStudioOpen && !extendStripOpen && !clipStripOpen"
       :mode="barMode"
@@ -6357,6 +6417,9 @@ const styleLibValue = computed(() => {
       :font-size="barMode === 'text' && selected && isContentNode(selected) ? (selected.data.fontSize || 16) : 16"
       :montage-ready="barMode === 'pick' && montageAvailable"
       :compose-ready="barMode === 'pick' && composeAvailable"
+      :merge-ready="barMode === 'pick' && mergeReady"
+      :merge-count="mergeClipList.length"
+      :merging-videos="mergeRunning"
       :locked="selectionLocked"
       @action="onSelAction"
       @unavailable="onBarUnavailable"

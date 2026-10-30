@@ -19,4 +19,4 @@
 * app/pages/**/components 里面的组件命名规则，例如：/app/pages/product/components/category-edit.vue，/app/pages/company/components/edit.vue
 * 当页面中包括弹框等独立模块功能时，请提取组件，放到当前目录的components里面
 * 样式表基于 tailwindcss 编写
-* 页面配色与组件样式统一使用 `app/assets/css/main.css` 中的 `--ea-*` token 与 `.ea-*` 工具类，详见 `DESIGN-SYSTEM.md`
+* 页面配色与组件样式统一使用 `app/assets/css/main.css` 中的 `--ea-*` token 与 `.ea-*` 工具类，详见 `DESIGN.md`

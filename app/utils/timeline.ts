@@ -166,7 +166,7 @@ export type TimelineSaveOutcome = 'ok' | 'error' | 'conflict' | 'locked'
 
 /**
  * 保存结果分类（API.md 24.4 / 25.6）：后端乐观锁冲突与定版锁都没有错误码，只有这句话
- * （easytv-api model.ErrTimelineVersionConflict / ErrTimelineLocked）。
+ * （版本冲突 / 已定版锁定）。
  * 冲突要停掉自动保存等用户选，锁住要切到定版态，其它失败保留草稿等重试。
  */
 export function timelineSaveOutcome(res: { success?: boolean, message?: string } | null | undefined): TimelineSaveOutcome {

@@ -21,6 +21,7 @@ import { beginSave,
   isSuspiciousWipe,
   markChanged,
   needsFollowUp,
+  releaseSave,
   resolveConflict,
   saveStatus,
   autosaveDelayMs,
@@ -485,9 +486,25 @@ async function runSave(manual: boolean) {
   // 自动保存只在确有改动时发；手动保存没改动也发（新建画布 / 记一条版本快照）
   if (!manual && !hasPendingChanges(saveMachine.value))
     return
-  const graph = workspace.value?.getGraph()
-  if (!graph)
+  saveMachine.value = beginSave(saveMachine.value)
+  try {
+    await workspace.value?.flushMergeUploads()
+  }
+  catch {
+    saveMachine.value = finishSave(saveMachine.value, 'error')
     return
+  }
+  if (workspace.value?.hasBlobMedia()) {
+    if (manual)
+      notify(t('canvas.merge.uploadFail'), 'error')
+    saveMachine.value = finishSave(saveMachine.value, 'error')
+    return
+  }
+  const graph = workspace.value?.getGraph()
+  if (!graph) {
+    saveMachine.value = releaseSave(saveMachine.value)
+    return
+  }
   // graph 2MB 硬上限（API.md 1.2）：超了后端会拒，这里先拦并说明原因
   if (isGraphOverLimit(graph)) {
     if (manual || !graphSizeWarned) {
@@ -495,6 +512,7 @@ async function runSave(manual: boolean) {
       const names = graphHeavyNames(graph)
       notify(names ? t('canvas.graph.tooLargeDetail', { names }) : t('canvas.graph.tooLarge'), 'error')
     }
+    saveMachine.value = releaseSave(saveMachine.value)
     return
   }
   graphSizeWarned = false
@@ -515,6 +533,7 @@ async function runSave(manual: boolean) {
         wipeWarned = true
         notify(t('画布几乎空了，已暂停自动保存；确定要清空请手动保存'), 'error')
       }
+      saveMachine.value = releaseSave(saveMachine.value)
       return
     }
     const ok = await confirm({
@@ -522,14 +541,15 @@ async function runSave(manual: boolean) {
       confirmText: t('清空并保存'),
       danger: true,
     })
-    if (!ok)
+    if (!ok) {
+      saveMachine.value = releaseSave(saveMachine.value)
       return
+    }
   }
   clearAutosave()
   const snapshot = manual
   const keepHistoryPin = keepHistoryPinOnce
   keepHistoryPinOnce = false
-  saveMachine.value = beginSave(saveMachine.value)
   const name = draftName.value.trim() || t('未命名草稿')
   let outcome: SaveOutcome = 'ok'
   try {

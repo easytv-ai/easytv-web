@@ -22,7 +22,7 @@ export type GridCell = {
   h: number
 }
 
-/** 一次最多切这么多片：25 宫格是 LibTV 的上限，再多画布上也摆不下 */
+/** 一次最多切这么多片，再多画布上也摆不下 */
 export const GRID_SPLIT_MAX = 25
 /** 每格最小边长（占全图比例），拖分割线时不许压过这个值 */
 export const GRID_MIN_CELL = 0.04

@@ -12,7 +12,7 @@ const PUBLIC_PATHS = ['/agent', '/studio', '/pricing', '/legal/terms', '/legal/p
 
 export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig()
-  const siteUrl = String(config.public.siteUrl || 'https://www.easytv.ai').replace(/\/$/, '')
+  const siteUrl = String(config.public.siteUrl || 'http://localhost:3005').replace(/\/$/, '')
   const apiBase = String(config.public.apiBaseUrl || '').replace(/\/$/, '')
   const now = new Date().toISOString()
 

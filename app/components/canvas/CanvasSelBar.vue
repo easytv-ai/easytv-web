@@ -5,6 +5,7 @@ import { GROUP_COLORS, GROUP_LAYOUTS } from '~/utils/canvas-group'
 import { pickCanvasImageEditModel, pickImageUpscaleModel, pickVisionTextModel } from '~/utils/image-input'
 import { effectiveUnitPrice, estimateTaskPoints } from '~/utils/model-price'
 import { mediaBarItemState } from '~/utils/canvas-media-job'
+import { fillI18n } from '~/utils/i18n-fill'
 
 const { t } = useI18n()
 const { isMember } = useWallet()         
@@ -70,6 +71,12 @@ const props = withDefaults(defineProps<{
   montageReady?: boolean
   /** 多选的都是已出片的视频节点（2~24 段）时才露出「合成一条」 */
   composeReady?: boolean
+  /** 多选里至少两段已有画面的视频时露出「合并选中视频」 */
+  mergeReady?: boolean
+  /** 参与拼接的视频段数 */
+  mergeCount?: number
+  /** 浏览器拼接进行中：按钮转圈并禁用 */
+  mergingVideos?: boolean
   /** 选中的组是分镜组时的列数（0 = 普通组），列数控件替代排序下拉 */
   storyboardCols?: number
   /** 分镜组里子节点数：列数上限 */
@@ -84,6 +91,9 @@ const props = withDefaults(defineProps<{
   fontSize: 16,
   montageReady: false,
   composeReady: false,
+  mergeReady: false,
+  mergeCount: 0,
+  mergingVideos: false,
   storyboardCols: 0,
   storyboardMax: 1,
   locked: false,
@@ -92,6 +102,11 @@ const props = withDefaults(defineProps<{
 /** 与 Workspace scaleTextNode 同一上下限 */
 const TEXT_FONT_MIN = 10
 const TEXT_FONT_MAX = 48
+
+const mergeLabel = computed(() => {
+  const vars = { n: props.mergeCount }
+  return fillI18n(String(t('canvas.merge.action', vars)), vars)
+})
 
 const shrinkDisabled = computed(() => (props.fontSize || 16) <= TEXT_FONT_MIN)
 const growDisabled = computed(() => (props.fontSize || 16) >= TEXT_FONT_MAX)
@@ -424,6 +439,19 @@ function toggleVideoEdit() {
       <button v-if="composeReady" type="button" @click="emit('action', 'compose')">
         <UIcon name="i-lucide-clapperboard" class="size-4" />
         {{ t('canvas.compose.title') }}
+      </button>
+      <button
+        v-if="mergeReady || mergingVideos"
+        type="button"
+        :disabled="mergingVideos"
+        @click="emit('action', 'merge-videos')"
+      >
+        <UIcon
+          :name="mergingVideos ? 'i-lucide-loader-circle' : 'i-lucide-film'"
+          class="size-4"
+          :class="{ 'canvas-selbar__spin': mergingVideos }"
+        />
+        {{ mergingVideos ? t('canvas.merge.running') : mergeLabel }}
       </button>
       <div class="canvas-selbar__color-wrap">
         <button type="button" :class="{ 'is-on': layoutOpen }" @click="toggleLayout">

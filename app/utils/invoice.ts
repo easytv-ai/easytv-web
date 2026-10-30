@@ -1,7 +1,7 @@
 /**
  * 发票（设置 · 发票）的纯函数：发票平台返回值解析、状态 / 票种展示、金额与申请表单校验。
  *
- * 发票平台（EasyAPI 发票开放平台）由浏览器持 accessToken 直调，
+ * 发票平台由浏览器持 accessToken 直调，
  * 返回 {code, message, content, last, totalElements}：code=1 成功，0 暂无数据，<0 出错。
  * 文案一律返回中文原文，组件里再 t() 翻译（key 即中文原文）。
  */

@@ -101,7 +101,7 @@ export type PromptReverseFrameHint = {
 }
 
 /**
- * 视频反推（OiiOii 风格 Timestamped prompts）：
+ * 视频反推（按时间戳分段的提示词）：
  * 多张按时间抽取的帧 + 时间轴说明 → 按镜头切段的提示词列表。
  */
 export function promptReverseVideoInstruction(locale: string | undefined, frames: PromptReverseFrameHint[], durationSec: number) {

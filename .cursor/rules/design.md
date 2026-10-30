@@ -1,6 +1,6 @@
 # 设计规范（Cursor 规则）
 
-编写 UI 代码前请阅读 **`DESIGN-SYSTEM.md`**，视觉参考 [OpenRouter](https://openrouter.ai/)，品牌主色 EasyAPI 青 `#18c1d6`。
+编写 UI 代码前请阅读 **`DESIGN.md`**，品牌主色青 `#18c1d6`。
 
 ## Token 与样式
 

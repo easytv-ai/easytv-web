@@ -3934,6 +3934,27 @@
       "tag": "Ghép",
       "label": "Thành phẩm {n} đoạn"
     },
+    "merge": {
+      "action": "Ghép các video đã chọn ({n})",
+      "running": "Đang ghép",
+      "loading": "Đang tải công cụ ghép",
+      "reading": "Đang đọc video ({n}/{total})",
+      "encoding": "Đang ghép video",
+      "uploading": "Đang tải video đã ghép lên",
+      "needTwo": "Hãy chọn ít nhất hai video",
+      "locked": "Có nút đang khóa. Hãy mở khóa rồi ghép",
+      "fail": "Ghép video thất bại",
+      "loadFail": "Không tải được công cụ ghép. Hãy tải lại trang rồi thử lại",
+      "fetchFail": "Không tải được video ({status})",
+      "uploadFail": "Video đã ghép nằm trên canvas, nhưng tải lên thất bại. Hãy kiểm tra mạng rồi ghép lại, nếu không làm mới trang sẽ mất.",
+      "unreadable": "Không đọc được video thứ {n}",
+      "encodeFail": "Mã hóa thất bại. Hãy kiểm tra định dạng video",
+      "browserOnly": "Ghép video chỉ chạy trên trình duyệt",
+      "ok": "Đã ghép {n} video và thêm nút mới",
+      "tag": "Ghép",
+      "label": "Bản ghép · {n} đoạn",
+      "prompt": "Ghép {n} video theo thứ tự đã chọn"
+    },
     "align": {
       "menu": "Căn chỉnh",
       "left": "Căn trái",

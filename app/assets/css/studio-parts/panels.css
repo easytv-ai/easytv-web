@@ -6029,7 +6029,7 @@ html.dark .canvas-agent__choice.is-on {
   border-color: rgba(239, 68, 68, 0.45);
 }
 
-/* 账号资料：对齐可灵 / 即梦 / LibTV，名字直接展示，点一下才编辑，其余是一行一项 */
+/* 账号资料：名字直接展示，点一下才编辑，其余是一行一项 */
 .settings-modal .settings-pane:has(.profile-sheet) {
   gap: 0;
 }

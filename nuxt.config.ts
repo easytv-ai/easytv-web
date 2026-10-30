@@ -81,7 +81,7 @@ export default defineNuxtConfig({
   i18n: {
     defaultLocale,
     strategy: 'prefix_except_default',
-    baseUrl: 'https://www.easytv.ai',
+    baseUrl: (globalThis as any).process?.env?.NUXT_PUBLIC_SITE_URL || 'http://localhost:3005',
     lazy: true,
     langDir: 'locales',
     locales: [
@@ -123,6 +123,8 @@ export default defineNuxtConfig({
         '@tresjs/cientos',
         '@tresjs/core',
       ],
+      // ffmpeg.wasm 的 worker 靠 import.meta.url 找 worker.js，预打包会把地址改丢
+      exclude: ['@ffmpeg/ffmpeg', '@ffmpeg/util', '@ffmpeg/core'],
       needsInterop: ['stats.js'],
     },
   },
@@ -137,8 +139,8 @@ export default defineNuxtConfig({
       defaultLocale,
       siteName: (globalThis as any).process?.env?.NUXT_PUBLIC_SITE_NAME || 'EasyTV',
       /** 站点公开地址：canonical、sitemap、OG 图片绝对地址都从这里拼 */
-      siteUrl: (globalThis as any).process?.env?.NUXT_PUBLIC_SITE_URL || 'https://www.easytv.ai',
-      apiBaseUrl: (globalThis as any).process?.env?.NUXT_PUBLIC_API_BASE_URL || 'https://tv-api.easyapi.com',
+      siteUrl: (globalThis as any).process?.env?.NUXT_PUBLIC_SITE_URL || 'http://localhost:3005',
+      apiBaseUrl: (globalThis as any).process?.env?.NUXT_PUBLIC_API_BASE_URL || 'http://localhost:3000',
     },
   },
   future: {

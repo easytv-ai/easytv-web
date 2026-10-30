@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { buildGridPrompt, GRID_PRESETS, gridPresetById, gridPresetPatch, gridPresetsFor } from './canvas-grid-presets'
 
 describe('GRID_PRESETS', () => {
-  it('对齐 LibTV 的九项清单', () => {
+  it('九项宫格预设都在', () => {
     expect(GRID_PRESETS.map(item => item.id)).toEqual([
       'multi-cam-9', 'story-4', 'storyboard-25', 'cine-light',
       'before-5s', 'after-3s', 'character-sheet', 'storyboard', 'blocking-board',

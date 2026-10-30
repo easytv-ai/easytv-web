@@ -1,5 +1,5 @@
 export default defineEventHandler((event) => {
-  const siteUrl = String(useRuntimeConfig().public.siteUrl || 'https://www.easytv.ai').replace(/\/$/, '')
+  const siteUrl = String(useRuntimeConfig().public.siteUrl || 'http://localhost:3005').replace(/\/$/, '')
 
   setHeader(event, 'content-type', 'text/plain; charset=utf-8')
   setHeader(event, 'cache-control', 'public, max-age=3600')

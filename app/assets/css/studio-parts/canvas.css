@@ -1473,6 +1473,59 @@ html.dark .canvas-sel-layer__box {
   background: rgba(255, 255, 255, 0.04);
 }
 
+.canvas-merge-toast {
+  position: absolute;
+  left: 50%;
+  bottom: 28px;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: calc(100% - 32px);
+  padding: 8px 12px;
+  border: 1px solid var(--st-float-border);
+  border-radius: 999px;
+  background: var(--st-float);
+  box-shadow: var(--st-shadow);
+  color: var(--st-fg, inherit);
+  font-size: 13px;
+  line-height: 1;
+  white-space: nowrap;
+  pointer-events: none;
+  transform: translateX(-50%);
+}
+
+.canvas-merge-toast__spin {
+  animation: canvas-merge-spin 0.8s linear infinite;
+}
+
+.canvas-merge-toast__pct {
+  font-variant-numeric: tabular-nums;
+  opacity: 0.7;
+}
+
+.canvas-merge-toast__bar {
+  width: 88px;
+  height: 4px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: color-mix(in srgb, currentColor 16%, transparent);
+}
+
+.canvas-merge-toast__bar > i {
+  display: block;
+  height: 100%;
+  background: currentColor;
+}
+
+.canvas-selbar__spin {
+  animation: canvas-merge-spin 0.8s linear infinite;
+}
+
+@keyframes canvas-merge-spin {
+  to { transform: rotate(360deg); }
+}
+
 .canvas-selbar {
   position: absolute;
   left: 50%;

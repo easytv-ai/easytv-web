@@ -3959,6 +3959,27 @@
       "tag": "Compose",
       "label": "Cut · {n} clips"
     },
+    "merge": {
+      "action": "Merge selected videos ({n})",
+      "running": "Merging",
+      "loading": "Loading the merge tool",
+      "reading": "Reading video {n} of {total}",
+      "encoding": "Merging videos",
+      "uploading": "Uploading the merged video",
+      "needTwo": "Select at least two videos",
+      "locked": "A selected node is locked. Unlock it before merging",
+      "fail": "Could not merge the videos",
+      "loadFail": "The merge tool failed to load. Refresh the page and try again",
+      "fetchFail": "Could not download a video ({status})",
+      "uploadFail": "The merged video is on the canvas, but the upload failed. Check the network and merge again, or it will disappear after a refresh.",
+      "unreadable": "Could not read video {n}",
+      "encodeFail": "Encoding failed. Check that the videos use a compatible format",
+      "browserOnly": "Video merge only runs in the browser",
+      "ok": "Merged {n} videos into a new node",
+      "tag": "Merged",
+      "label": "Merged · {n} clips",
+      "prompt": "Merge {n} videos in the selected order"
+    },
     "align": {
       "menu": "Align",
       "left": "Align left",

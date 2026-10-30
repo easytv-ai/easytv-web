@@ -14,14 +14,14 @@
  */
 
 /**
- * 设计系统：OpenRouter 布局 + EasyAPI 品牌色（详见 /DESIGN-SYSTEM.md）。
+ * 设计令牌：中性色用 Slate 灰阶，主色用品牌青。
  * - 中性色：Slate 灰阶，避免纯黑 (#000)
- * - 主色：EasyAPI 青 #18c1d6（favicon 品牌色）
+ * - 主色：品牌青 #18c1d6（favicon 品牌色）
  * - 字体：Geist Variable / Inter / 系统 sans
  * - 原则：白底、细边框、轻阴影、品牌色点缀 CTA / 链接
  */
 @theme {
-  /* —— 中性色：Slate 灰阶（OpenRouter 风格，偏亮） —— */
+  /* —— 中性色：Slate 灰阶（偏亮） —— */
   --color-neutral-50: #f8fafc;
   --color-neutral-100: #f1f5f9;
   --color-neutral-200: #e2e8f0;
@@ -69,7 +69,7 @@
   --color-gray-900: #0f172a;
   --color-gray-950: #020617;
 
-  /* —— 主色：EasyAPI 品牌青（全程 cyan，避免混入 teal 绿） —— */
+  /* —— 主色：品牌青（全程 cyan，避免混入 teal 绿） —— */
   --color-primary-50: #ecfeff;
   --color-primary-100: #cffafe;
   --color-primary-200: #a5f3fc;
@@ -233,7 +233,7 @@
   --ea-text-stone: #94a3b8;
   --ea-text-dimmed: #94a3b8;
 
-  /* 品牌主色（EasyAPI favicon #18c1d6） */
+  /* 品牌主色（favicon #18c1d6） */
   --ea-brand: #18c1d6;
   --ea-primary: #18c1d6;
   --ea-brand-hover: #0eaeb8;

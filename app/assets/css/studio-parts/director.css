@@ -272,7 +272,7 @@
   font-size: 11px;
 }
 
-/* ===== 导演台 Vue 版（复刻中；画布里跑的仍是 public/director/ 的 iframe） ===== */
+/* ===== 导演台 Vue 版（画布里跑的仍是 public/director/ 的 iframe） ===== */
 .director-page {
   display: flex;
   flex-direction: column;

@@ -13,6 +13,7 @@ import {
   isCanvasVersionConflictMessage,
   markChanged,
   needsFollowUp,
+  releaseSave,
   resolveConflict,
   saveStatus,
   isSuspiciousWipe,
@@ -37,6 +38,10 @@ describe('canvas save machine', () => {
     expect(canAutoSave(m)).toBe(true)
     m = beginSave(m)
     expect(saveStatus(m)).toBe('saving')
+    m = releaseSave(m)
+    expect(saveStatus(m)).toBe('dirty')
+    expect(m.failed).toBe(false)
+    m = beginSave(m)
     expect(canAutoSave(m)).toBe(false)
     m = finishSave(m, 'ok')
     expect(saveStatus(m)).toBe('saved')
