@@ -4,6 +4,7 @@
  * 语言、主题也收在这里，顶栏只留高频操作。
  */
 import usageApi, { type UsageView } from '~/api/usage'
+import type { SettingsTab } from '~/composables/useSettingsModal'
 
 const { t } = useI18n()
 const localePath = useLocalePath()
@@ -11,6 +12,7 @@ const route = useRoute()
 const { user, logout } = useAuth()
 const { wallet, balance, isMember, membership, openWallet } = useWallet()
 const { gotoPricing } = usePricingModal()
+const { openSettings } = useSettingsModal()
 const { confirm } = useConfirm()
 const { activeCount } = useTaskActivity()
 const { isDark, setTheme } = useTheme()
@@ -103,6 +105,12 @@ function go(path: string, query?: Record<string, string>) {
   void navigateTo(localePath({ path, query }))
 }
 
+function onSettings(tab: SettingsTab) {
+  open.value = false
+  switcherOpen.value = false
+  openSettings(tab)
+}
+
 function startGuide() {
   open.value = false
   // 新手跟练（回放式）：画布外的入口用 useState 通知 workspace 起会话；
@@ -142,15 +150,15 @@ async function onLogout() {
 
 const menuItems = computed(() => [
   { key: 'guide', label: t('新手跟练'), icon: 'i-lucide-list', action: startGuide },
-  { key: 'profile', label: t('个人中心'), icon: 'i-lucide-user-round', action: () => go('/settings', { tab: 'profile' }) },
+  { key: 'profile', label: t('个人中心'), icon: 'i-lucide-user-round', action: () => onSettings('profile') },
   { key: 'home', label: t('我的主页'), icon: 'i-lucide-clapperboard', action: () => go(`/author/${userId.value}`) },
-  { key: 'invite', label: t('settings.invite.title'), icon: 'i-lucide-gift', action: () => go('/settings', { tab: 'invite' }) },
-  { key: 'creator', label: t('创作者中心'), icon: 'i-lucide-badge-dollar-sign', action: () => go('/settings', { tab: 'creator' }) },
-  { key: 'partner', label: t('创作伙伴计划'), icon: 'i-lucide-megaphone', action: () => go('/settings', { tab: 'partner' }) },
-  { key: 'partner-program', label: t('渠道伙伴'), icon: 'i-lucide-handshake', action: () => go('/settings', { tab: 'partner-program' }) },
+  { key: 'invite', label: t('settings.invite.title'), icon: 'i-lucide-gift', action: () => onSettings('invite') },
+  { key: 'creator', label: t('创作者中心'), icon: 'i-lucide-badge-dollar-sign', action: () => onSettings('creator') },
+  { key: 'partner', label: t('创作伙伴计划'), icon: 'i-lucide-megaphone', action: () => onSettings('partner') },
+  { key: 'partner-program', label: t('渠道伙伴'), icon: 'i-lucide-handshake', action: () => onSettings('partner-program') },
   // 发票功能开启后（API.md 21）订单页有「开发票」入口，先落到订单
-  { key: 'orders', label: invoiceEnabled.value ? t('订单与发票') : t('订单'), icon: 'i-lucide-receipt', action: () => go('/settings', { tab: 'orders' }) },
-  { key: 'team', label: isTeam.value ? t('团队管理') : t('团队'), icon: 'i-lucide-users', action: () => go('/settings', { tab: 'team' }) },
+  { key: 'orders', label: invoiceEnabled.value ? t('订单与发票') : t('订单'), icon: 'i-lucide-receipt', action: () => onSettings('orders') },
+  { key: 'team', label: isTeam.value ? t('团队管理') : t('团队'), icon: 'i-lucide-users', action: () => onSettings('team') },
 ])
 </script>
 
@@ -230,7 +238,7 @@ const menuItems = computed(() => [
                 <p v-if="teamsFailed && !teams.length" class="space-switcher__empty">{{ t('加载失败，请稍后重试') }}</p>
                 <p v-else-if="!teams.length" class="space-switcher__empty">{{ t('还没有加入团队') }}</p>
 
-                <button type="button" class="space-switcher__item space-switcher__create" @click="switcherOpen = false; go('/settings', { tab: 'team' })">
+                <button type="button" class="space-switcher__item space-switcher__create" @click="onSettings('team')">
                   <UIcon :name="teams.length ? 'i-lucide-settings-2' : 'i-lucide-plus'" class="size-4" />
                   <span class="space-switcher__text"><b>{{ teams.length ? t('团队管理') : t('创建或加入团队') }}</b></span>
                 </button>

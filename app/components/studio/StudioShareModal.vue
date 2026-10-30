@@ -5,24 +5,52 @@ import type { Work } from '~/types/creative'
 import { resolveMediaUrl } from '~/utils/media'
 import { TIKTOK_HASHTAGS, YOUTUBE_HASHTAGS, withHashtags } from '~/utils/share-captions'
 
-const { t, locale } = useI18n()
+const { t } = useI18n()
 
 /**
- * 作品分享弹窗（T29）：复制链接 / 海报 / 文案 三个页签，外加 微信 / 抖音 / 小红书 / X 快捷分享。
- * 链接 = /watch/:id，登录用户带 ?ref=<aff_code>（播放页带 ref 打开会上报 share_open，作者得积分，API.md 8.4）。
- * 海报在 1080×1920 的 canvas 上画：封面（跨域失败退回深色渐变）+ 标题 + 作者 + 品牌标 + 右下角二维码。
+ * 分享弹窗（T29）：顶部是带二维码的分享卡片预览，下面是各平台快捷分享、保存海报 / 复制文案、链接栏。
+ * 分享作品时链接 = /watch/:id，分享作者主页时 = /author/:id；
+ * 登录用户带 ?ref=<aff_code>（播放页带 ref 打开会上报 share_open，作者得积分，API.md 8.4）。
+ * 海报在 1080×1920 的 canvas 上画：封面（跨域失败退回深色渐变）+ 标题 + 副标题 + 品牌标 + 右下角二维码。
  */
+export type ShareAuthor = {
+  id: number
+  nickname: string
+  workCount: number
+  followers: number
+  /** 海报封面，取主页第一部作品的封面 */
+  cover?: string
+}
+
 const props = defineProps<{
   open: boolean
-  work: Work | null
+  work?: Work | null
+  author?: ShareAuthor | null
 }>()
+
+const target = computed(() => {
+  if (props.work) {
+    const w = props.work
+    return { kind: 'work' as const, id: w.id, path: `/watch/${w.id}`, title: w.title, subtitle: `@${w.author?.nickname || t('创作者')}`, cover: w.cover_url }
+  }
+  if (props.author) {
+    const a = props.author
+    return {
+      kind: 'author' as const,
+      id: a.id,
+      path: `/author/${a.id}`,
+      title: a.nickname,
+      subtitle: `${t('{n} 部作品', { n: a.workCount })} · ${t('{n} 位粉丝', { n: a.followers })}`,
+      cover: a.cover || '',
+    }
+  }
+  return null
+})
 
 const emit = defineEmits<{
   close: []
 }>()
 
-type Tab = 'link' | 'poster' | 'copy'
-type CaptionKind = 'plain' | 'tiktok' | 'youtube'
 type ShareKind = 'link' | 'poster' | 'copy' | 'wechat' | 'douyin' | 'xiaohongshu' | 'x' | 'tiktok' | 'youtube'
 
 const toast = useToast()
@@ -34,43 +62,48 @@ const { affCode, load: loadAffCode } = useMyInviteCode()
 /** 分享出去的地址用公网站点，不用当前页的 origin。本地是 localhost，手机扫码打不开。 */
 const siteUrl = String(config.public.siteUrl || '').replace(/\/$/, '')
 
-const tab = ref<Tab>('link')
-const captionKind = ref<CaptionKind>('plain')
-const wechatOpen = ref(false)
 const qrDataUrl = ref('')
 const posterUrl = ref('')
 const posterBusy = ref(false)
+/** 手机上不能直接下载，海报生成后在弹窗里铺开，让用户长按保存 */
+const posterView = ref(false)
+/** 点「微信」时让卡片上的二维码闪一下，提示用微信扫它 */
+const qrPulse = ref(false)
 const isMobile = ref(false)
 
+const coverUrl = computed(() => target.value?.cover ? resolveMediaUrl(target.value.cover) : '')
+const scanLabel = computed(() => target.value?.kind === 'author' ? t('share.scanVisit') : t('扫码观看'))
+
 const link = computed(() => {
-  if (!props.work || !import.meta.client)
+  if (!target.value || !import.meta.client)
     return ''
   // 分享链接走 localePath（F6）：英文等非默认语言带 /en 前缀，落地页与分享时看到的一致
-  const path = localePath(`/watch/${props.work.id}`)
+  const path = localePath(target.value.path)
   const base = `${siteUrl || window.location.origin}${path}`
   return isLoggedIn.value && affCode.value ? `${base}?ref=${encodeURIComponent(affCode.value)}` : base
 })
 
-const shareText = computed(() => props.work ? t('我在 EasyTV 用 AI 做了《{title}》，来看看：{url}', { title: props.work.title, url: link.value }) : '')
+const shareText = computed(() => {
+  const tg = target.value
+  if (!tg)
+    return ''
+  return tg.kind === 'work'
+    ? t('我在 EasyTV 用 AI 做了《{title}》，来看看：{url}', { title: tg.title, url: link.value })
+    : t('author.shareText', { name: tg.title, url: link.value })
+})
 
 /** TikTok 分享文案：通用文案（已按界面语言翻译）+ 海外话题标签 */
 const tiktokCaption = computed(() => withHashtags(shareText.value, TIKTOK_HASHTAGS))
 /** YouTube 分享文案：同上，标签换 Shorts 生态常用的 */
 const youtubeCaption = computed(() => withHashtags(shareText.value, YOUTUBE_HASHTAGS))
-const activeCaption = computed(() => {
-  if (captionKind.value === 'tiktok')
-    return tiktokCaption.value
-  if (captionKind.value === 'youtube')
-    return youtubeCaption.value
-  return shareText.value
-})
 
 function notify(title: string, color: 'neutral' | 'error' | 'success' = 'neutral') {
   toast.add({ title, color, close: false, progress: false, orientation: 'horizontal' })
 }
 
 function report(kind: ShareKind) {
-  track('share_click', { work_id: props.work?.id ?? 0, kind })
+  const tg = target.value
+  track('share_click', tg?.kind === 'author' ? { author_id: tg.id, kind } : { work_id: tg?.id ?? 0, kind })
 }
 
 async function copyText(text: string, done: string) {
@@ -92,14 +125,9 @@ async function copyLink() {
   await copyText(link.value, t('链接已复制'))
 }
 
-async function copyActiveCaption() {
-  if (captionKind.value === 'tiktok')
-    report('tiktok')
-  else if (captionKind.value === 'youtube')
-    report('youtube')
-  else
-    report('copy')
-  await copyText(activeCaption.value, t('文案已复制'))
+async function copyCaption() {
+  report('copy')
+  await copyText(shareText.value, t('文案已复制'))
 }
 
 // ---- 二维码 / 海报 ----
@@ -174,8 +202,8 @@ function wrapLines(ctx: CanvasRenderingContext2D, text: string, maxWidth: number
 }
 
 async function buildPoster() {
-  const work = props.work
-  if (!work || posterBusy.value || !import.meta.client)
+  const tg = target.value
+  if (!tg || posterBusy.value || !import.meta.client)
     return
   posterBusy.value = true
   try {
@@ -195,7 +223,7 @@ async function buildPoster() {
     ctx.fillRect(0, 0, W, H)
 
     const coverH = 1350
-    const cover = await loadPosterCover(resolveMediaUrl(work.cover_url))
+    const cover = await loadPosterCover(resolveMediaUrl(tg.cover))
     if (cover) {
       const scale = Math.max(W / cover.width, coverH / cover.height)
       const dw = cover.width * scale
@@ -218,7 +246,7 @@ async function buildPoster() {
     ctx.fillStyle = '#ffffff'
     ctx.textBaseline = 'top'
     ctx.font = 'bold 64px "PingFang SC", "Noto Sans SC", "Helvetica Neue", Arial, sans-serif'
-    const titleLines = wrapLines(ctx, work.title || t('成片'), W - 160, 2)
+    const titleLines = wrapLines(ctx, tg.title || t('成片'), W - 160, 2)
     let y = 1400
     for (const line of titleLines) {
       ctx.fillText(line, 80, y)
@@ -227,13 +255,13 @@ async function buildPoster() {
 
     ctx.fillStyle = 'rgba(255, 255, 255, 0.72)'
     ctx.font = '40px "PingFang SC", "Noto Sans SC", "Helvetica Neue", Arial, sans-serif'
-    ctx.fillText(`@${work.author?.nickname || t('创作者')}`, 80, y + 12)
+    ctx.fillText(tg.subtitle, 80, y + 12)
 
     ctx.fillStyle = 'rgba(255, 255, 255, 0.55)'
     ctx.font = '34px "PingFang SC", "Noto Sans SC", "Helvetica Neue", Arial, sans-serif'
     ctx.fillText(t('EasyTV · AI 视频工作台'), 80, H - 120)
     ctx.font = '28px "PingFang SC", "Noto Sans SC", "Helvetica Neue", Arial, sans-serif'
-    ctx.fillText(t('扫码观看'), W - 80 - 260, H - 80 - 260 - 48)
+    ctx.fillText(scanLabel.value, W - 80 - 260, H - 80 - 260 - 48)
 
     if (!qrDataUrl.value)
       await buildQr()
@@ -257,17 +285,21 @@ async function buildPoster() {
   }
 }
 
-function savePoster() {
+async function savePoster() {
+  if (posterBusy.value)
+    return
+  if (!posterUrl.value)
+    await buildPoster()
   if (!posterUrl.value)
     return
   report('poster')
   if (isMobile.value) {
-    notify(t('长按图片保存'))
+    posterView.value = true
     return
   }
   const a = document.createElement('a')
   a.href = posterUrl.value
-  a.download = `easytv-${props.work?.id ?? 'poster'}.png`
+  a.download = target.value ? `easytv-${target.value.kind}-${target.value.id}.png` : 'easytv-poster.png'
   document.body.appendChild(a)
   a.click()
   a.remove()
@@ -275,30 +307,31 @@ function savePoster() {
 
 // ---- 平台快捷分享 ----
 
-function onSharePointerDown(event: PointerEvent) {
-  event.stopPropagation()
-  if (!wechatOpen.value)
-    return
-  const target = event.target as Node | null
-  const root = event.currentTarget as HTMLElement | null
-  if (!target || !root)
-    return
-  if (root.querySelector('.share-wechat')?.contains(target))
-    return
-  if (root.querySelector('.share-platform > button')?.contains(target))
-    return
-  wechatOpen.value = false
-}
+type Platform = 'wechat' | 'douyin' | 'xiaohongshu' | 'x' | 'tiktok' | 'youtube'
+/** 品牌图标走 Iconify simple-icons；抖音与 TikTok 同一个标 */
+const PLATFORMS: { key: Platform, label: string, icon: string, translate: boolean }[] = [
+  { key: 'wechat', label: '微信', icon: 'i-simple-icons-wechat', translate: true },
+  { key: 'douyin', label: '抖音', icon: 'i-simple-icons-tiktok', translate: true },
+  { key: 'xiaohongshu', label: '小红书', icon: 'i-simple-icons-xiaohongshu', translate: true },
+  { key: 'x', label: 'X', icon: 'i-simple-icons-x', translate: false },
+  { key: 'tiktok', label: 'TikTok', icon: 'i-simple-icons-tiktok', translate: false },
+  { key: 'youtube', label: 'YouTube', icon: 'i-simple-icons-youtube', translate: false },
+]
+
+const linkLabel = computed(() => target.value?.kind === 'author' ? t('author.shareLink') : t('作品链接'))
+
+let qrPulseTimer: ReturnType<typeof setTimeout> | undefined
 
 async function shareWechat() {
-  if (wechatOpen.value) {
-    wechatOpen.value = false
-    return
-  }
   report('wechat')
-  wechatOpen.value = true
   if (!qrDataUrl.value)
     await buildQr()
+  notify(t('用微信扫码打开后分享'))
+  qrPulse.value = false
+  await nextTick()
+  qrPulse.value = true
+  clearTimeout(qrPulseTimer)
+  qrPulseTimer = setTimeout(() => { qrPulse.value = false }, 1600)
 }
 
 /** 复制文案后跳到平台发布页（这些平台都没有 web 分享接口，只能人工粘贴） */
@@ -310,7 +343,6 @@ const SHARE_SITES: Record<'douyin' | 'xiaohongshu' | 'tiktok' | 'youtube', strin
 }
 
 async function shareTo(kind: 'douyin' | 'xiaohongshu' | 'x' | 'tiktok' | 'youtube') {
-  wechatOpen.value = false
   report(kind)
   // TikTok / YouTube 用带话题标签的平台专属文案（F6 分发引导），其余平台用通用文案
   const text = kind === 'tiktok' ? tiktokCaption.value : kind === 'youtube' ? youtubeCaption.value : shareText.value
@@ -324,19 +356,18 @@ async function shareTo(kind: 'douyin' | 'xiaohongshu' | 'x' | 'tiktok' | 'youtub
   window.open(SHARE_SITES[kind], '_blank', 'noopener')
 }
 
-function selectTab(next: Tab) {
-  tab.value = next
-  wechatOpen.value = false
-  if (next === 'poster' && !posterUrl.value)
-    void buildPoster()
+function onPlatform(key: Platform) {
+  if (key === 'wechat')
+    void shareWechat()
+  else
+    void shareTo(key)
 }
 
 watch(() => props.open, async (open) => {
   if (!open)
     return
-  tab.value = 'link'
-  captionKind.value = 'plain'
-  wechatOpen.value = false
+  posterView.value = false
+  qrPulse.value = false
   qrDataUrl.value = ''
   posterUrl.value = ''
   isMobile.value = window.matchMedia('(pointer: coarse)').matches || window.innerWidth < 768
@@ -347,11 +378,9 @@ watch(() => props.open, async (open) => {
 watch(link, () => {
   qrDataUrl.value = ''
   posterUrl.value = ''
-  if (props.open) {
+  posterView.value = false
+  if (props.open)
     void buildQr()
-    if (tab.value === 'poster')
-      void buildPoster()
-  }
 })
 
 function onKeydown(event: KeyboardEvent) {
@@ -361,101 +390,89 @@ function onKeydown(event: KeyboardEvent) {
   }
 }
 onMounted(() => window.addEventListener('keydown', onKeydown, true))
-onUnmounted(() => window.removeEventListener('keydown', onKeydown, true))
+onUnmounted(() => {
+  window.removeEventListener('keydown', onKeydown, true)
+  clearTimeout(qrPulseTimer)
+})
 </script>
 
 <template>
   <Teleport to="body">
-    <div v-if="open && work" class="studio-modal-mask share-modal-mask" @click.self="emit('close')" @pointerdown="onSharePointerDown">
+    <div v-if="open && target" class="studio-modal-mask share-modal-mask" @click.self="emit('close')" @pointerdown.stop>
       <div class="studio-modal share-modal" role="dialog" aria-modal="true" aria-labelledby="share-title">
-        <header class="asset-picker__head">
-          <div>
-            <h2 id="share-title">{{ t('分享作品') }}</h2>
-            <p>{{ work.title }}</p>
-          </div>
+        <header class="share-modal__head">
+          <h2 id="share-title">{{ target.kind === 'work' ? t('分享作品') : t('author.share') }}</h2>
           <button type="button" class="trash-modal__close" :aria-label="t('关闭')" @click="emit('close')">
             <UIcon name="i-lucide-x" class="size-4" />
           </button>
         </header>
 
         <div class="share-modal__body">
-          <div class="agent-tags share-tabs">
-            <button type="button" :class="{ 'is-on': tab === 'link' }" @click="selectTab('link')">{{ t('复制链接') }}</button>
-            <button type="button" :class="{ 'is-on': tab === 'poster' }" @click="selectTab('poster')">{{ t('海报') }}</button>
-            <button type="button" :class="{ 'is-on': tab === 'copy' }" @click="selectTab('copy')">{{ t('文案') }}</button>
+          <div v-if="posterView" class="share-poster-view">
+            <img :src="posterUrl" :alt="t('海报')">
+            <p class="share-hint">{{ t('长按图片保存') }}</p>
+            <button type="button" class="share-action" @click="posterView = false">
+              <UIcon name="i-lucide-arrow-left" class="size-4" />
+              {{ t('返回') }}
+            </button>
           </div>
 
-          <div v-if="tab === 'link'" class="share-panel">
-            <label class="publish-field">
-              <span>{{ t('作品链接') }}</span>
-              <div class="share-copy">
-                <input :value="link" readonly @focus="($event.target as HTMLInputElement).select()">
-                <button type="button" class="plan-btn plan-btn--solid" @click="copyLink">{{ t('复制') }}</button>
+          <template v-else>
+            <div class="share-card">
+              <img v-if="coverUrl" :src="coverUrl" alt="" class="share-card__bg" aria-hidden="true">
+              <div class="share-card__main">
+                <span v-if="target.kind === 'author'" class="share-card__avatar">{{ target.title.slice(0, 1) }}</span>
+                <img v-else-if="coverUrl" :src="coverUrl" :alt="target.title" class="share-card__thumb">
+                <div class="share-card__text">
+                  <strong>{{ target.title }}</strong>
+                  <span>{{ target.subtitle }}</span>
+                </div>
+                <span class="share-card__brand">
+                  <UIcon name="i-lucide-play" class="size-3" />
+                  EasyTV
+                </span>
               </div>
-            </label>
-            <p v-if="isLoggedIn && affCode" class="share-hint">{{ t('链接带你的邀请码，别人通过它观看你会获得积分') }}</p>
-          </div>
-
-          <div v-else-if="tab === 'poster'" class="share-panel share-poster">
-            <div class="share-poster__preview">
-              <img v-if="posterUrl" :src="posterUrl" :alt="t('海报')">
-              <div v-else class="share-poster__loading">
-                <UIcon name="i-lucide-loader-circle" class="size-5 animate-spin" />
-                <span>{{ t('正在生成海报…') }}</span>
-              </div>
-            </div>
-          </div>
-
-          <div v-else class="share-panel share-copy-panel">
-            <div class="agent-tags share-caption-tabs">
-              <button type="button" :class="{ 'is-on': captionKind === 'plain' }" @click="captionKind = 'plain'">{{ t('通用') }}</button>
-              <button type="button" :class="{ 'is-on': captionKind === 'tiktok' }" @click="captionKind = 'tiktok'">TikTok</button>
-              <button type="button" :class="{ 'is-on': captionKind === 'youtube' }" @click="captionKind = 'youtube'">YouTube</button>
-            </div>
-            <label class="publish-field share-caption">
-              <span>{{ t('分享文案') }}</span>
-              <textarea :value="activeCaption" readonly @focus="($event.target as HTMLTextAreaElement).select()" />
-            </label>
-            <button type="button" class="plan-btn plan-btn--solid" @click="copyActiveCaption">{{ t('复制文案') }}</button>
-          </div>
-
-          <div v-if="tab === 'poster'" class="share-poster__actions">
-            <button type="button" class="plan-btn plan-btn--solid" :disabled="!posterUrl" @click="savePoster">{{ t('保存海报') }}</button>
-            <p v-if="isMobile && posterUrl" class="share-hint">{{ t('长按图片保存') }}</p>
-          </div>
-
-          <div class="share-platforms">
-            <div class="share-platform">
-              <button type="button" :class="{ 'is-on': wechatOpen }" :aria-expanded="wechatOpen" @click="shareWechat">
-                <UIcon name="i-lucide-message-circle" class="size-5" />
-                <span>{{ t('微信') }}</span>
-              </button>
-              <div v-if="wechatOpen" class="share-wechat">
+              <div class="share-card__qr" :class="{ 'is-pulse': qrPulse }">
                 <img v-if="qrDataUrl" :src="qrDataUrl" :alt="t('二维码')">
-                <p>{{ t('用微信扫码打开后分享') }}</p>
+                <UIcon v-else name="i-lucide-loader-circle" class="size-5 animate-spin" />
+                <small>{{ scanLabel }}</small>
               </div>
             </div>
-            <button type="button" @click="shareTo('douyin')">
-              <UIcon name="i-lucide-music-2" class="size-5" />
-              <span>{{ t('抖音') }}</span>
-            </button>
-            <button type="button" @click="shareTo('xiaohongshu')">
-              <UIcon name="i-lucide-book-open" class="size-5" />
-              <span>{{ t('小红书') }}</span>
-            </button>
-            <button type="button" @click="shareTo('x')">
-              <UIcon name="i-lucide-x" class="size-5" />
-              <span>X</span>
-            </button>
-            <button type="button" @click="shareTo('tiktok')">
-              <UIcon name="i-lucide-music-4" class="size-5" />
-              <span>TikTok</span>
-            </button>
-            <button type="button" @click="shareTo('youtube')">
-              <UIcon name="i-lucide-youtube" class="size-5" />
-              <span>YouTube</span>
-            </button>
-          </div>
+
+            <section class="share-to">
+              <h3>{{ t('share.to') }}</h3>
+              <div class="share-to__grid">
+                <button
+                  v-for="p in PLATFORMS"
+                  :key="p.key"
+                  type="button"
+                  :class="`is-${p.key}`"
+                  @click="onPlatform(p.key)"
+                >
+                  <i><UIcon :name="p.icon" /></i>
+                  <span>{{ p.translate ? t(p.label) : p.label }}</span>
+                </button>
+              </div>
+            </section>
+
+            <div class="share-actions">
+              <button type="button" class="share-action" :disabled="posterBusy" @click="savePoster">
+                <UIcon :name="posterBusy ? 'i-lucide-loader-circle' : 'i-lucide-image-down'" class="size-4" :class="{ 'animate-spin': posterBusy }" />
+                {{ posterBusy ? t('正在生成海报…') : t('保存海报') }}
+              </button>
+              <button type="button" class="share-action" @click="copyCaption">
+                <UIcon name="i-lucide-text-quote" class="size-4" />
+                {{ t('复制文案') }}
+              </button>
+            </div>
+
+            <div class="share-link">
+              <UIcon name="i-lucide-link" class="share-link__icon" />
+              <input :value="link" readonly :aria-label="linkLabel" @focus="($event.target as HTMLInputElement).select()">
+              <button type="button" class="share-link__copy" @click="copyLink">{{ t('复制链接') }}</button>
+            </div>
+            <p v-if="isLoggedIn && affCode" class="share-hint">{{ t('链接带你的邀请码，别人通过它观看你会获得积分') }}</p>
+          </template>
         </div>
       </div>
     </div>

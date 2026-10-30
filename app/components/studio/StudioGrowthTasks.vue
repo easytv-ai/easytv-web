@@ -14,6 +14,7 @@ const { isTeam } = useWorkspace()
 const { tasks, allDone, checkin, todayDone, checkinBusy, checkinPending, loadTasks, loadCheckin, checkinWithToast } = useGrowth()
 const { growth, load: loadConfig } = useStudioAppConfig()
 const { openNewProject } = useStudioNav()
+const { openSettings } = useSettingsModal()
 const open = useGrowthDock()
 const route = useRoute()
 const rootEl = ref<HTMLElement | null>(null)
@@ -42,7 +43,7 @@ const TASK_TARGET: Record<string, () => void> = {
   first_canvas: openNewProject,
   first_video: () => void navigateTo(localePath('/create')),
   first_work: () => void navigateTo(localePath('/projects')),
-  first_invite: () => void navigateTo(localePath({ path: '/settings', query: { tab: 'invite' } })),
+  first_invite: () => openSettings('invite'),
 }
 
 function gotoTask(item: GrowthTask) {

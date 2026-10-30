@@ -33,6 +33,7 @@ const emit = defineEmits<{
 
 const toast = useToast()
 const localePath = useLocalePath()
+const { openSettings } = useSettingsModal()
 const submitting = ref(false)
 const pickerOpen = ref(false)
 const { names: categories, load: loadCategories } = useContentCategories('work')
@@ -170,7 +171,7 @@ async function submit() {
       close: true,
       progress: false,
       orientation: 'horizontal',
-      actions: [{ label: t('去投稿'), onClick: () => void navigateTo(localePath({ path: '/settings', query: { tab: 'partner' } })) }],
+      actions: [{ label: t('去投稿'), onClick: () => openSettings('partner') }],
     })
     emit('published', work)
     emit('close')

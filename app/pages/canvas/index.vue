@@ -50,6 +50,7 @@ const toast = useToast()
 const { confirm } = useConfirm()
 const { hydrate } = useAuth()
 const { refresh: refreshWallet } = useWallet()
+const { settingsMounted } = useSettingsModal()
 
 const chatOpen = ref(true)
 const editorRoot = ref<HTMLElement | null>(null)
@@ -1196,6 +1197,9 @@ function onResizeStart(event: PointerEvent) {
     />
     <StudioWalletPanel />
     <StudioPricingModal />
+    <ClientOnly>
+      <LazyStudioSettingsModal v-if="settingsMounted" />
+    </ClientOnly>
   </div>
 </template>
 

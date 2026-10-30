@@ -3,11 +3,13 @@ import billingApi from '~/api/billing'
 import taskApi from '~/api/task'
 import type { GenerationTask, PointsLog, PointsLot, TaskStatus, TaskType } from '~/types/creative'
 import { discountParams } from '~/utils/pricing-plans'
+import type { SettingsTab } from '~/composables/useSettingsModal'
 
 const { t } = useI18n()
 
 /** 积分钱包面板：余额 / 会员 / 到期批次 / 流水，入口在顶栏「积分钱包」。 */
 const { wallet, walletOpen, walletTab, closeWallet, refresh, balance, isMember, membership } = useWallet()
+const { openSettings } = useSettingsModal()
 const { activeCount, refreshActivity } = useTaskActivity()
 const { isTeam } = useWorkspace()
 const teamInfo = computed(() => wallet.value?.team ?? null)
@@ -254,6 +256,11 @@ function goPricing(tab: 'membership' | 'points') {
   gotoPricing(tab)
 }
 
+function gotoSettings(tab: SettingsTab) {
+  closeWallet()
+  openSettings(tab)
+}
+
 watch(walletOpen, (open) => {
   if (!import.meta.client)
     return
@@ -377,8 +384,8 @@ onUnmounted(() => {
               <h3>{{ t('account.payout.title') }}</h3>
               <p class="wallet-card__empty">{{ t('account.payout.walletHint') }}</p>
               <p class="wallet-card__actions">
-                <NuxtLink :to="localePath({ path: '/settings', query: { tab: 'partner-program' } })" class="plan-btn plan-btn--ghost" @click="closeWallet">{{ t('account.payout.toPartner') }}</NuxtLink>
-                <NuxtLink :to="localePath({ path: '/settings', query: { tab: 'creator' } })" class="plan-btn plan-btn--ghost" @click="closeWallet">{{ t('account.payout.toCreator') }}</NuxtLink>
+                <button type="button" class="plan-btn plan-btn--ghost" @click="gotoSettings('partner-program')">{{ t('account.payout.toPartner') }}</button>
+                <button type="button" class="plan-btn plan-btn--ghost" @click="gotoSettings('creator')">{{ t('account.payout.toCreator') }}</button>
               </p>
             </section>
 

@@ -14,7 +14,7 @@ import type { PartnerApplyBody, PartnerDashboard, PartnerKind } from '~/types/cr
 
 const { t } = useI18n()
 const toast = useToast()
-const localePath = useLocalePath()
+const { openSettings } = useSettingsModal()
 const { track } = useTrack()
 const { confirm } = useConfirm()
 
@@ -365,7 +365,7 @@ onMounted(() => {
       </div>
       <p v-if="!withdrawOpen" class="settings-hint">{{ t('审核通过后会打到你填写的账户') }}</p>
       <p v-if="!withdrawOpen" class="settings-hint">{{ t('account.payout.partnerHint') }}</p>
-      <NuxtLink v-if="!withdrawOpen" :to="localePath({ path: '/settings', query: { tab: 'creator' } })" class="settings-link">{{ t('account.payout.toCreator') }}</NuxtLink>
+      <button v-if="!withdrawOpen" type="button" class="settings-link" @click="openSettings('creator')">{{ t('account.payout.toCreator') }}</button>
       <form v-else class="partner-withdraw" @submit.prevent="submitWithdraw">
         <div class="settings-row">
           <span class="settings-row__label">{{ t('提现金额') }} <i>*</i></span>

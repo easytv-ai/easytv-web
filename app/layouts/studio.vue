@@ -2,6 +2,7 @@
 const { hydrate, isLoggedIn } = useAuth()
 const { restorePricingAfterLogin } = usePricingModal()
 const { load: loadAppConfig } = useStudioAppConfig()
+const { settingsMounted } = useSettingsModal()
 
 onMounted(() => {
   hydrate()
@@ -24,6 +25,9 @@ onMounted(() => {
     <StudioInbox />
     <StudioWalletPanel />
     <StudioPricingModal />
+    <ClientOnly>
+      <LazyStudioSettingsModal v-if="settingsMounted" />
+    </ClientOnly>
     <ClientOnly>
       <StudioGrowthTasks />
     </ClientOnly>

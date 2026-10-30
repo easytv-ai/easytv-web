@@ -3592,12 +3592,30 @@
       "replaceMessage": "Le champ contient déjà du texte. Utiliser cette idée l’écrasera.",
       "replaceConfirm": "Remplacer",
       "ideas": {
-        "suspense": { "tag": "Suspense", "text": "Dans le dernier métro de minuit, les passagers disparaissent un à un ; il ne reste qu’elle et un vieil homme muet" },
-        "healing": { "tag": "Feel-good", "text": "Un chat roux cherche le chemin de la maison dans les rues pluvieuses de Tokyo, réconforté par chaque petite boutique" },
-        "scifi": { "tag": "Science-fiction", "text": "En 2080, le dernier astronaute humain d’une base martienne reçoit un vieil enregistrement venu de la Terre" },
-        "wuxia": { "tag": "Style chinois", "text": "Dans le Jiangnan brumeux, un jeune épéiste part seul dans une ville millénaire retrouver l’épée perdue de son maître" },
-        "family": { "tag": "Famille", "text": "Un père apprend à utiliser un smartphone pour la première fois, juste pour envoyer un message vocal d’anniversaire à sa fille lointaine" },
-        "ad": { "tag": "Publicité", "text": "Un soda glacé accompagne la journée d’un jeune citadin, de la supérette du matin au toit-terrasse d’un soir d’été" }
+        "suspense": {
+          "tag": "Suspense",
+          "text": "Dans le dernier métro de minuit, les passagers disparaissent un à un ; il ne reste qu’elle et un vieil homme muet"
+        },
+        "healing": {
+          "tag": "Feel-good",
+          "text": "Un chat roux cherche le chemin de la maison dans les rues pluvieuses de Tokyo, réconforté par chaque petite boutique"
+        },
+        "scifi": {
+          "tag": "Science-fiction",
+          "text": "En 2080, le dernier astronaute humain d’une base martienne reçoit un vieil enregistrement venu de la Terre"
+        },
+        "wuxia": {
+          "tag": "Style chinois",
+          "text": "Dans le Jiangnan brumeux, un jeune épéiste part seul dans une ville millénaire retrouver l’épée perdue de son maître"
+        },
+        "family": {
+          "tag": "Famille",
+          "text": "Un père apprend à utiliser un smartphone pour la première fois, juste pour envoyer un message vocal d’anniversaire à sa fille lointaine"
+        },
+        "ad": {
+          "tag": "Publicité",
+          "text": "Un soda glacé accompagne la journée d’un jeune citadin, de la supérette du matin au toit-terrasse d’un soir d’été"
+        }
       }
     }
   },
@@ -4054,19 +4072,29 @@
       "qrDownloaded": "QR code téléchargé",
       "qrDownloadFailed": "Échec du téléchargement. Enregistrez l’image via le clic droit",
       "total": "{n} au total"
+    },
+    "group": {
+      "account": "Compte",
+      "earn": "Revenus",
+      "billing": "Facturation"
     }
   },
   "author": {
     "published": "Publiés",
-    "drafts": "Brouillons",
     "onlyMe": "Visible par vous seul",
     "share": "Partager le profil",
     "editProfile": "Modifier le profil",
-    "draftsEmpty": "Aucun brouillon",
     "mineEmptyHint": "Transformez une phrase en votre premier court métrage. Vos œuvres publiées apparaîtront ici.",
     "likes": "Aimés",
     "likesEmpty": "Aucune œuvre aimée",
-    "likesEmptyHint": "Aimez un film qui vous plaît, il sera conservé ici, visible par vous seul."
+    "likesEmptyHint": "Aimez un film qui vous plaît, il sera conservé ici, visible par vous seul.",
+    "shareText": "Découvrez les courts métrages IA de {name} sur EasyTV : {url}",
+    "shareLink": "Lien du profil",
+    "manageHint": "Modifier, publier/retirer, supprimer"
+  },
+  "share": {
+    "to": "Partager sur",
+    "scanVisit": "Scanner pour visiter"
   },
   "account": {
     "workflow": {

@@ -1,24 +1,25 @@
 <script setup lang="ts">
 import workApi from '~/api/work'
 import type { AuthorProfile, Work } from '~/types/creative'
-import { resolveMediaUrl } from '~/utils/media'
+import type { ShareAuthor } from '~/components/studio/StudioShareModal.vue'
+import { formatCount, resolveMediaUrl } from '~/utils/media'
 
 const { t } = useI18n()
 
 /**
  * 作者主页：GET /author/:id + GET /work?user_id=，匿名可看；
- * 本人额外有草稿（GET /user/work?status=0）与赞过（GET /user/work/likes），仅自己可见。
+ * 本人额外有赞过（GET /user/work/likes），仅自己可见。
  */
 definePageMeta({
   layout: 'studio',
 })
 
-type Tab = 'published' | 'drafts' | 'likes'
+type Tab = 'published' | 'likes'
 
 const route = useRoute()
 const localePath = useLocalePath()
-const toast = useToast()
 const { user } = useAuth()
+const { openSettings } = useSettingsModal()
 
 const authorId = computed(() => Number(Array.isArray(route.params.id) ? route.params.id[0] : route.params.id) || 0)
 const profile = ref<AuthorProfile | null>(null)
@@ -37,16 +38,6 @@ const published = useStudioPaged<Work>({
   },
 })
 
-const drafts = useStudioPaged<Work>({
-  pageSize: PAGE_SIZE,
-  async fetch(page, pageSize) {
-    const res = await workApi.mine({ status: 0, page, page_size: pageSize })
-    if (!res?.success || !res.data)
-      return null
-    return res.data
-  },
-})
-
 const likes = useStudioPaged<Work>({
   pageSize: PAGE_SIZE,
   async fetch(page, pageSize) {
@@ -57,7 +48,7 @@ const likes = useStudioPaged<Work>({
   },
 })
 
-const lists = { published, drafts, likes }
+const lists = { published, likes }
 
 const name = computed(() => profile.value?.nickname || t('创作者'))
 const mine = computed(() => Boolean(profile.value?.mine))
@@ -99,10 +90,6 @@ function fmtDate(ts: number) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
 }
 
-function fmtCount(n: number) {
-  return n.toLocaleString()
-}
-
 async function loadProfile() {
   const res = await workApi.author(authorId.value)
   if (!res?.success || !res.data) {
@@ -121,15 +108,19 @@ function selectTab(next: Tab) {
     void list.reload()
 }
 
-async function shareProfile() {
-  try {
-    await navigator.clipboard.writeText(window.location.href)
-    toast.add({ title: t('链接已复制'), color: 'success', close: false, progress: false, orientation: 'horizontal' })
+const shareOpen = ref(false)
+const shareAuthor = computed<ShareAuthor | null>(() => {
+  const p = profile.value
+  if (!p)
+    return null
+  return {
+    id: p.id,
+    nickname: name.value,
+    workCount: p.work_count,
+    followers: p.followers ?? 0,
+    cover: published.items.value[0]?.cover_url,
   }
-  catch {
-    toast.add({ title: t('复制失败'), color: 'error', close: false, progress: false, orientation: 'horizontal' })
-  }
-}
+})
 
 onMounted(async () => {
   profileLoading.value = true
@@ -170,7 +161,7 @@ function stopPreview(event: MouseEvent) {
           </div>
           <dl class="author-side__stats">
             <div v-for="s in stats" :key="s.label">
-              <dd>{{ fmtCount(s.value) }}</dd>
+              <dd :title="s.value.toLocaleString()">{{ formatCount(s.value) }}</dd>
               <dt>{{ s.label }}</dt>
             </div>
           </dl>
@@ -185,20 +176,23 @@ function stopPreview(event: MouseEvent) {
                 @change="onFollowChange"
               />
             </ClientOnly>
-            <NuxtLink v-if="mine" :to="localePath('/settings')" class="author-side__btn">
+            <button v-if="mine" type="button" class="author-side__btn" @click="openSettings('profile')">
               <UIcon name="i-lucide-user-pen" class="size-4" />
               {{ t('author.editProfile') }}
-            </NuxtLink>
-            <button type="button" class="author-side__btn" @click="shareProfile">
+            </button>
+            <button type="button" class="author-side__btn" @click="shareOpen = true">
               <UIcon name="i-lucide-share-2" class="size-4" />
               {{ t('author.share') }}
             </button>
           </div>
-          <NuxtLink v-if="mine" :to="localePath('/settings?tab=works')" class="author-side__link">
-            <UIcon name="i-lucide-layout-list" class="size-4" />
-            <span>{{ t('管理我的作品') }}</span>
-            <UIcon name="i-lucide-chevron-right" class="size-4" />
-          </NuxtLink>
+          <button v-if="mine" type="button" class="author-side__link" @click="openSettings('works')">
+            <i class="author-side__link-icon"><UIcon name="i-lucide-layout-list" class="size-4" /></i>
+            <span class="author-side__link-text">
+              <strong>{{ t('管理我的作品') }}</strong>
+              <small>{{ t('author.manageHint') }}</small>
+            </span>
+            <UIcon name="i-lucide-chevron-right" class="author-side__link-arrow size-4" />
+          </button>
         </template>
         <div v-else-if="profileLoading" class="author-side__id" aria-busy="true">
           <USkeleton class="size-16 shrink-0 rounded-full" />
@@ -218,16 +212,6 @@ function stopPreview(event: MouseEvent) {
           <button
             v-if="mine"
             type="button"
-            :class="{ 'is-on': tab === 'drafts' }"
-            :title="t('author.onlyMe')"
-            @click="selectTab('drafts')"
-          >
-            {{ t('author.drafts') }}
-            <UIcon name="i-lucide-lock" class="size-3.5" />
-          </button>
-          <button
-            v-if="mine"
-            type="button"
             :class="{ 'is-on': tab === 'likes' }"
             :title="t('author.onlyMe')"
             @click="selectTab('likes')"
@@ -239,7 +223,7 @@ function stopPreview(event: MouseEvent) {
 
         <StudioPaging
           :key="tab"
-          grid-class="show-grid author-grid"
+          grid-class="show-grid"
           :loading="current.busy.value"
           :error="current.failed.value"
           :loading-more="current.loadingMore.value"
@@ -260,12 +244,7 @@ function stopPreview(event: MouseEvent) {
           </template>
           <template #empty>
             <StudioEmpty
-              v-if="tab === 'drafts'"
-              :title="t('author.draftsEmpty')"
-              :description="t('author.onlyMe')"
-            />
-            <StudioEmpty
-              v-else-if="tab === 'likes'"
+              v-if="tab === 'likes'"
               :title="t('author.likesEmpty')"
               :description="t('author.likesEmptyHint')"
             >
@@ -285,7 +264,7 @@ function stopPreview(event: MouseEvent) {
             />
           </template>
 
-          <div v-if="tab !== 'drafts'" class="show-grid author-grid">
+          <div class="show-grid">
             <NuxtLink
               v-for="item in current.items.value"
               :key="item.id"
@@ -321,32 +300,10 @@ function stopPreview(event: MouseEvent) {
               </div>
             </NuxtLink>
           </div>
-
-          <div v-else class="show-grid author-grid">
-            <NuxtLink
-              v-for="item in drafts.items.value"
-              :key="item.id"
-              :to="localePath('/settings?tab=works')"
-              class="show-card"
-            >
-              <div class="show-card__cover">
-                <img v-if="item.cover_url" :src="resolveMediaUrl(item.cover_url)" :alt="item.title" loading="lazy">
-                <span class="author-draft-badge">
-                  <UIcon name="i-lucide-lock" class="size-3" />
-                  {{ t('author.drafts') }}
-                </span>
-              </div>
-              <div class="show-card__meta">
-                <div class="show-card__text">
-                  <strong>{{ item.title }}</strong>
-                  <span>{{ item.category ? t(item.category) : '' }}</span>
-                </div>
-              </div>
-            </NuxtLink>
-          </div>
         </StudioPaging>
       </div>
     </div>
+    <StudioShareModal :open="shareOpen" :author="shareAuthor" @close="shareOpen = false" />
   </section>
 </template>
 

@@ -1959,7 +1959,8 @@ html.dark .studio-chip--gold.is-on {
 .trash-modal__body .agent-more,
 .asset-picker__body .agent-more,
 .wallet-panel__body .agent-more,
-.settings-page .agent-more {
+.settings-page .agent-more,
+.settings-modal .agent-more {
   max-width: none;
 }
 

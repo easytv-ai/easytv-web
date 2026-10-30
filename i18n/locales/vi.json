@@ -3592,12 +3592,30 @@
       "replaceMessage": "Ô nhập đã có nội dung. Dùng ý tưởng này sẽ ghi đè lên nó.",
       "replaceConfirm": "Thay thế",
       "ideas": {
-        "suspense": { "tag": "Hồi hộp", "text": "Trên chuyến tàu điện ngầm cuối cùng lúc nửa đêm, hành khách lần lượt biến mất, chỉ còn cô và một ông lão không bao giờ nói" },
-        "healing": { "tag": "Ấm áp", "text": "Một chú mèo cam tìm đường về nhà trên phố Tokyo đêm mưa, mỗi cửa hàng nhỏ đi qua đều cho nó chút hơi ấm" },
-        "scifi": { "tag": "Khoa học viễn tưởng", "text": "Năm 2080, phi hành gia loài người cuối cùng trên căn cứ sao Hỏa nhận được một đoạn ghi âm cũ từ Trái Đất" },
-        "wuxia": { "tag": "Phong cách Trung Hoa", "text": "Giữa Giang Nam mưa bụi, chàng kiếm khách trẻ một mình vào thị trấn nghìn năm tìm lại thanh kiếm thất lạc của sư phụ" },
-        "family": { "tag": "Gia đình", "text": "Người cha lần đầu học dùng điện thoại thông minh chỉ để gửi lời chúc sinh nhật bằng giọng nói cho con gái ở xa" },
-        "ad": { "tag": "Quảng cáo", "text": "Một chai nước ngọt mát lạnh đồng hành cùng người trẻ thành thị suốt một ngày, từ cửa hàng tiện lợi buổi sáng đến sân thượng đêm hè" }
+        "suspense": {
+          "tag": "Hồi hộp",
+          "text": "Trên chuyến tàu điện ngầm cuối cùng lúc nửa đêm, hành khách lần lượt biến mất, chỉ còn cô và một ông lão không bao giờ nói"
+        },
+        "healing": {
+          "tag": "Ấm áp",
+          "text": "Một chú mèo cam tìm đường về nhà trên phố Tokyo đêm mưa, mỗi cửa hàng nhỏ đi qua đều cho nó chút hơi ấm"
+        },
+        "scifi": {
+          "tag": "Khoa học viễn tưởng",
+          "text": "Năm 2080, phi hành gia loài người cuối cùng trên căn cứ sao Hỏa nhận được một đoạn ghi âm cũ từ Trái Đất"
+        },
+        "wuxia": {
+          "tag": "Phong cách Trung Hoa",
+          "text": "Giữa Giang Nam mưa bụi, chàng kiếm khách trẻ một mình vào thị trấn nghìn năm tìm lại thanh kiếm thất lạc của sư phụ"
+        },
+        "family": {
+          "tag": "Gia đình",
+          "text": "Người cha lần đầu học dùng điện thoại thông minh chỉ để gửi lời chúc sinh nhật bằng giọng nói cho con gái ở xa"
+        },
+        "ad": {
+          "tag": "Quảng cáo",
+          "text": "Một chai nước ngọt mát lạnh đồng hành cùng người trẻ thành thị suốt một ngày, từ cửa hàng tiện lợi buổi sáng đến sân thượng đêm hè"
+        }
       }
     }
   },
@@ -4054,19 +4072,29 @@
       "qrDownloaded": "Đã tải mã QR",
       "qrDownloadFailed": "Tải thất bại. Hãy chuột phải ảnh để lưu",
       "total": "Tổng {n} mục"
+    },
+    "group": {
+      "account": "Tài khoản",
+      "earn": "Thu nhập",
+      "billing": "Thanh toán"
     }
   },
   "author": {
     "published": "Đã đăng",
-    "drafts": "Bản nháp",
     "onlyMe": "Chỉ mình bạn thấy",
     "share": "Chia sẻ trang cá nhân",
     "editProfile": "Sửa hồ sơ",
-    "draftsEmpty": "Chưa có bản nháp",
     "mineEmptyHint": "Biến một câu thành phim ngắn đầu tiên của bạn. Tác phẩm đã đăng sẽ hiển thị ở đây.",
     "likes": "Đã thích",
     "likesEmpty": "Chưa có tác phẩm đã thích",
-    "likesEmptyHint": "Thích một phim bạn ưng ý, phim sẽ được lưu ở đây và chỉ mình bạn thấy."
+    "likesEmptyHint": "Thích một phim bạn ưng ý, phim sẽ được lưu ở đây và chỉ mình bạn thấy.",
+    "shareText": "Xem phim ngắn AI của {name} trên EasyTV: {url}",
+    "shareLink": "Liên kết trang cá nhân",
+    "manageHint": "Sửa, ẩn/hiện, xóa"
+  },
+  "share": {
+    "to": "Chia sẻ lên",
+    "scanVisit": "Quét để truy cập"
   },
   "account": {
     "workflow": {

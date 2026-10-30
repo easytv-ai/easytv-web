@@ -6,7 +6,7 @@
  * - 口令红包：已领取展示权益，未领取展示输入框 + 实时校验回显
  * - 额度：并发生成 + 云存储，按套餐限制
  * - 手机号绑定 / 换绑（60s 倒计时验证码）
- * - 退出登录、协议政策、注销账号入口
+ * - 协议政策、注销账号入口（退出登录在右上角账号菜单）
  */
 import { userManagement } from '~/api/user-management'
 import { userAuth } from '~/api/user-auth'
@@ -22,8 +22,7 @@ import type { UsageView } from '~/api/usage'
 const { t } = useI18n()
 const toast = useToast()
 const localePath = useLocalePath()
-const { user, setUser, logout } = useAuth()
-const { confirm } = useConfirm()
+const { user, setUser } = useAuth()
 const { wallet, refresh: refreshWallet } = useWallet()
 const { gotoPricing } = usePricingModal()
 const { secondsLeft, isActive: countingDown, start: startCountdown } = useAuthCountdown(60)
@@ -120,6 +119,20 @@ async function onAvatarChosen(event: Event) {
   }
 }
 
+const nicknameEditing = ref(false)
+const nicknameBeforeEdit = ref('')
+const phoneOpen = ref(false)
+
+function startNickname() {
+  nicknameBeforeEdit.value = profile.nickname
+  nicknameEditing.value = true
+}
+
+function cancelNickname() {
+  profile.nickname = nicknameBeforeEdit.value
+  nicknameEditing.value = false
+}
+
 async function saveNickname() {
   const nickname = profile.nickname.trim()
   if (!nickname) {
@@ -133,6 +146,8 @@ async function saveNickname() {
       notify(res?.message || t('保存失败'), 'error')
       return
     }
+    profile.nickname = nickname
+    nicknameEditing.value = false
     if (user.value)
       setUser({ ...user.value, nickname })
     notify(t('昵称已更新'), 'success')
@@ -186,6 +201,7 @@ async function bindMobile() {
     profile.mobile = mobile
     mobileForm.mobile = ''
     mobileForm.code = ''
+    phoneOpen.value = false
     notify(t('手机号已更新'), 'success')
   }
   finally {
@@ -323,33 +339,6 @@ onUnmounted(() => {
     clearTimeout(bonusPreviewTimer)
 })
 
-// ===== 退出登录 =====
-const leaving = ref(false)
-
-async function onLogout() {
-  if (leaving.value)
-    return
-  if (!(await confirm({
-    title: t('退出登录'),
-    message: t('退出后需要重新登录才能继续创作。'),
-    confirmText: t('退出登录'),
-    danger: true,
-  })))
-    return
-  leaving.value = true
-  try {
-    const res = await logout()
-    if (!res.ok) {
-      notify(res.message ?? t('退出登录失败'), 'error')
-      return
-    }
-    await navigateTo(localePath('/'))
-  }
-  finally {
-    leaving.value = false
-  }
-}
-
 // ===== 额度格式化 =====
 function formatBytes(n: number) {
   if (!n)
@@ -372,67 +361,61 @@ function pct(used: number, limit: number) {
 </script>
 
 <template>
-  <section class="wallet-card">
-    <h3>{{ t('基本信息') }}</h3>
-    <div class="settings-row">
-      <span class="settings-row__label">{{ t('头像') }}</span>
-      <div class="settings-avatar-field">
-        <button
-          type="button"
-          class="settings-avatar"
-          :disabled="avatarSaving"
-          :aria-label="t('更换头像')"
-          @click="pickAvatar"
-        >
-          <img
-            v-if="avatarSrc"
-            :src="avatarSrc"
-            alt=""
-            width="72"
-            height="72"
-          >
-          <span v-else>{{ avatarLetter }}</span>
-        </button>
-        <div class="settings-avatar-field__meta">
-          <button type="button" class="plan-btn plan-btn--ghost" :disabled="avatarSaving" @click="pickAvatar">
-            {{ avatarSaving ? t('上传中…') : t('更换') }}
+  <section class="profile-sheet">
+    <div class="profile-id">
+      <button
+        type="button"
+        class="profile-avatar"
+        :disabled="avatarSaving"
+        :aria-label="t('更换头像')"
+        @click="pickAvatar"
+      >
+        <img v-if="avatarSrc" :src="avatarSrc" alt="" width="72" height="72">
+        <span v-else>{{ avatarLetter }}</span>
+        <i class="profile-avatar__badge" aria-hidden="true">
+          <UIcon :name="avatarSaving ? 'i-lucide-loader-circle' : 'i-lucide-camera'" class="size-3.5" :class="{ 'animate-spin': avatarSaving }" />
+        </i>
+      </button>
+      <div class="profile-id__main">
+        <div v-if="nicknameEditing" class="profile-name">
+          <input v-model="profile.nickname" maxlength="20" class="settings-input" :placeholder="t('给自己起个名字')" @keydown.enter="saveNickname" @keydown.esc="cancelNickname">
+          <button type="button" class="profile-text" :disabled="nicknameSaving" @click="saveNickname">
+            {{ nicknameSaving ? t('保存中…') : t('保存') }}
           </button>
-          <p class="settings-hint">{{ t('建议 200×200，JPG / PNG / WebP') }}</p>
+          <button type="button" class="profile-text is-muted" :disabled="nicknameSaving" @click="cancelNickname">{{ t('取消') }}</button>
         </div>
-        <input
-          ref="avatarInput"
-          type="file"
-          accept="image/jpeg,image/png,image/webp"
-          hidden
-          @change="onAvatarChosen"
-        >
+        <h3 v-else class="profile-name-text">
+          {{ profile.nickname || t('给自己起个名字') }}
+          <button type="button" class="profile-icon" :aria-label="t('昵称')" @click="startNickname">
+            <UIcon name="i-lucide-pencil" class="size-3.5" />
+          </button>
+        </h3>
+        <p class="profile-account">{{ t('账号') }} {{ profile.username }}</p>
+        <p class="settings-hint">{{ avatarSaving ? t('上传中…') : t('建议 200×200，JPG / PNG / WebP') }}</p>
       </div>
+      <input
+        ref="avatarInput"
+        type="file"
+        accept="image/jpeg,image/png,image/webp"
+        hidden
+        @change="onAvatarChosen"
+      >
     </div>
-    <div class="settings-row">
-      <span class="settings-row__label">{{ t('账号') }}</span>
-      <span class="settings-row__value">{{ profile.username }}</span>
-    </div>
-    <div class="settings-row">
-      <span class="settings-row__label">{{ t('昵称') }}</span>
-      <div class="settings-row__field">
-        <input v-model="profile.nickname" maxlength="20" class="settings-input" :placeholder="t('给自己起个名字')">
-        <button type="button" class="plan-btn plan-btn--solid" :disabled="nicknameSaving" @click="saveNickname">
-          {{ nicknameSaving ? t('保存中…') : t('保存') }}
-        </button>
-      </div>
-    </div>
-    <div class="settings-row">
-      <span class="settings-row__label">{{ t('会员') }}</span>
-      <span class="settings-row__value">
-        <template v-if="wallet?.is_member && wallet.membership">
-          {{ t('{plan}会员', { plan: wallet.membership.plan_name }) }} · {{ t('有效期至') }} {{ fmt(wallet.membership.expires_at).slice(0, 10) }}
-        </template>
-        <template v-else>{{ t('未开通 ·') }} <a href="#" @click.prevent="gotoPricing('membership')">{{ t('去开通') }}</a></template>
-      </span>
+
+    <div class="profile-line">
+      <span>{{ t('会员') }}</span>
+      <b v-if="wallet?.is_member && wallet.membership">
+        {{ t('{plan}会员', { plan: wallet.membership.plan_name }) }}
+        <small>{{ t('有效期至') }} {{ fmt(wallet.membership.expires_at).slice(0, 10) }}</small>
+      </b>
+      <b v-else>{{ t('未开通会员') }}</b>
+      <button type="button" class="profile-pill" @click="gotoPricing('membership')">
+        {{ wallet?.is_member ? t('续费') : t('开通会员') }}
+      </button>
     </div>
   </section>
 
-  <section class="wallet-card">
+  <section class="profile-sheet">
     <h3>
       {{ t('口令红包') }}
       <small v-if="bonusRecord">{{ t('已领取') }}</small>
@@ -468,48 +451,42 @@ function pct(used: number, limit: number) {
     </template>
     <template v-else>
       <p class="settings-lead">{{ t('console.bonusCode.inputLead') }}</p>
-      <div class="settings-row settings-row--top">
-        <span class="settings-row__label">{{ t('口令') }}</span>
-        <div class="settings-bonus-form">
-          <div class="settings-row__field">
-            <input
-              v-model="bonusCode"
-              maxlength="32"
-              autocomplete="off"
-              class="settings-input"
-              :placeholder="t('console.bonusCode.inputPlaceholder')"
-              :disabled="!bonusRecordLoaded || bonusClaiming"
-              @keydown.enter="claimBonus"
-            >
-            <button
-              type="button"
-              class="plan-btn plan-btn--solid"
-              :disabled="bonusClaiming || (!bonusRecordFailed && !bonusRecordLoaded) || (bonusRecordLoaded && !bonusCode.trim())"
-              @click="bonusRecordFailed ? loadBonusRecord() : claimBonus()"
-            >
-              {{ bonusRecordFailed ? t('重试') : !bonusRecordLoaded ? t('加载中…') : bonusClaiming ? t('领取中…') : t('立即领取') }}
-            </button>
-          </div>
-          <p v-if="bonusPreviewText" class="settings-bonus-msg is-ok">
-            <UIcon name="i-lucide-circle-check" class="size-3.5 shrink-0" />
-            <span>{{ bonusPreviewText }}</span>
-          </p>
-          <p v-else-if="bonusPreviewError" class="settings-bonus-msg is-err">
-            <UIcon name="i-lucide-circle-alert" class="size-3.5 shrink-0" />
-            <span>{{ bonusPreviewError }}</span>
-          </p>
-          <p class="settings-hint">{{ t('console.bonusCode.inputNote') }}</p>
-        </div>
+      <div class="profile-join">
+        <input
+          v-model="bonusCode"
+          maxlength="32"
+          autocomplete="off"
+          :placeholder="t('console.bonusCode.inputPlaceholder')"
+          :aria-label="t('口令')"
+          :disabled="!bonusRecordLoaded || bonusClaiming"
+          @keydown.enter="claimBonus"
+        >
+        <button
+          type="button"
+          :disabled="bonusClaiming || (!bonusRecordFailed && !bonusRecordLoaded) || (bonusRecordLoaded && !bonusCode.trim())"
+          @click="bonusRecordFailed ? loadBonusRecord() : claimBonus()"
+        >
+          {{ bonusRecordFailed ? t('重试') : !bonusRecordLoaded ? t('加载中…') : bonusClaiming ? t('领取中…') : t('立即领取') }}
+        </button>
       </div>
+      <p v-if="bonusPreviewText" class="settings-bonus-msg is-ok">
+        <UIcon name="i-lucide-circle-check" class="size-3.5 shrink-0" />
+        <span>{{ bonusPreviewText }}</span>
+      </p>
+      <p v-else-if="bonusPreviewError" class="settings-bonus-msg is-err">
+        <UIcon name="i-lucide-circle-alert" class="size-3.5 shrink-0" />
+        <span>{{ bonusPreviewError }}</span>
+      </p>
+      <p class="settings-hint">{{ t('console.bonusCode.inputNote') }}</p>
     </template>
   </section>
 
-  <section v-if="usage" class="wallet-card">
+  <section v-if="usage" class="profile-sheet">
     <h3>
       {{ t('额度') }}
       <small>{{ usage.plan.is_member ? (usage.plan.scope === 'team' ? t('团队共享，{n} 个席位', { n: usage.plan.seats }) : t('{plan}会员', { plan: usage.plan.name })) : t('免费额度') }}</small>
     </h3>
-    <div class="quota">
+    <div class="quota profile-quota">
       <div class="quota__row">
         <div class="quota__head">
           <span>{{ t('并发生成') }}</span>
@@ -527,62 +504,37 @@ function pct(used: number, limit: number) {
     </div>
     <p class="settings-hint">
       {{ t('并发和存储按套餐限制，超出后无法新建任务或上传。') }}
-      <a v-if="!usage.plan.is_member" href="#" @click.prevent="gotoPricing('membership')">{{ t('升级套餐') }}</a>
+      <button v-if="!usage.plan.is_member" type="button" class="profile-text-btn" @click="gotoPricing('membership')">{{ t('升级套餐') }}</button>
     </p>
   </section>
 
-  <section class="wallet-card">
-    <h3>{{ t('手机号') }}</h3>
-    <div class="settings-row">
-      <span class="settings-row__label">{{ t('当前') }}</span>
-      <span class="settings-row__value">{{ profile.mobile ? profile.mobile.replace(/^(\d{3})\d{4}(\d{4})$/, '$1****$2') : t('未绑定') }}</span>
+  <section class="profile-sheet">
+    <div class="profile-line">
+      <span>{{ t('手机号') }}</span>
+      <b>{{ profile.mobile ? profile.mobile.replace(/^(\d{3})\d{4}(\d{4})$/, '$1****$2') : t('未绑定') }}</b>
+      <button type="button" class="profile-text" @click="phoneOpen = !phoneOpen">
+        {{ phoneOpen ? t('取消') : (profile.mobile ? t('换绑') : t('绑定')) }}
+      </button>
     </div>
-    <div class="settings-row settings-row--top">
-      <span class="settings-row__label">{{ profile.mobile ? t('换绑') : t('绑定') }}</span>
-      <div class="settings-bind">
-        <input v-model="mobileForm.mobile" maxlength="20" inputmode="numeric" class="settings-input" :placeholder="t('新手机号')">
-        <input v-model="mobileForm.code" maxlength="6" inputmode="numeric" class="settings-input settings-input--short" :placeholder="t('验证码')" @keydown.enter="bindMobile">
-        <button type="button" class="plan-btn plan-btn--ghost" :disabled="sendingCode || countingDown" @click="sendCode">
-          {{ sendingCode ? t('发送中…') : countingDown ? `${secondsLeft}s` : t('发送验证码') }}
-        </button>
-        <button type="button" class="plan-btn plan-btn--solid" :disabled="mobileSaving" @click="bindMobile">
-          {{ mobileSaving ? t('提交中…') : t('确认') }}
-        </button>
-        <p class="settings-hint">{{ t('短信登录的账号换绑后，请用新手机号登录。') }}</p>
-      </div>
-    </div>
-  </section>
-
-  <section class="wallet-card">
-    <h3>{{ t('账号安全') }}</h3>
-    <div class="settings-row">
-      <span class="settings-row__label">{{ t('退出登录') }}</span>
-      <div class="settings-secure">
-        <p class="settings-hint">{{ t('退出后需要重新登录才能继续创作。') }}</p>
-        <button
-          type="button"
-          class="plan-btn plan-btn--ghost is-danger"
-          :disabled="leaving"
-          @click="onLogout"
-        >
-          {{ leaving ? t('退出中…') : t('退出登录') }}
-        </button>
-      </div>
+    <div v-if="phoneOpen" class="profile-bind">
+      <input v-model="mobileForm.mobile" maxlength="20" inputmode="numeric" :placeholder="t('新手机号')" :aria-label="t('新手机号')">
+      <input v-model="mobileForm.code" maxlength="6" inputmode="numeric" class="is-code" :placeholder="t('验证码')" :aria-label="t('验证码')" @keydown.enter="bindMobile">
+      <button type="button" class="profile-text" :disabled="sendingCode || countingDown" @click="sendCode">
+        {{ sendingCode ? t('发送中…') : countingDown ? `${secondsLeft}s` : t('发送验证码') }}
+      </button>
+      <button type="button" class="profile-pill" :disabled="mobileSaving" @click="bindMobile">
+        {{ mobileSaving ? t('提交中…') : t('确认') }}
+      </button>
+      <p class="settings-hint">{{ t('短信登录的账号换绑后，请用新手机号登录。') }}</p>
     </div>
   </section>
 
-  <section class="wallet-card">
-    <h3>{{ t('协议与政策') }}</h3>
-    <p class="settings-lead legal-links">
+  <section class="profile-sheet profile-foot">
+    <p class="profile-links">
       <NuxtLink :to="localePath('/legal/terms')">{{ t('用户服务协议') }}</NuxtLink>
       <NuxtLink :to="localePath('/legal/privacy')">{{ t('隐私政策') }}</NuxtLink>
       <NuxtLink :to="localePath('/legal/ai-guidelines')">{{ t('AI 生成内容规范') }}</NuxtLink>
     </p>
-  </section>
-
-  <section class="wallet-card settings-danger">
-    <h3>{{ t('注销账号') }} <small>{{ t('不可恢复') }}</small></h3>
-    <p class="settings-lead">{{ t('注销后作品全部下架、画布分享失效、退出所在团队，剩余积分与会员权益作废且不退款。邮箱和手机号会释放，可以重新注册。') }}</p>
-    <button type="button" class="plan-btn plan-btn--ghost is-danger" @click="requestDeactivate">{{ t('注销账号') }}</button>
+    <button type="button" class="profile-text is-danger" @click="requestDeactivate">{{ t('注销账号') }}</button>
   </section>
 </template>

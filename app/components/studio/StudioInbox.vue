@@ -2,8 +2,11 @@
 import contentApi, { type Notice } from '~/api/content'
 import notificationApi from '~/api/notification'
 import type { Notification } from '~/types/creative'
+import { resolveSettingsTab } from '~/composables/useSettingsModal'
+import { pathWithoutLocale } from '~/utils/app-path'
 
 const { t } = useI18n()
+const { openSettings } = useSettingsModal()
 
 const { inboxOpen, closeInbox, unreadCount, markRead, markAllRead, refreshUnread } = useStudioInbox()
 const { isLoggedIn } = useAuth()
@@ -135,8 +138,20 @@ function go(n: Notification) {
   if (stampRead(n))
     void markRead([n.id])
   closeInbox()
-  if (n.link)
-    void navigateTo(localePath(n.link))
+  if (!n.link)
+    return
+  // 后端通知里的 /settings?tab= 链接直接打开设置弹窗，不离开当前页
+  const url = new URL(n.link, 'http://local')
+  if (pathWithoutLocale(url.pathname) === '/settings') {
+    openSettings(resolveSettingsTab(url.searchParams.get('tab')))
+    return
+  }
+  void navigateTo(localePath(n.link))
+}
+
+function gotoNotifyPrefs() {
+  closeInbox()
+  openSettings('notify')
 }
 
 function toggleExpand(id: string) {
@@ -200,10 +215,10 @@ onUnmounted(() => {
                 <UIcon name="i-lucide-check-check" class="size-4" />
                 <span class="canvas-tip canvas-tip--down">{{ t('inbox.markAll') }}</span>
               </button>
-              <NuxtLink :to="localePath('/settings?tab=notify')" class="inbox-panel__prefs" :aria-label="t('通知偏好')" @click="closeInbox">
+              <button type="button" class="inbox-panel__prefs" :aria-label="t('通知偏好')" @click="gotoNotifyPrefs">
                 <UIcon name="i-lucide-settings-2" class="size-4" />
                 <span class="canvas-tip canvas-tip--down">{{ t('通知偏好') }}</span>
-              </NuxtLink>
+              </button>
               <button type="button" class="inbox-panel__close" :aria-label="t('关闭')" @click="closeInbox">
                 <UIcon name="i-lucide-x" class="size-4" />
               </button>

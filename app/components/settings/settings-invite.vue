@@ -17,7 +17,7 @@ import type { InviteBill, InviteRecord, InviteRecordStatus, InviteSummary } from
 
 const { t } = useI18n()
 const toast = useToast()
-const localePath = useLocalePath()
+const { openSettings } = useSettingsModal()
 const { track } = useTrack()
 const { growth } = useStudioAppConfig()
 
@@ -152,11 +152,18 @@ function resetSearch() {
   void loadRecords(1)
 }
 
+/** 每个分页首次切到时才加载；之后来回切直接用已有结果，不再闪骨架 */
+const panesLoaded = reactive({ bills: false, withdraws: false })
+
 watch(pane, (next) => {
-  if (next === 'bills' && !bills.value.length && !billsLoading.value)
+  if (next === 'bills' && !panesLoaded.bills && !billsLoading.value) {
+    panesLoaded.bills = true
     void loadBills(1)
-  if (next === 'withdraws' && !withdraws.value.length && !withdrawLoading.value)
+  }
+  if (next === 'withdraws' && !panesLoaded.withdraws && !withdrawLoading.value) {
+    panesLoaded.withdraws = true
     void loadWithdraws(1)
+  }
 })
 
 const inviteePoints = computed(() => invite.value?.invitee_points || growth.value?.invite_invitee_points || 0)
@@ -356,7 +363,7 @@ onUnmounted(() => {
       </ul>
       <p v-if="partnerCash > 0" class="settings-hint invite-partner-cash">
         {{ t('settings.invite.partnerCash', { amount: money(partnerCash) }) }}
-        <NuxtLink :to="localePath({ path: '/settings', query: { tab: 'partner-program' } })" class="settings-link">{{ t('settings.invite.withdrawNow') }}</NuxtLink>
+        <button type="button" class="settings-link" @click="openSettings('partner-program')">{{ t('settings.invite.withdrawNow') }}</button>
       </p>
     </section>
 
@@ -367,105 +374,113 @@ onUnmounted(() => {
         <button type="button" :class="{ 'is-on': pane === 'withdraws' }" @click="pane = 'withdraws'">{{ t('提现记录') }}</button>
       </div>
 
-      <template v-if="pane === 'records'">
-        <form class="invite-filter" @submit.prevent="searchRecords">
-          <input v-model="keywordDraft" class="settings-input" :placeholder="t('settings.invite.keyword')" @keyup.enter="searchRecords">
-          <button type="submit" class="plan-btn plan-btn--solid">{{ t('settings.invite.search') }}</button>
-          <button type="button" class="plan-btn plan-btn--ghost" @click="resetSearch">{{ t('重置') }}</button>
-        </form>
-        <p v-if="recordsLoading" class="settings-lead">{{ t('加载中…') }}</p>
-        <StudioEmpty
-          v-else-if="!records.length"
-          compact
-          :title="t('还没有邀请记录')"
-          :description="t('把链接分享给好友吧')"
-        />
-        <ul v-else class="invite-records">
-          <li v-for="r in records" :key="`${r.user_id}-${r.created_at}`">
-            <span class="invite-records__name">{{ r.nickname || `#${r.user_id}` }}</span>
-            <i class="invite-badge" :class="`is-${r.status}`">{{ inviteStatusLabel(r.status) }}</i>
-            <b class="invite-records__points">{{ r.points > 0 ? `+${r.points.toLocaleString()}` : '—' }}</b>
-            <time class="invite-records__time">{{ fmt(r.created_at) }}</time>
-          </li>
-        </ul>
-        <div v-if="recordsTotal > PAGE_SIZE" class="invite-pager">
-          <button type="button" class="plan-btn plan-btn--ghost" :disabled="recordsPage <= 1 || recordsLoading" @click="loadRecords(recordsPage - 1)">{{ t('上一页') }}</button>
-          <span>{{ t('settings.invite.total', { n: recordsTotal }) }}</span>
-          <button type="button" class="plan-btn plan-btn--ghost" :disabled="recordsPage * PAGE_SIZE >= recordsTotal || recordsLoading" @click="loadRecords(recordsPage + 1)">{{ t('下一页') }}</button>
-        </div>
-      </template>
+      <div class="invite-pane-body">
+        <template v-if="pane === 'records'">
+          <form class="invite-filter" @submit.prevent="searchRecords">
+            <input v-model="keywordDraft" class="settings-input" :placeholder="t('settings.invite.keyword')" @keyup.enter="searchRecords">
+            <button type="submit" class="plan-btn plan-btn--solid">{{ t('settings.invite.search') }}</button>
+            <button type="button" class="plan-btn plan-btn--ghost" @click="resetSearch">{{ t('重置') }}</button>
+          </form>
+          <div v-if="recordsLoading && !records.length" class="invite-skeleton" aria-busy="true">
+            <USkeleton v-for="n in 5" :key="n" class="invite-skeleton__row" />
+          </div>
+          <StudioEmpty
+            v-else-if="!records.length"
+            compact
+            :title="t('还没有邀请记录')"
+            :description="t('把链接分享给好友吧')"
+          />
+          <ul v-else class="invite-records" :class="{ 'is-busy': recordsLoading }">
+            <li v-for="r in records" :key="`${r.user_id}-${r.created_at}`">
+              <span class="invite-records__name">{{ r.nickname || `#${r.user_id}` }}</span>
+              <i class="invite-badge" :class="`is-${r.status}`">{{ inviteStatusLabel(r.status) }}</i>
+              <b class="invite-records__points">{{ r.points > 0 ? `+${r.points.toLocaleString()}` : '—' }}</b>
+              <time class="invite-records__time">{{ fmt(r.created_at) }}</time>
+            </li>
+          </ul>
+          <div v-if="recordsTotal > PAGE_SIZE" class="invite-pager">
+            <button type="button" class="plan-btn plan-btn--ghost" :disabled="recordsPage <= 1 || recordsLoading" @click="loadRecords(recordsPage - 1)">{{ t('上一页') }}</button>
+            <span>{{ t('settings.invite.total', { n: recordsTotal }) }}</span>
+            <button type="button" class="plan-btn plan-btn--ghost" :disabled="recordsPage * PAGE_SIZE >= recordsTotal || recordsLoading" @click="loadRecords(recordsPage + 1)">{{ t('下一页') }}</button>
+          </div>
+        </template>
 
-      <template v-else-if="pane === 'bills'">
-        <p v-if="billsLoading" class="settings-lead">{{ t('加载中…') }}</p>
-        <StudioEmpty
-          v-else-if="!bills.length"
-          compact
-          :title="t('settings.invite.noBills')"
-          :description="t('settings.invite.noBillsHint')"
-        />
-        <div v-else class="creator-table-wrap">
-          <table class="creator-table">
-            <thead>
-              <tr>
-                <th>{{ t('时间') }}</th>
-                <th>{{ t('类型') }}</th>
-                <th>{{ t('settings.invite.fromUser') }}</th>
-                <th>{{ t('settings.invite.points') }}</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="b in bills" :key="b.id">
-                <td>{{ fmt(b.created_at) }}</td>
-                <td>{{ billTypeLabel(b.biz_type) }}</td>
-                <td>{{ b.from_nickname || (b.from_user_id ? `#${b.from_user_id}` : '—') }}</td>
-                <td :class="{ 'invite-records__points': b.amount > 0, 'invite-records__points is-neg': b.amount < 0 }">
-                  {{ b.amount > 0 ? `+${b.amount}` : b.amount }}
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-        <div v-if="billsTotal > PAGE_SIZE" class="invite-pager">
-          <button type="button" class="plan-btn plan-btn--ghost" :disabled="billsPage <= 1 || billsLoading" @click="loadBills(billsPage - 1)">{{ t('上一页') }}</button>
-          <span>{{ t('settings.invite.total', { n: billsTotal }) }}</span>
-          <button type="button" class="plan-btn plan-btn--ghost" :disabled="billsPage * PAGE_SIZE >= billsTotal || billsLoading" @click="loadBills(billsPage + 1)">{{ t('下一页') }}</button>
-        </div>
-      </template>
+        <template v-else-if="pane === 'bills'">
+          <div v-if="billsLoading && !bills.length" class="invite-skeleton" aria-busy="true">
+            <USkeleton v-for="n in 5" :key="n" class="invite-skeleton__row" />
+          </div>
+          <StudioEmpty
+            v-else-if="!bills.length"
+            compact
+            :title="t('settings.invite.noBills')"
+            :description="t('settings.invite.noBillsHint')"
+          />
+          <div v-else class="creator-table-wrap" :class="{ 'is-busy': billsLoading }">
+            <table class="creator-table">
+              <thead>
+                <tr>
+                  <th>{{ t('时间') }}</th>
+                  <th>{{ t('类型') }}</th>
+                  <th>{{ t('settings.invite.fromUser') }}</th>
+                  <th>{{ t('settings.invite.points') }}</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="b in bills" :key="b.id">
+                  <td>{{ fmt(b.created_at) }}</td>
+                  <td>{{ billTypeLabel(b.biz_type) }}</td>
+                  <td>{{ b.from_nickname || (b.from_user_id ? `#${b.from_user_id}` : '—') }}</td>
+                  <td :class="{ 'invite-records__points': b.amount > 0, 'invite-records__points is-neg': b.amount < 0 }">
+                    {{ b.amount > 0 ? `+${b.amount}` : b.amount }}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div v-if="billsTotal > PAGE_SIZE" class="invite-pager">
+            <button type="button" class="plan-btn plan-btn--ghost" :disabled="billsPage <= 1 || billsLoading" @click="loadBills(billsPage - 1)">{{ t('上一页') }}</button>
+            <span>{{ t('settings.invite.total', { n: billsTotal }) }}</span>
+            <button type="button" class="plan-btn plan-btn--ghost" :disabled="billsPage * PAGE_SIZE >= billsTotal || billsLoading" @click="loadBills(billsPage + 1)">{{ t('下一页') }}</button>
+          </div>
+        </template>
 
-      <template v-else>
-        <p v-if="withdrawLoading" class="settings-lead">{{ t('加载中…') }}</p>
-        <StudioEmpty
-          v-else-if="!withdraws.length"
-          compact
-          :title="t('settings.invite.noWithdraws')"
-          :description="t('settings.invite.withdrawHint')"
-        />
-        <div v-else class="creator-table-wrap">
-          <table class="creator-table">
-            <thead>
-              <tr>
-                <th>{{ t('申请时间') }}</th>
-                <th>{{ t('settings.invite.withdrawWay') }}</th>
-                <th>{{ t('金额') }}</th>
-                <th>{{ t('状态') }}</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="row in withdraws" :key="row.id || row.withdraw_no">
-                <td>{{ fmt(Number(row.created_at) || 0) }}</td>
-                <td>{{ withdrawWayLabel(String(row.way || '')) }}</td>
-                <td>{{ money(row.amount) }}</td>
-                <td>{{ withdrawStatusLabel(Number(row.status)) }}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-        <div v-if="withdrawTotal > PAGE_SIZE" class="invite-pager">
-          <button type="button" class="plan-btn plan-btn--ghost" :disabled="withdrawPage <= 1 || withdrawLoading" @click="loadWithdraws(withdrawPage - 1)">{{ t('上一页') }}</button>
-          <span>{{ t('settings.invite.total', { n: withdrawTotal }) }}</span>
-          <button type="button" class="plan-btn plan-btn--ghost" :disabled="withdrawPage * PAGE_SIZE >= withdrawTotal || withdrawLoading" @click="loadWithdraws(withdrawPage + 1)">{{ t('下一页') }}</button>
-        </div>
-      </template>
+        <template v-else>
+          <div v-if="withdrawLoading && !withdraws.length" class="invite-skeleton" aria-busy="true">
+            <USkeleton v-for="n in 5" :key="n" class="invite-skeleton__row" />
+          </div>
+          <StudioEmpty
+            v-else-if="!withdraws.length"
+            compact
+            :title="t('settings.invite.noWithdraws')"
+            :description="t('settings.invite.withdrawHint')"
+          />
+          <div v-else class="creator-table-wrap" :class="{ 'is-busy': withdrawLoading }">
+            <table class="creator-table">
+              <thead>
+                <tr>
+                  <th>{{ t('申请时间') }}</th>
+                  <th>{{ t('settings.invite.withdrawWay') }}</th>
+                  <th>{{ t('金额') }}</th>
+                  <th>{{ t('状态') }}</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="row in withdraws" :key="row.id || row.withdraw_no">
+                  <td>{{ fmt(Number(row.created_at) || 0) }}</td>
+                  <td>{{ withdrawWayLabel(String(row.way || '')) }}</td>
+                  <td>{{ money(row.amount) }}</td>
+                  <td>{{ withdrawStatusLabel(Number(row.status)) }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div v-if="withdrawTotal > PAGE_SIZE" class="invite-pager">
+            <button type="button" class="plan-btn plan-btn--ghost" :disabled="withdrawPage <= 1 || withdrawLoading" @click="loadWithdraws(withdrawPage - 1)">{{ t('上一页') }}</button>
+            <span>{{ t('settings.invite.total', { n: withdrawTotal }) }}</span>
+            <button type="button" class="plan-btn plan-btn--ghost" :disabled="withdrawPage * PAGE_SIZE >= withdrawTotal || withdrawLoading" @click="loadWithdraws(withdrawPage + 1)">{{ t('下一页') }}</button>
+          </div>
+        </template>
+      </div>
     </section>
   </template>
 </template>

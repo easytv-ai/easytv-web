@@ -78,12 +78,15 @@ describe('创作台样式入口', () => {
     expect(shell).toContain('.wallet-panel__body {')
     expect(shell).toContain('.notice-list {')
     expect(shell).toContain('.studio-chip__num {')
-    expect(panels).toContain('.settings-layout {')
+    expect(panels).toContain('.settings-modal {')
     expect(panels).not.toContain('.wallet-panel__body {')
     expect(panels).not.toContain('.notice-list {')
-    for (const page of ['canvas/index.vue', 'settings/index.vue', 'tasks/index.vue', 'agent/index.vue']) {
+    for (const page of ['canvas/index.vue', 'tasks/index.vue', 'agent/index.vue']) {
       expect(readFileSync(resolve(cssDir, `../../pages/${page}`), 'utf8')).toContain('studio-parts/panels.css')
     }
+    // 设置弹窗懒挂载，面板样式随弹窗 chunk 加载
+    expect(readFileSync(resolve(cssDir, '../../components/studio/StudioSettingsModal.vue'), 'utf8')).toContain('studio-parts/panels.css')
+    expect(layout).toContain('LazyStudioSettingsModal')
   })
 
   it('增长页样式不跟创作台布局走', () => {

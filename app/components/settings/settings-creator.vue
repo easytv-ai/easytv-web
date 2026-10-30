@@ -12,6 +12,7 @@ import type { CreatorSummary, CreatorWithdraw, SkillReviewStatus } from '~/types
 const { t } = useI18n()
 const toast = useToast()
 const localePath = useLocalePath()
+const { openSettings } = useSettingsModal()
 const { growth } = useStudioAppConfig()
 const { refresh: refreshWallet } = useWallet()
 const { confirm } = useConfirm()
@@ -325,7 +326,7 @@ onMounted(() => {
         <p v-if="!withdrawOpen" class="settings-hint">{{ t('兑换后的积分 90 天内有效，本次最多可兑换 {n} 积分', { n: creator.withdrawable }) }}</p>
         <p class="settings-hint">{{ t('按 {rate} 积分兑换 1 元，本次可提现 {cash}', { rate: pointsPerYuan, cash: money(cashAvailable) }) }}</p>
         <p v-if="!withdrawOpen" class="settings-hint">{{ t('account.payout.creatorHint') }}</p>
-        <NuxtLink v-if="!withdrawOpen" :to="localePath({ path: '/settings', query: { tab: 'partner-program' } })" class="settings-link">{{ t('account.payout.toPartner') }}</NuxtLink>
+        <button v-if="!withdrawOpen" type="button" class="settings-link" @click="openSettings('partner-program')">{{ t('account.payout.toPartner') }}</button>
         <form v-if="withdrawOpen" class="partner-withdraw" @submit.prevent="submitWithdraw">
           <div class="settings-row">
             <span class="settings-row__label">{{ t('提现金额') }} <i>*</i></span>
@@ -385,7 +386,7 @@ onMounted(() => {
         :title="t('还没有技能')"
         :description="t('把常用的提示词保存成 Skill，提交上架后他人调用就有分成。')"
       >
-        <NuxtLink :to="localePath('/agent')" class="plan-btn plan-btn--solid">{{ t('创建技能') }}</NuxtLink>
+        <NuxtLink :to="localePath('/skills')" class="plan-btn plan-btn--solid">{{ t('创建技能') }}</NuxtLink>
       </StudioEmpty>
       <div v-else class="creator-table-wrap">
         <table class="creator-table">
