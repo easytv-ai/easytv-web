@@ -819,7 +819,6 @@ onBeforeUnmount(() => {
 
 const primaryLabel = computed(() => {
   switch (step.value) {
-    case 1: return creating.value ? t('生成中…') : t('生成策划案')
     case 2: return building.value ? t('创建中…') : t('开始生成')
     case 3: return t('下一步：合成')
     case 4: return composing.value || composeActive.value ? t('合成中…') : composeFailed.value ? t('重试') : t('开始合成')
@@ -829,7 +828,6 @@ const primaryLabel = computed(() => {
 
 const primaryDisabled = computed(() => {
   switch (step.value) {
-    case 1: return creating.value || !input.value.trim()
     case 2: return building.value || saving.value || !plan.value
     case 3: return !videoOrder.value.length
     case 4: return composing.value || composeActive.value || !videoOrder.value.length
@@ -839,7 +837,6 @@ const primaryDisabled = computed(() => {
 
 function onPrimary() {
   switch (step.value) {
-    case 1: return void createPlan()
     case 2: return void buildCanvas()
     case 3: return void goStep(4)
     case 4: return void startCompose()
@@ -850,8 +847,12 @@ function onPrimary() {
 
 <template>
   <section class="projects-page create-page">
-    <header class="create-head">
+    <header class="create-head" :class="{ 'is-hero': step === 1 }">
       <div>
+        <span v-if="step === 1" class="create-head__eyebrow">
+          <UIcon name="i-lucide-wand-sparkles" class="size-3.5" />
+          {{ t('create.input.eyebrow') }}
+        </span>
         <h1>{{ t('一句话成片') }}</h1>
         <p>{{ t('输入一句话或剧本，自动生成策划案、分镜、镜头视频与配音，一键合成短片。') }}</p>
       </div>
@@ -896,6 +897,8 @@ function onPrimary() {
       :logged-in="isLoggedIn"
       :project-options="projectOptions"
       :error="error"
+      :submitting="creating"
+      @submit="createPlan"
     />
 
     <!-- 2 策划案 -->
@@ -1010,8 +1013,8 @@ function onPrimary() {
       </div>
     </template>
 
-    <footer v-if="!resuming && step !== 5" class="create-foot">
-      <button v-if="step > 1 && step < 5" type="button" class="plan-btn plan-btn--ghost create-foot__back" :disabled="creating || building" @click="goStep((step - 1) as Step)">
+    <footer v-if="!resuming && step > 1 && step < 5" class="create-foot">
+      <button type="button" class="plan-btn plan-btn--ghost create-foot__back" :disabled="creating || building" @click="goStep((step - 1) as Step)">
         {{ t('上一步') }}
       </button>
       <label v-if="step === 4" class="create-foot__opt" :title="t('成片之外再生成无字幕母版、独立字幕 SRT、对白轨与素材清单 JSON，一起存进资产库')">

@@ -18,6 +18,11 @@ export const workApi = {
     return http.get('/user/work', query)
   },
 
+  /** 我赞过的作品（仍在发布中的），按点赞时间倒序 */
+  likes(query: PageQuery = {}): Promise<ApiResponse<Paged<Work>>> {
+    return http.get('/user/work/likes', query)
+  },
+
   /** 从视频资产发布 */
   publish(data: { title: string, description?: string, category?: string, asset_id: number, project_id?: number, canvas_id?: number, cover_url?: string, show_process?: boolean, source_canvas_id?: number, source_skill_id?: number, open_source?: 0 | 1, lang?: string }): Promise<ApiResponse<Work>> {
     return http.post('/user/work', data)

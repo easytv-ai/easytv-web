@@ -3606,6 +3606,24 @@
       "message": "Leaving this page will not stop generation. You can check progress in Tasks.",
       "confirm": "Leave anyway",
       "stay": "Stay"
+    },
+    "input": {
+      "eyebrow": "AI short-film workflow",
+      "shortcut": "Ctrl + Enter to generate",
+      "ideasTitle": "Try an idea",
+      "ideasHint": "Click a card to fill it in, then edit freely",
+      "use": "Use",
+      "replaceTitle": "Replace current text?",
+      "replaceMessage": "The input already has content. Using this idea will overwrite it.",
+      "replaceConfirm": "Replace",
+      "ideas": {
+        "suspense": { "tag": "Suspense", "text": "On the last subway train at midnight, passengers vanish one by one until only she and a silent old man remain" },
+        "healing": { "tag": "Heartwarming", "text": "A ginger cat searches for its way home through rainy Tokyo streets, and every little shop it passes offers a bit of warmth" },
+        "scifi": { "tag": "Sci-fi", "text": "In 2080, the last human astronaut on a Mars base receives an old recording from Earth" },
+        "wuxia": { "tag": "Chinese style", "text": "In misty Jiangnan, a young swordsman ventures alone into an ancient town to recover his master's lost sword" },
+        "family": { "tag": "Family", "text": "A father learns to use a smartphone for the first time, just to send his faraway daughter a birthday voice message" },
+        "ad": { "tag": "Ad", "text": "An ice-cold soda keeps a young city dweller company all day, from a morning convenience store to a summer-night rooftop" }
+      }
     }
   },
   "canvas": {
@@ -4062,6 +4080,18 @@
       "qrDownloadFailed": "Download failed. Right-click the image to save it",
       "total": "{n} total"
     }
+  },
+  "author": {
+    "published": "Published",
+    "drafts": "Drafts",
+    "onlyMe": "Only visible to you",
+    "share": "Share profile",
+    "editProfile": "Edit profile",
+    "draftsEmpty": "No drafts yet",
+    "mineEmptyHint": "Turn one sentence into your first short film. Published works appear here.",
+    "likes": "Liked",
+    "likesEmpty": "No liked works yet",
+    "likesEmptyHint": "Like a film you enjoy and it will be saved here. Only visible to you."
   },
   "account": {
     "workflow": {

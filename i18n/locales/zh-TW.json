@@ -3582,6 +3582,24 @@
       "message": "關閉或離開本頁不會中斷生成，可在任務中心查看進度。",
       "confirm": "仍要離開",
       "stay": "留在本頁"
+    },
+    "input": {
+      "eyebrow": "AI 短片工作流",
+      "shortcut": "Ctrl + Enter 快速生成",
+      "ideasTitle": "試試這些靈感",
+      "ideasHint": "點擊卡片填入，可再修改",
+      "use": "使用",
+      "replaceTitle": "替換目前內容？",
+      "replaceMessage": "輸入框裡已有內容，使用靈感會覆蓋它。",
+      "replaceConfirm": "替換",
+      "ideas": {
+        "suspense": { "tag": "懸疑", "text": "深夜的末班地鐵上，乘客一個個消失，只剩下女主和一位從不說話的老人" },
+        "healing": { "tag": "療癒", "text": "一隻橘貓在雨夜的東京街頭尋找回家的路，路過的每家小店都給了牠一點溫暖" },
+        "scifi": { "tag": "科幻", "text": "2080 年，最後一名人類太空人在火星基地收到了一段來自地球的舊錄音" },
+        "wuxia": { "tag": "國風", "text": "煙雨江南，少年劍客為尋回師父遺失的古劍，獨闖千年古鎮" },
+        "family": { "tag": "親情", "text": "父親第一次學用智慧型手機，只為給遠方的女兒傳一則生日語音" },
+        "ad": { "tag": "廣告", "text": "一瓶冰鎮汽水，從清晨的便利商店到夏夜的天台，陪伴城市青年的一天" }
+      }
     }
   },
   "canvas": {
@@ -4038,6 +4056,18 @@
       "qrDownloadFailed": "下載失敗，請右鍵圖片另存為",
       "total": "共 {n} 條"
     }
+  },
+  "author": {
+    "published": "已發布",
+    "drafts": "草稿",
+    "onlyMe": "僅自己可見",
+    "share": "分享主頁",
+    "editProfile": "編輯資料",
+    "draftsEmpty": "還沒有草稿",
+    "mineEmptyHint": "用一句話生成你的第一部短片，發布後會展示在這裡。",
+    "likes": "讚過",
+    "likesEmpty": "還沒有讚過的作品",
+    "likesEmptyHint": "看到喜歡的成片按個讚，會收藏在這裡，僅自己可見。"
   },
   "account": {
     "workflow": {

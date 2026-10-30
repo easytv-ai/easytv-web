@@ -1266,6 +1266,24 @@
       "message": "关闭或离开本页不会中断生成，可在任务中心查看进度。",
       "confirm": "仍要离开",
       "stay": "留在本页"
+    },
+    "input": {
+      "eyebrow": "AI 短片工作流",
+      "shortcut": "Ctrl + Enter 快速生成",
+      "ideasTitle": "试试这些灵感",
+      "ideasHint": "点击卡片填入，可再修改",
+      "use": "使用",
+      "replaceTitle": "替换当前内容？",
+      "replaceMessage": "输入框里已有内容，使用灵感会覆盖它。",
+      "replaceConfirm": "替换",
+      "ideas": {
+        "suspense": { "tag": "悬疑", "text": "深夜的末班地铁上，乘客一个个消失，只剩下女主和一位从不说话的老人" },
+        "healing": { "tag": "治愈", "text": "一只橘猫在雨夜的东京街头寻找回家的路，路过的每家小店都给了它一点温暖" },
+        "scifi": { "tag": "科幻", "text": "2080 年，最后一名人类宇航员在火星基地收到了一段来自地球的旧录音" },
+        "wuxia": { "tag": "国风", "text": "烟雨江南，少年剑客为寻回师父遗失的古剑，独闯千年古镇" },
+        "family": { "tag": "亲情", "text": "父亲第一次学用智能手机，只为给远方的女儿发一条生日语音" },
+        "ad": { "tag": "广告", "text": "一瓶冰镇汽水，从清晨的便利店到夏夜的天台，陪伴城市青年的一天" }
+      }
     }
   },
   "canvas": {
@@ -1722,6 +1740,18 @@
       "qrDownloadFailed": "下载失败，请右键图片另存为",
       "total": "共 {n} 条"
     }
+  },
+  "author": {
+    "published": "已发布",
+    "drafts": "草稿",
+    "onlyMe": "仅自己可见",
+    "share": "分享主页",
+    "editProfile": "编辑资料",
+    "draftsEmpty": "还没有草稿",
+    "mineEmptyHint": "用一句话生成你的第一部短片，发布后会展示在这里。",
+    "likes": "赞过",
+    "likesEmpty": "还没有赞过的作品",
+    "likesEmptyHint": "看到喜欢的成片点个赞，会收藏在这里，仅自己可见。"
   },
   "account": {
     "workflow": {

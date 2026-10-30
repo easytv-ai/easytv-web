@@ -258,27 +258,29 @@ onUnmounted(() => {
           </article>
         </template>
 
-        <article
-          v-for="item in items"
-          :key="item.id"
-          class="prompt-card"
-          role="button"
-          tabindex="0"
-          @click="openDetail(item)"
-          @keydown.enter="openDetail(item)"
-        >
-          <div class="prompt-card__thumb">
-            <img v-if="item.cover_url" :src="resolveMediaUrl(item.cover_url)" :alt="item.title" loading="lazy">
-            <UIcon v-else name="i-lucide-quote" class="size-5" />
-          </div>
-          <div class="prompt-card__body">
-            <h3>{{ item.title }}</h3>
-            <div class="prompt-card__meta">
-              <span v-for="tag in item.tags.slice(0, 3)" :key="tag">{{ tag }}</span>
-              <em v-if="item.source_name">{{ item.source_name }}</em>
+        <div class="prompt-grid">
+          <article
+            v-for="item in items"
+            :key="item.id"
+            class="prompt-card"
+            role="button"
+            tabindex="0"
+            @click="openDetail(item)"
+            @keydown.enter="openDetail(item)"
+          >
+            <div class="prompt-card__thumb">
+              <img v-if="item.cover_url" :src="resolveMediaUrl(item.cover_url)" :alt="item.title" loading="lazy">
+              <UIcon v-else name="i-lucide-quote" class="size-5" />
             </div>
-          </div>
-        </article>
+            <div class="prompt-card__body">
+              <h3>{{ item.title }}</h3>
+              <div class="prompt-card__meta">
+                <span v-for="tag in item.tags.slice(0, 3)" :key="tag">{{ tag }}</span>
+                <em v-if="item.source_name">{{ item.source_name }}</em>
+              </div>
+            </div>
+          </article>
+        </div>
       </StudioPaging>
     </div>
 
