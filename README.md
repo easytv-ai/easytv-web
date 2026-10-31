@@ -52,8 +52,6 @@ npm run preview      # 构建后用 wrangler 本地预览
 npm run deploy       # 构建后部署到 Cloudflare
 ```
 
-推代码前的 hook 和 GitHub Actions 都会跑 `typecheck`、`test`。
-
 ## 主要页面
 
 | 路径 | 说明 |

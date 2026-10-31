@@ -10,6 +10,11 @@ dist
 .DS_Store
 .seo-*.log
 
+# 编辑器 / 本地助手，不随开源仓库发布
+.claude/
+.cursor/
+.idea/
+
 # 内部调研与代理笔记，不随开源仓库发布
 .zcode/
 .agent/

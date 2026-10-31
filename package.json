@@ -15,8 +15,7 @@
     "deploy": "yarn run build && wrangler deploy",
     "cf-typegen": "wrangler types",
     "typecheck": "nuxt typecheck",
-    "test": "vitest run",
-    "prepare": "simple-git-hooks"
+    "test": "vitest run"
   },
   "dependencies": {
     "@ffmpeg/core": "0.12.10",
@@ -52,13 +51,9 @@
     "cross-env": "^10.1.0",
     "nitro-cloudflare-dev": "^0.2.2",
     "opencc-js": "^1.4.0",
-    "simple-git-hooks": "^2.14.0",
     "typescript": "^6.0.3",
     "vitest": "^5.0.0",
     "vue-tsc": "^3",
     "wrangler": "^4.128.0"
-  },
-  "simple-git-hooks": {
-    "pre-push": "npm run typecheck && npm test"
   }
 }
