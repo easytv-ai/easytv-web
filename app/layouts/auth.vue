@@ -17,8 +17,6 @@ const wall = [
   '/images/showcase/neon-rain.jpg',
   '/images/showcase/desert-road.jpg',
   '/images/showcase/city-walk.jpg',
-  '/gifs/showcase/scenic.webp',
-  '/gifs/login-hero.webp',
 ]
 
 const canClose = ref(false)

@@ -1,3 +1,6 @@
+/** 仓库不放演示大文件。登录页和运镜预览先用这一条远程视频占位。 */
+export const PLACEHOLDER_VIDEO_URL = 'https://tv-oss.easyapi.com/easytv/2026/10/27/1793093335600tx4xHL.mp4'
+
 /**
  * 媒体地址解析：
  * - `/upload/...`：后端本地存储，拼 API Base URL

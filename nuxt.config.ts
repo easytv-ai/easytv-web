@@ -140,7 +140,7 @@ export default defineNuxtConfig({
       siteName: (globalThis as any).process?.env?.NUXT_PUBLIC_SITE_NAME || 'EasyTV',
       /** 站点公开地址：canonical、sitemap、OG 图片绝对地址都从这里拼 */
       siteUrl: (globalThis as any).process?.env?.NUXT_PUBLIC_SITE_URL || 'http://localhost:3005',
-      apiBaseUrl: (globalThis as any).process?.env?.NUXT_PUBLIC_API_BASE_URL || 'http://localhost:3000',
+      apiBaseUrl: (globalThis as any).process?.env?.NUXT_PUBLIC_API_BASE_URL || 'https://tv-api.easyapi.com',
     },
   },
   future: {

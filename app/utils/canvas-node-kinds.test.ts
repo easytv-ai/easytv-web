@@ -101,8 +101,8 @@ describe('cloneContentNodeData', () => {
 })
 
 describe('cameraMoveVideoUrl', () => {
-  it('固定镜头用已有的 fixed.mp4，不再套动作', () => {
-    expect(cameraMoveVideoUrl('static')).toBe('/videos/camera-movement/fixed.mp4')
+  it('固定镜头用占位视频，不再套动作', () => {
+    expect(cameraMoveVideoUrl('static')).toBe(CAMERA_MOVE_VIDEO)
     expect(cameraMoveMotionPreview('static')).toBe('')
   })
 

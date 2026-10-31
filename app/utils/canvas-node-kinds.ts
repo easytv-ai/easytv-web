@@ -1,3 +1,5 @@
+import { PLACEHOLDER_VIDEO_URL } from './media'
+
 export type CanvasNodeKind =
   | 'character'
   | 'scene'
@@ -312,13 +314,12 @@ export function cloneContentNodeData(data: CanvasNodeData, extra?: Partial<Canva
   }
 }
 
-/** 视频节点运镜库：选中后插到提示词光标处，没焦点则放文末 */
-export const CAMERA_MOVE_VIDEO = '/videos/camera-movement/fixed.mp4'
+/** 视频节点运镜库：选中后插到提示词光标处，没焦点则放文末。预览先用远程占位片。 */
+export const CAMERA_MOVE_VIDEO = PLACEHOLDER_VIDEO_URL
 
 /**
- * 已经放进 public/videos/camera-movement/ 的独立预览。
- * 固定镜头文件名是 fixed.mp4；其余与运镜 id 同名（orbit.mp4）。
- * 没进这张表的运镜仍用固定镜头做底，由运镜库按动作示意，避免请求不存在的片子。
+ * 有独立预览的运镜。本地片子已去掉，画面都走 CAMERA_MOVE_VIDEO。
+ * 留在这张表里的运镜不再套 CSS 动作示意。
  */
 const CAMERA_MOVE_OWN_VIDEO: Record<string, string> = {
   static: 'fixed.mp4',
@@ -427,16 +428,9 @@ export function cameraMoveHasOwnVideo(id?: string) {
   return Boolean(resolved && CAMERA_MOVE_OWN_VIDEO[resolved])
 }
 
-/**
- * 运镜预览地址。有独立片子就用它；没有则回退固定镜头。
- * 旧别名（push → dolly-in）先归一，再按归一名取文件。
- */
-export function cameraMoveVideoUrl(id?: string) {
-  const resolved = knownCameraMoveId(id)
-  const file = resolved ? CAMERA_MOVE_OWN_VIDEO[resolved] : ''
-  if (!file)
-    return CAMERA_MOVE_VIDEO
-  return `/videos/camera-movement/${file}`
+/** 运镜预览地址。本地片子已去掉，一律用同一条远程视频占位。 */
+export function cameraMoveVideoUrl(_id?: string) {
+  return CAMERA_MOVE_VIDEO
 }
 
 /**

@@ -1,17 +1,19 @@
 <script setup lang="ts">
+import { PLACEHOLDER_VIDEO_URL } from '~/utils/media'
+
 const { t } = useI18n()
 const heroIndex = ref(0)
 let heroTimer: ReturnType<typeof setTimeout> | undefined
 
 const slides = computed(() => [
-  { src: '/gifs/login-hero.webp', title: t('青春纪实') },
-  { src: '/gifs/showcase/scenic.webp', title: t('星空山巅') },
-  { src: '/gifs/showcase/coast.webp', title: t('礁岸纪实') },
-  { src: '/gifs/showcase/waterfall.webp', title: t('林间飞瀑') },
-  { src: '/gifs/showcase/music.webp', title: t('音乐现场') },
-  { src: '/gifs/showcase/ocean.webp', title: t('航拍海浪') },
-  { src: '/gifs/showcase/city-night.webp', title: t('夜城未眠') },
-  { src: '/gifs/showcase/neon-rain.webp', title: t('赛博夜雨') },
+  { title: t('青春纪实') },
+  { title: t('星空山巅') },
+  { title: t('礁岸纪实') },
+  { title: t('林间飞瀑') },
+  { title: t('音乐现场') },
+  { title: t('航拍海浪') },
+  { title: t('夜城未眠') },
+  { title: t('赛博夜雨') },
 ])
 
 const current = computed(() => slides.value[heroIndex.value] ?? slides.value[0])
@@ -57,12 +59,15 @@ onUnmounted(() => {
 
 <template>
   <div class="xyq-split__visual">
-    <img
+    <video
       class="xyq-split__video"
-      :src="current?.src"
-      alt=""
-      decoding="async"
-    >
+      :src="PLACEHOLDER_VIDEO_URL"
+      muted
+      loop
+      autoplay
+      playsinline
+      preload="metadata"
+    />
     <button
       type="button"
       class="xyq-split__arrow is-prev"
@@ -84,7 +89,7 @@ onUnmounted(() => {
       <div class="xyq-split__dots" role="tablist">
         <button
           v-for="(slide, index) in slides"
-          :key="slide.src"
+          :key="slide.title"
           type="button"
           :class="{ 'is-on': index === heroIndex }"
           :aria-label="slide.title"
