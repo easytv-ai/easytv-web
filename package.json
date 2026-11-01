@@ -37,7 +37,7 @@
     "@lobehub/icons-static-svg": "^1.91.0",
     "@nuxt/ui": "^4.7.1",
     "@nuxtjs/i18n": "^10.3.0",
-    "@simplewebauthn/browser": "13",
+    "@simplewebauthn/browser": "14",
     "@simplewebauthn/server": "13",
     "@tresjs/cientos": "^5.8.1",
     "@tresjs/core": "^5.8.3",
