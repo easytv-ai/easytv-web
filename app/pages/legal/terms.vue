@@ -1,9 +1,11 @@
 <script setup lang="ts">
-import { termsDocument } from '~/content/legal/zh'
+import { buildLegalDocuments } from '~/content/legal/zh'
 
 definePageMeta({
   layout: 'simple',
 })
+
+const { termsDocument } = buildLegalDocuments(String(useRuntimeConfig().public.contactEmail || ''))
 
 useHead({ title: termsDocument.title })
 </script>

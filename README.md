@@ -1,102 +1,160 @@
-# EasyTV
+<div align="center">
 
-AI 视频创作平台的 Web 前端。自由画布、一句话成片、3D 导演台、技能库和项目管理都在这个仓库。
+# EasyTV Web
 
-站点：[easytv.ai](https://easytv.ai)
+**Creator studio of [EasyTV](https://easytv.ai) — the open-source AI short-drama platform.**
 
-本仓库只做页面、交互和静态资源。登录、生成、计费、存文件都走单独部署的 API。没有后端时，开发服务能起来，但创作相关接口不可用。
+[![CI](https://github.com/easytv-ai/easytv-web/actions/workflows/ci.yml/badge.svg)](https://github.com/easytv-ai/easytv-web/actions/workflows/ci.yml)
+[![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL--3.0-blue.svg)](LICENSE)
+[![Nuxt 4](https://img.shields.io/badge/Nuxt-4-00DC82?logo=nuxt.js&logoColor=white)](https://nuxt.com)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
-## 技术栈
+[English](README.md) · [简体中文](README.zh-CN.md) · [Live site](https://easytv.ai) · [Backend](https://github.com/easytv-ai/easytv-api)
 
-- **框架**：Nuxt 4、Vue 3、TypeScript
-- **界面**：Nuxt UI、Tailwind CSS 4
-- **画布**：Vue Flow
-- **导演台**：TresJS / Three.js
-- **剪辑**：FFmpeg.wasm（浏览器里裁剪、拆分、拼接）
-- **文案**：`@nuxtjs/i18n`（简体、繁体、英、法、日、俄、越）
-- **上线**：Cloudflare Workers
+</div>
 
-需要 Node.js `>= 22.5.0`，以及一台能访问的 EasyTV API（默认 `http://localhost:3000`）。CI 以 npm 为准。
+EasyTV Web is the browser front end where creators turn a one-line idea into a
+finished short drama: a node-based canvas for scripts, storyboards, images,
+video and audio; a 3D director stage for blocking and camera work; and a
+one-sentence-to-film pipeline that plans, generates and composes automatically.
 
-## 本地开发
+This repository contains pages, interactions and static assets only. Login,
+generation, billing and storage are served by
+[`easytv-api`](https://github.com/easytv-ai/easytv-api); the admin console is
+[`easytv-manage`](https://github.com/easytv-ai/easytv-manage).
+
+## Highlights
+
+- **Free canvas** — Vue Flow nodes for text, image, video, audio and compose
+  steps, with version history, read-only sharing and an AI assistant panel.
+- **One-sentence-to-film** — type a premise, review the plan, generate layer by
+  layer, get a composed film with subtitles and BGM.
+- **3D director stage** — TresJS / Three.js scene for staging characters and
+  cameras, written back into the same canvas.
+- **In-browser editing** — FFmpeg.wasm trims, splits and concatenates clips
+  without a round-trip to the server.
+- **Community** — explore feed, follows, rankings, comments and a public
+  player page per work.
+- **Skills & prompts** — reusable skill templates and a prompt library.
+- **Seven locales** — Simplified / Traditional Chinese, English, French,
+  Japanese, Russian, Vietnamese.
+- **Edge-ready** — Nuxt 4 with the Cloudflare Workers preset; also runs on any
+  Node host.
+
+## Quick Start
+
+Requires Node.js 22.5+ and [pnpm](https://pnpm.io) 10+ (`corepack enable` installs the pinned version).
 
 ```bash
+git clone https://github.com/easytv-ai/easytv-web.git
+cd easytv-web
+pnpm install
 cp .env.example .env.development
-npm install
-npm run dev
+pnpm dev          # http://localhost:3005
 ```
 
-开发地址：[http://localhost:3005](http://localhost:3005)。打开 `/` 会 301 到 `/agent`。
+Without a backend the public pages (home, explore, skills) render; creation
+features open a sign-in dialog. Point `NUXT_PUBLIC_API_BASE_URL` at a running
+[`easytv-api`](https://github.com/easytv-ai/easytv-api) (default port 8383) to
+enable everything.
 
-`.env.example` 这三项就能跑：
+## Configuration
 
-| 变量 | 作用 |
-| --- | --- |
-| `NUXT_PUBLIC_SITE_NAME` | 站点名 |
-| `NUXT_PUBLIC_API_BASE_URL` | 后端 API |
-| `NUXT_PUBLIC_SITE_URL` | 本站公开地址（canonical、sitemap、OG） |
+All variables are public runtime config (`NUXT_PUBLIC_*`). Development reads
+`.env.development`, production builds read `.env.production`. Never commit
+either; `.env.example` is the reference.
 
-生产构建读 `.env.production`。不要提交 `.env.*`。
+| Variable | Required | Description |
+| --- | --- | --- |
+| `NUXT_PUBLIC_API_BASE_URL` | yes | Base URL of `easytv-api` |
+| `NUXT_PUBLIC_SITE_URL` | yes in prod | Public URL of this site: canonical links, sitemap, Open Graph images |
+| `NUXT_PUBLIC_SITE_NAME` | no | Site name in UI and meta tags (default `EasyTV`) |
+| `NUXT_PUBLIC_MEDIA_HOSTS` | no | Extra hostnames (comma separated) the server-side media proxy may fetch, e.g. your OSS / CDN domain. The API and site hosts are always allowed. |
+| `NUXT_PUBLIC_CONTACT_EMAIL` | no | Contact address shown on the terms, privacy and AI-guidelines pages. Empty hides the address. |
 
-未登录可以看首页、探索、技能广场。点创作、项目、画布会在当前页弹登录框，不会跳独立登录页。
+The legal pages under `/legal/*` are sample texts. Review them against your own
+business and jurisdiction before going live.
 
-## 常用脚本
+## Scripts
 
 ```bash
-npm run dev          # 开发，读 .env.development
-npm run build        # 生产构建，读 .env.production
-npm run generate     # 静态导出
-npm run typecheck    # 类型检查
-npm test             # Vitest，覆盖 app/**/*.test.ts
-npm run preview      # 构建后用 wrangler 本地预览
-npm run deploy       # 构建后部署到 Cloudflare
+pnpm dev          # dev server, reads .env.development
+pnpm build        # production build, reads .env.production
+pnpm generate     # static export
+pnpm typecheck    # vue-tsc
+pnpm test             # vitest, app/**/*.test.ts
+pnpm preview      # build + wrangler dev
+pnpm deploy       # build + wrangler deploy
 ```
 
-## 主要页面
+## Routes
 
-| 路径 | 说明 |
+| Path | Description |
 | --- | --- |
-| `/agent` | 首页：创作入口 + 精选成片 |
-| `/explore` `/studio` `/following` `/rank` | 作品流、推荐、关注、榜单 |
-| `/create` | 一句话成片：输入 → 策划案 → 分层生成 → 合成 |
-| `/canvas` | 自由画布。`?id=` 打开已有画布，`?project_id=` 从项目新建 |
-| `/canvas/director` | 3D 导演台，场景写回同一张画布 |
-| `/projects` `/assets` `/subjects` `/prompts` | 项目与素材库 |
-| `/skills` | 技能广场 / 我的 / 我创建的 |
-| `/campaign` | 活动 |
-| `/watch/:id` | 成片播放 |
-| `/settings` | 账号、团队、订单、发票、邀请 |
-| `/pricing` | 套餐 |
+| `/agent` | Home: creation entry + featured works (`/` redirects here) |
+| `/explore` `/studio` `/following` `/rank` | Feed, recommendations, following, rankings |
+| `/create` | One-sentence-to-film: premise → plan → layered generation → compose |
+| `/canvas` | Free canvas. `?id=` opens a canvas, `?project_id=` creates one in a project |
+| `/canvas/director` | 3D director stage, writes back to the same canvas |
+| `/projects` `/assets` `/subjects` `/prompts` | Projects and libraries |
+| `/skills` | Skill marketplace / mine / created by me |
+| `/campaign` | Campaigns |
+| `/watch/:id` | Public player |
+| `/settings` | Account, team, orders, invoices, invites |
+| `/pricing` | Plans |
+| `/legal/*` | Terms, privacy, AI guidelines |
 
-跟练素材在 `public/images/tutorial/`。导演台素体在 `public/director-assets/`，署名要求见该目录说明。
+## Project Layout
 
-## 目录
-
-```text
+```
 app/
-  api/           后端接口封装
-  components/    画布、导演台、创作台、设置
-  composables/   登录、钱包、画布状态
-  pages/         路由页面
-  utils/         画布、导演台、成片等纯逻辑（单测主要在这）
-  middleware/    登录弹窗、控制台代登
-i18n/locales/    文案
-public/          动图、跟练素材、导演台模型
-server/          robots、sitemap、少量边缘接口
+  api/           typed wrappers around the backend
+  components/    canvas, director, creation flow, settings
+  composables/   auth, wallet, canvas state
+  pages/         routes
+  utils/         pure logic (canvas, director, compose) – most unit tests live here
+  middleware/    sign-in dialog, console impersonation
+  content/legal/ legal copy
+i18n/locales/    seven locale files
+public/          tutorials, director assets (see public/director-assets/README.md for attribution)
+server/          robots, sitemap, media proxies (server/utils/media-hosts.ts)
 ```
 
-样式用 `app/assets/css/main.css` 里的 `--ea-*` token，约定见 `DESIGN.md`。
+Styling uses Tailwind CSS 4 and Nuxt UI on top of the `--ea-*` design tokens
+defined in `app/assets/css/variables.css`; see [`DESIGN.md`](DESIGN.md).
 
-## 部署
+## Deployment
 
-Nitro preset 是 `cloudflare_module`，配置在 `wrangler.jsonc`。
+The Nitro preset is `cloudflare_module` (`wrangler.jsonc`):
 
 ```bash
-npm run deploy
+cp .env.example .env.production   # fill in production values
+pnpm deploy
 ```
 
-本地先看生产包：
+To run on a Node server instead, build with `NITRO_PRESET=node-server pnpm build`
+and start `node .output/server/index.mjs`.
 
-```bash
-npm run preview
-```
+## Contributing
+
+Issues and pull requests are welcome, in English or Chinese. Read
+[CONTRIBUTING.md](CONTRIBUTING.md) for the workflow, the i18n rules and commit
+conventions, and [SECURITY.md](SECURITY.md) for reporting vulnerabilities.
+Release notes live in [CHANGELOG.md](CHANGELOG.md).
+
+## Related Projects
+
+| Repository | Description |
+| --- | --- |
+| [easytv-api](https://github.com/easytv-ai/easytv-api) | Go backend: auth, canvas, agent, compose, billing |
+| [easytv-manage](https://github.com/easytv-ai/easytv-manage) | Admin console |
+| [easytv-website](https://github.com/easytv-ai/easytv-website) | Project website |
+
+## License
+
+[GNU Affero General Public License v3.0](LICENSE).
+
+The director stage is a Vue port of [open-director](https://github.com/x1n9/open-director)
+(MIT); file headers reference the upstream files. The UE mannequin model in
+`public/director-assets/` is licensed separately — see the license file beside
+it and keep the attribution.

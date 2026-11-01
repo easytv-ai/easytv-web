@@ -1,0 +1,18 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      nuxt:
+        patterns: ["nuxt", "@nuxt/*", "@nuxtjs/*", "nitro*", "vue", "vue-tsc", "@vue/*"]
+      tres-three:
+        patterns: ["@tresjs/*", "three", "@types/three"]
+      dev-tooling:
+        dependency-type: development
+    open-pull-requests-limit: 5
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly

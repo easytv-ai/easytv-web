@@ -2,14 +2,6 @@ import { Readable } from 'node:stream'
 import type { ReadableStream as WebReadableStream } from 'node:stream/web'
 import { getRequestHeader, sendStream } from 'h3'
 
-const MEDIA_HOSTS = new Set([
-  'tv-oss.easyapi.com',
-  'tv-api.easyapi.com',
-  'cdn.easytv.ai',
-  'www.easytv.ai',
-  'easytv.ai',
-])
-
 const MAX_BYTES = 512 * 1024 * 1024
 
 function isMediaType(type: string) {
@@ -30,18 +22,7 @@ export default defineEventHandler(async (event) => {
   catch {
     throw createError({ statusCode: 400, statusMessage: '无效的视频地址' })
   }
-  const hosts = new Set(MEDIA_HOSTS)
-  const apiBase = String(useRuntimeConfig().public.apiBaseUrl || '')
-  let apiHost = ''
-  try {
-    if (apiBase) {
-      apiHost = new URL(apiBase).hostname
-      hosts.add(apiHost)
-    }
-  }
-  catch {
-    // 接口地址配错时只保留内置域名
-  }
+  const { hosts, apiHost } = allowedMediaHosts()
   if (target.protocol !== 'https:' || !hosts.has(target.hostname))
     throw createError({ statusCode: 400, statusMessage: '不支持的视频地址' })
 

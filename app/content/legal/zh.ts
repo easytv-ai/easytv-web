@@ -10,10 +10,17 @@ interface LegalSection {
 }
 
 const LEGAL_UPDATED_AT = '2026年9月7日'
-const CONTACT_EMAIL = 'leida@easyapi.com'
-const SITE_NAME = 'EasyTV'
 
-export const termsDocument = {
+/**
+ * 法务文案（协议 / 隐私 / AI 规范）。联系方式来自 runtime config `contactEmail`
+ * （环境变量 NUXT_PUBLIC_CONTACT_EMAIL），自部署者无需改代码；留空时不展示邮箱。
+ * 条款主体以部署方为准，这里只是示例文本，部署前请按自身业务与所在地法律审阅。
+ */
+export function buildLegalDocuments(contactEmail: string, siteName = 'EasyTV') {
+  const SITE_NAME = siteName
+  const CONTACT = contactEmail ? `邮箱 ${contactEmail}` : '本平台公布的联系方式'
+
+  const termsDocument = {
   title: '用户服务协议',
   updatedAt: LEGAL_UPDATED_AT,
   intro: [
@@ -42,7 +49,7 @@ export const termsDocument = {
         '请使用真实、合法、有效的信息注册，并保证资料准确。',
         '账号及登录凭证由你自行保管，因保管不当导致的损失由你承担。',
         '未经平台许可，不得转让、出借、出租或售卖账号。',
-        `账号异常或被盗用时，请通过 ${CONTACT_EMAIL} 联系我们。`,
+        `账号异常或被盗用时，请通过${CONTACT}联系我们。`,
       ],
     },
     {
@@ -129,13 +136,13 @@ export const termsDocument = {
     {
       title: '十三、联系我们',
       paragraphs: [
-        `如有疑问，请发送邮件至 ${CONTACT_EMAIL}。`,
+        `如有疑问，请通过${CONTACT}联系我们。`,
       ],
     },
   ] satisfies LegalSection[],
 }
 
-export const privacyDocument = {
+  const privacyDocument = {
   title: '隐私政策',
   updatedAt: LEGAL_UPDATED_AT,
   intro: [
@@ -209,7 +216,7 @@ export const privacyDocument = {
       title: '六、你的权利',
       paragraphs: [
         '在适用法律允许范围内，你可通过账户设置或邮件联系我们，行使查阅、复制、更正、删除、注销、撤回同意等权利。',
-        `联系邮箱：${CONTACT_EMAIL}。我们将在验证身份后于合理期限内回复。`,
+        `你可通过${CONTACT}联系我们，我们将在验证身份后于合理期限内回复。`,
       ],
     },
     {
@@ -228,13 +235,13 @@ export const privacyDocument = {
     {
       title: '九、联系我们',
       paragraphs: [
-        `隐私相关问题请发送邮件至 ${CONTACT_EMAIL}。`,
+        `隐私相关问题请通过${CONTACT}联系我们。`,
       ],
     },
   ] satisfies LegalSection[],
 }
 
-export const aiGuidelinesDocument = {
+  const aiGuidelinesDocument = {
   title: 'AI 功能使用规范',
   updatedAt: LEGAL_UPDATED_AT,
   intro: [
@@ -313,8 +320,11 @@ export const aiGuidelinesDocument = {
     {
       title: '九、联系我们',
       paragraphs: [
-        `规范疑问或侵权投诉，请发送邮件至 ${CONTACT_EMAIL}，并附联系方式、内容链接及说明。`,
+        `规范疑问或侵权投诉，请通过${CONTACT}联系我们，并附联系方式、内容链接及说明。`,
       ],
     },
   ] satisfies LegalSection[],
+}
+
+  return { termsDocument, privacyDocument, aiGuidelinesDocument }
 }

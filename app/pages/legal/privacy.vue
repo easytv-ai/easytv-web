@@ -1,9 +1,11 @@
 <script setup lang="ts">
-import { privacyDocument } from '~/content/legal/zh'
+import { buildLegalDocuments } from '~/content/legal/zh'
 
 definePageMeta({
   layout: 'simple',
 })
+
+const { privacyDocument } = buildLegalDocuments(String(useRuntimeConfig().public.contactEmail || ''))
 
 useHead({ title: privacyDocument.title })
 </script>

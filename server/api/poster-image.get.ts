@@ -1,12 +1,4 @@
-const POSTER_IMAGE_HOSTS = new Set([
-  'tv-oss.easyapi.com',
-  'tv-api.easyapi.com',
-  'cdn.easytv.ai',
-  'www.easytv.ai',
-  'easytv.ai',
-])
-
-/** 海报要画进 canvas 再导出。OSS 封面没有 CORS 头，浏览器直接画会失败，上面只剩空渐变。 */
+/** 海报要画进 canvas 再导出。OSS 封面没有 CORS 头，浏览器直接画会失败，上面只剩空渐变。只代理 allowedMediaHosts 里的域名。 */
 export default defineEventHandler(async (event) => {
   const raw = String(getQuery(event).url || '')
   let target: URL
@@ -16,15 +8,7 @@ export default defineEventHandler(async (event) => {
   catch {
     throw createError({ statusCode: 400, statusMessage: '无效的图片地址' })
   }
-  const hosts = new Set(POSTER_IMAGE_HOSTS)
-  const apiBase = String(useRuntimeConfig().public.apiBaseUrl || '')
-  try {
-    if (apiBase)
-      hosts.add(new URL(apiBase).hostname)
-  }
-  catch {
-    // 接口地址配错时只保留内置域名
-  }
+  const { hosts } = allowedMediaHosts()
   if (target.protocol !== 'https:' || !hosts.has(target.hostname))
     throw createError({ statusCode: 400, statusMessage: '不支持的图片地址' })
 
