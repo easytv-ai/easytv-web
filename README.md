@@ -135,6 +135,21 @@ pnpm deploy
 To run on a Node server instead, build with `NITRO_PRESET=node-server pnpm build`
 and start `node .output/server/index.mjs`.
 
+### Docker
+
+A multi-arch image is published to GHCR on every push to `master` and every
+release tag. All `NUXT_PUBLIC_*` variables can be set at run time:
+
+```bash
+docker run -d -p 3005:3005 \
+  -e NUXT_PUBLIC_API_BASE_URL=https://api.example.com \
+  -e NUXT_PUBLIC_SITE_URL=https://studio.example.com \
+  ghcr.io/easytv-ai/easytv-web:latest
+```
+
+The `docker-compose.yml` in [`easytv-api`](https://github.com/easytv-ai/easytv-api)
+starts the whole stack with `docker compose --profile full up -d`.
+
 ## Contributing
 
 Issues and pull requests are welcome, in English or Chinese. Read

@@ -1,0 +1,13 @@
+.git
+.github
+node_modules
+.nuxt
+.output
+.data
+dist
+.wrangler
+.env
+.env.*
+!.env.example
+*.md
+!README.md

@@ -114,6 +114,19 @@ pnpm deploy
 
 要跑在 Node 服务器上，用 `NITRO_PRESET=node-server pnpm build` 构建，再 `node .output/server/index.mjs` 启动。
 
+### Docker
+
+每次推送 `master` 与每个版本标签都会向 GHCR 发布多架构镜像，所有 `NUXT_PUBLIC_*` 变量都可以在运行时设置：
+
+```bash
+docker run -d -p 3005:3005 \
+  -e NUXT_PUBLIC_API_BASE_URL=https://api.example.com \
+  -e NUXT_PUBLIC_SITE_URL=https://studio.example.com \
+  ghcr.io/easytv-ai/easytv-web:latest
+```
+
+[`easytv-api`](https://github.com/easytv-ai/easytv-api) 里的 `docker-compose.yml` 用 `docker compose --profile full up -d` 可以一次拉起整套服务。
+
 ## 参与贡献
 
 欢迎用中文或英文提 Issue 和 PR。工作流程、多语言规则与提交规范见 [CONTRIBUTING.md](CONTRIBUTING.md)，漏洞报告见 [SECURITY.md](SECURITY.md)，变更记录见 [CHANGELOG.md](CHANGELOG.md)。

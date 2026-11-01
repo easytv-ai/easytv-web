@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `Dockerfile` (Node server preset, runtime-configurable `NUXT_PUBLIC_*`) and multi-arch images on GHCR.
+- `SUPPORT.md`, release-notes categories (`.github/release.yml`), label sync, stale bot, Conventional Commits PR-title check and OpenSSF Scorecard workflow.
 - Open-source governance: AGPL-3.0 license, contributing guide, code of
   conduct, security policy, issue and pull request templates, Dependabot and
   GitHub Actions CI.
