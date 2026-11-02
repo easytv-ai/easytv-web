@@ -59,41 +59,6 @@ async function fetch(
   }
 }
 
-function postFormProgress(
-  url: string,
-  form: FormData,
-  onProgress?: (percent: number) => void,
-): Promise<any> {
-  return new Promise((resolve) => {
-    const xhr = new XMLHttpRequest()
-    xhr.open('POST', resolveUrl(url))
-    const headers = withLanguageHeaders()
-    for (const [key, value] of Object.entries(headers))
-      xhr.setRequestHeader(key, value)
-    xhr.timeout = REQUEST_TIMEOUT
-    xhr.upload.onprogress = (event) => {
-      if (!onProgress || !event.lengthComputable || event.total <= 0)
-        return
-      onProgress(Math.min(99, Math.round((event.loaded / event.total) * 100)))
-    }
-    xhr.onload = () => {
-      let data: any = null
-      try {
-        data = JSON.parse(xhr.responseText || '{}')
-      }
-      catch {
-        data = { success: false, message: xhr.statusText || 'upload' }
-      }
-      if (data && data.success === false)
-        handleTeamForbidden(data)
-      resolve(wrapIfUnauthorized(data))
-    }
-    xhr.onerror = () => resolve(normalizeFetchErrorBody(new Error('network'), null))
-    xhr.ontimeout = () => resolve({ success: false, message: 'timeout' })
-    xhr.send(form)
-  })
-}
-
 export default new class Http {
   get(url: string, params?: Record<string, unknown>, headers?: Record<string, string>) {
     return fetch(url, { method: 'GET', params }, headers)
@@ -101,12 +66,6 @@ export default new class Http {
 
   post(url: string, data?: unknown, headers?: Record<string, string>, params?: Record<string, unknown>) {
     return fetch(url, { method: 'POST', body: data, params }, headers)
-  }
-
-  postForm(formUrl: string, form: FormData, onProgress?: (percent: number) => void) {
-    if (import.meta.client && onProgress)
-      return postFormProgress(formUrl, form, onProgress)
-    return fetch(formUrl, { method: 'POST', body: form })
   }
 
   put(url: string, data?: unknown, headers?: Record<string, string>) {
