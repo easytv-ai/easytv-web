@@ -613,20 +613,16 @@ onUnmounted(() => window.removeEventListener('keydown', onGlobalKeydown))
 
 <template>
   <div class="watch-page">
-    <header class="watch-bar">
-      <button type="button" class="watch-back" @click="goBack">
-        <UIcon name="i-lucide-chevron-left" class="size-4" />
-        {{ t('返回') }}
-      </button>
-      <!-- 登录态只在客户端有（localStorage），用 ClientOnly 避免 SSR 与客户端首帧不一致 -->
-      <ClientOnly>
-        <div v-if="!isLoggedIn" class="watch-bar__auth">
+    <!-- 登录态只在客户端有（localStorage），用 ClientOnly 避免 SSR 与客户端首帧不一致 -->
+    <ClientOnly>
+      <header v-if="!isLoggedIn" class="watch-bar">
+        <div class="watch-bar__auth">
           <button type="button" class="watch-auth-link" @click="openLogin({ tab: 'login' })">{{ t('登录') }}</button>
           <span class="watch-bar__auth-split" aria-hidden="true">/</span>
           <button type="button" class="watch-auth-link is-solid" @click="openLogin({ tab: 'register' })">{{ t('注册') }}</button>
         </div>
-      </ClientOnly>
-    </header>
+      </header>
+    </ClientOnly>
 
     <div class="watch-layout">
     <main class="watch-main">
@@ -717,6 +713,11 @@ onUnmounted(() => window.removeEventListener('keydown', onGlobalKeydown))
           </button>
         </div>
       </div>
+
+      <button type="button" class="watch-back" @click.stop="goBack">
+        <UIcon name="i-lucide-chevron-left" class="size-4" />
+        {{ t('返回') }}
+      </button>
     </div>
 
     <section v-if="current" class="watch-info">

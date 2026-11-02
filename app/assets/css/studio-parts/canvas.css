@@ -289,6 +289,19 @@
   background: var(--st-canvas);
 }
 
+.canvas-live-hud {
+  position: fixed;
+  inset: 0;
+  z-index: 14;
+  overflow: visible;
+  pointer-events: none;
+  transform-origin: 0 0;
+}
+
+html.canvas-is-interacting .cnode__stage {
+  box-shadow: none;
+}
+
 .canvas-align {
   position: absolute;
   inset: 0;
@@ -382,6 +395,21 @@ html.dark .canvas-edge.is-live .canvas-edge__line {
   animation: none;
 }
 
+.canvas-edge__flow-g.is-run .canvas-edge__flow.is-outer,
+.canvas-edge__flow-g.is-run .canvas-edge__flow.is-inner,
+.canvas-edge__flow-g.is-run .canvas-edge__flow.is-cell {
+  animation: canvas-edge-flow var(--edge-period, 5s) linear infinite;
+}
+
+@keyframes canvas-edge-flow {
+  from {
+    stroke-dashoffset: 0;
+  }
+  to {
+    stroke-dashoffset: var(--edge-cycle, -1);
+  }
+}
+
 .canvas-edge__flow {
   stroke: #8b5cf6;
   stroke-linejoin: round;
@@ -460,6 +488,10 @@ html.dark .canvas-edge__flow {
 .canvas-flow .vue-flow__node-easytv,
 .cnode {
   overflow: visible;
+}
+
+.cnode {
+  contain: layout style;
 }
 
 .canvas-flow .vue-flow__handle {
@@ -3961,6 +3993,7 @@ html.dark .canvas-ctx button.is-danger:hover:not(:disabled) {
   background: var(--st-node);
   border: 1px solid var(--st-border);
   box-shadow: var(--st-shadow);
+  contain: layout paint;
 }
 
 .cnode.is-stage .cnode__stage {
@@ -6451,7 +6484,7 @@ audio.canvas-crew__clip {
   display: flex;
   flex-shrink: 0;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 16px;
   height: 52px;
   padding: 0 24px;
@@ -6498,24 +6531,34 @@ audio.canvas-crew__clip {
 }
 
 .watch-back {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  z-index: 5;
   display: inline-flex;
   height: 36px;
   align-items: center;
   gap: 4px;
   padding: 0 14px 0 10px;
-  border: 1px solid var(--st-border);
+  border: 1px solid rgba(255, 255, 255, 0.28);
   border-radius: 999px;
-  background: var(--st-chip-bg);
-  color: var(--st-text);
+  background: rgba(255, 255, 255, 0.16);
+  color: #fff;
   font: inherit;
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
   transition: background-color 0.15s, border-color 0.15s;
 }
 
-.watch-back:hover {
-  border-color: color-mix(in srgb, var(--st-text) 22%, transparent);
+.watch-back:hover,
+.watch-back:focus-visible {
+  border-color: rgba(255, 255, 255, 0.46);
+  background: rgba(255, 255, 255, 0.26);
+  outline: none;
 }
 
 .watch-layout {
@@ -6524,7 +6567,11 @@ audio.canvas-crew__clip {
   flex: 1;
   grid-template-columns: minmax(0, 1fr) 400px;
   gap: 20px;
-  padding: 0 24px 20px;
+  padding: 20px 24px;
+}
+
+.watch-page:has(.watch-bar) .watch-layout {
+  padding-top: 0;
 }
 
 /* 左栏一屏放下：播放器吃剩余高度，信息 / 简介 / 推荐条固定在下方，不滚动 */

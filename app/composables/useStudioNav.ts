@@ -9,17 +9,17 @@ export function useStudioNav() {
    */
   const resourceLinks = [
     { to: '/agent', label: '首页', icon: 'i-lucide-house', match: [], auth: false },
-    { to: '/explore', label: '探索', icon: 'i-lucide-compass', match: [], auth: false },
+    { to: '/explore', label: '探索', icon: 'i-lucide-compass', match: ['/following', '/rank'], auth: false },
     { to: '/create', label: '创作', icon: 'i-lucide-wand-sparkles', match: [], auth: true },
     { to: '/projects', label: '项目', icon: 'i-lucide-folder', match: ['/assets', '/subjects', '/prompts'], auth: true },
     { to: '/skills', label: '技能', icon: 'i-lucide-sparkles', match: [], auth: false },
     { to: '/campaign', label: '活动', icon: 'i-lucide-trophy', match: [], auth: false },
   ] as const
 
-  /** 首页顶部标签 */
-  const homeTabs = [
-    { to: '/studio', label: '推荐' },
-    { to: '/following', label: '关注' },
+  /** 探索顶部标签：全部成片 / 我关注的作者 / 榜单 */
+  const exploreTabs = [
+    { to: '/explore', label: '探索' },
+    { to: '/following', label: '关注', auth: true },
     { to: '/rank', label: '榜单' },
   ] as const
 
@@ -50,7 +50,7 @@ export function useStudioNav() {
 
   return {
     resourceLinks,
-    homeTabs,
+    exploreTabs,
     libraryTabs,
     openNewProject,
     openProject,

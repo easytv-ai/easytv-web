@@ -475,7 +475,8 @@ describe('CanvasWorkspace（只读闸与接口交接）（§八.4、§八.5、§
 
   it('快捷键与相机接管：practiceReadonly 传给 dispatchCanvasShortcut；@move-start / 节点点击 / 拖起 / Ctrl+滚轮都 cancel', () => {
     expect(ws).toContain('practiceReadonly: practiceLocked.value || props.readonly')
-    expect(ws).toContain('@move-start="practiceCamera.cancel()"')
+    expect(functionBody(ws, 'onFlowMoveStart')).toContain('practiceCamera.cancel()')
+    expect(ws).toContain('@move-start="onFlowMoveStart"')
     expect(functionBody(ws, 'onNodeClick')).toContain('practiceCamera.cancel()')
     expect(functionBody(ws, 'onNodeDragStart')).toContain('practiceCamera.cancel()')
     // Ctrl/⌘+滚轮被 Workspace 捕获阶段截走，Vue Flow 的 move-start 收不到，得自己取消补间

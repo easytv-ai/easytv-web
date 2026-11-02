@@ -5,7 +5,7 @@ import type { FollowedAuthor, Work } from '~/types/creative'
 import { resolveMediaUrl } from '~/utils/media'
 
 const { t } = useI18n()
-const { homeTabs } = useStudioNav()
+const { exploreTabs } = useStudioNav()
 
 /** 关注（API.md 9.2）：一页按作者分段，有公开作品的露出最近 4 部，没有的只留一行。 */
 definePageMeta({
@@ -150,7 +150,7 @@ onMounted(() => {
     <div class="show-tabs-bar">
       <div class="show-page__inner show-tabs-bar__row">
         <h1 class="sr-only">{{ t('关注') }}</h1>
-        <StudioSectionTabs :items="homeTabs" :label="t('首页')" />
+        <StudioSectionTabs :items="exploreTabs" :label="t('探索')" />
       </div>
     </div>
 
@@ -188,7 +188,7 @@ onMounted(() => {
             :title="t('还没有关注的作者')"
             :description="t('在成片列表里点头像进作者主页，关注后新作会出现在这里。')"
           >
-            <NuxtLink :to="localePath('/studio')" class="plan-btn plan-btn--solid">{{ t('去逛逛成片') }}</NuxtLink>
+            <NuxtLink :to="localePath('/explore')" class="plan-btn plan-btn--solid">{{ t('去逛逛成片') }}</NuxtLink>
           </StudioEmpty>
         </template>
         <div class="follow-shelves">

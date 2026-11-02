@@ -1057,6 +1057,7 @@ html.dark .studio-chip--gold.is-on {
   display: flex;
   flex-direction: column;
   gap: 48px;
+  padding-top: 16px;
 }
 
 .show-tabs-bar {
@@ -1400,7 +1401,7 @@ html.dark .studio-chip--gold.is-on {
 }
 
 .show-tabs-bar ~ .show-toolbar {
-  top: 62px;
+  top: 54px;
 }
 
 .show-toolbar__row {
@@ -1841,8 +1842,116 @@ html.dark .studio-chip--gold.is-on {
   margin-top: 28px;
 }
 
-.explore-page .agent-feed .show-toolbar {
-  margin-top: 8px;
+/* 探索 / 关注 / 榜单：和下面标题、卡片同一栏宽，左对齐 */
+.explore-page .show-page__inner,
+.follow-page .show-page__inner,
+.rank-page .show-page__inner {
+  max-width: var(--st-page-max);
+}
+
+.explore-page .show-tabs-bar,
+.follow-page .show-tabs-bar,
+.rank-page .show-tabs-bar {
+  padding: 16px 28px 8px;
+}
+
+/* 关注没有第二行筛选，把榜单工具栏到内容的那截间距补在顶栏下面 */
+.follow-page .show-tabs-bar {
+  padding-bottom: 24px;
+}
+
+.explore-page .agent-feed .show-toolbar,
+.rank-page .show-toolbar {
+  margin: 0 -28px 16px;
+  padding: 4px 28px 12px;
+}
+
+/* 探索 / 关注 / 榜单：两行顶栏合成一块吸顶，滚动时封面不会从缝里透出来 */
+.show-sticky {
+  position: sticky;
+  top: 0;
+  z-index: 22;
+  margin: 0 -28px 16px;
+  background: var(--st-bg);
+}
+
+.show-sticky .show-tabs-bar,
+.show-sticky .show-toolbar {
+  position: static;
+  top: auto;
+  z-index: auto;
+  margin: 0;
+}
+
+.show-sticky .show-toolbar::before {
+  display: none;
+}
+
+.studio-back {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--st-muted);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.studio-back:hover,
+.studio-back:focus-visible {
+  color: var(--st-text);
+  outline: none;
+}
+
+.studio-back.is-text {
+  gap: 2px;
+  min-height: 32px;
+  padding: 0 8px 0 4px;
+}
+
+.studio-back.is-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+}
+
+.studio-back.is-overlay {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  z-index: 3;
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.4);
+  color: #fff;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.studio-back.is-overlay:hover,
+.studio-back.is-overlay:focus-visible {
+  background: rgba(0, 0, 0, 0.58);
+  color: #fff;
+}
+
+.author-page > .studio-back,
+.campaign-detail > .studio-back {
+  margin: 0 0 12px -4px;
+}
+
+.explore-page .show-toolbar__row,
+.explore-page .show-toolbar__right {
+  justify-content: flex-start;
+}
+
+.explore-page .show-toolbar__right {
+  width: 100%;
 }
 
 .show-toolbar__title {

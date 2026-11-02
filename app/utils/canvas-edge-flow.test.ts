@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { CANVAS_EDGE_FLOW_CELLS, CANVAS_EDGE_THICKNESS, canvasEdgeFlowLayout, canvasEdgeFlowSpeed } from './canvas-edge-flow'
+import { CANVAS_EDGE_FLOW_CELLS, CANVAS_EDGE_THICKNESS, canvasEdgeFlowCellDelay, canvasEdgeFlowLayout, canvasEdgeFlowSpeed } from './canvas-edge-flow'
 
 describe('canvasEdgeFlowLayout', () => {
   it('空线没有光斑', () => {
@@ -31,5 +31,11 @@ describe('canvasEdgeFlowLayout', () => {
     expect(canvasEdgeFlowSpeed(0)).toBe(0)
     expect(canvasEdgeFlowSpeed(480)).toBeCloseTo(canvasEdgeFlowSpeed(240) * 2, 5)
     expect(canvasEdgeFlowSpeed(240) * 5).toBeCloseTo(240, 5)
+  })
+
+  it('格子错开与线长无关，用负 delay 起步', () => {
+    expect(canvasEdgeFlowCellDelay(0)).toBe(0)
+    expect(canvasEdgeFlowCellDelay(1)).toBeCloseTo(-5 / 49, 8)
+    expect(canvasEdgeFlowCellDelay(6)).toBeCloseTo(-30 / 49, 8)
   })
 })

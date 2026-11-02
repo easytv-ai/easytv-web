@@ -15,6 +15,13 @@ export function canvasEdgeFlowSpeed(total: number) {
   return total / CANVAS_EDGE_FLOW_PERIOD
 }
 
+/** 格子错开的 CSS animation-delay（秒）。与路径长度无关，用负值让各格一开始就错开。 */
+export function canvasEdgeFlowCellDelay(index: number) {
+  if (!index)
+    return 0
+  return -(index * CANVAS_EDGE_FLOW_PERIOD) / (CANVAS_EDGE_FLOW_PARTS * CANVAS_EDGE_FLOW_CELLS)
+}
+
 export function canvasEdgeFlowLayout(total: number) {
   if (!Number.isFinite(total) || total <= 0) {
     return {

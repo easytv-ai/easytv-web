@@ -79,11 +79,27 @@ function closestOnPath(x: number, y: number) {
   return { x: point.x, y: point.y }
 }
 
-function onMove(event: MouseEvent) {
+let cutMoveRaf = 0
+let cutMoveEvent: MouseEvent | null = null
+
+function applyCutMove(event: MouseEvent) {
   const pt = clientToPath(event)
   if (!pt)
     return
   cutPos.value = closestOnPath(pt.x, pt.y)
+}
+
+function onMove(event: MouseEvent) {
+  cutMoveEvent = event
+  if (cutMoveRaf)
+    return
+  cutMoveRaf = requestAnimationFrame(() => {
+    cutMoveRaf = 0
+    const next = cutMoveEvent
+    cutMoveEvent = null
+    if (next)
+      applyCutMove(next)
+  })
 }
 
 function onEnter(event: MouseEvent) {
@@ -127,6 +143,9 @@ watch(() => pathInfo.value, (info) => {
 onUnmounted(() => {
   window.clearTimeout(leaveTimer)
   window.clearTimeout(cutTimer)
+  if (cutMoveRaf)
+    cancelAnimationFrame(cutMoveRaf)
+  cutMoveEvent = null
 })
 </script>
 

@@ -169,6 +169,7 @@ onMounted(() => {
 
 <template>
   <section class="campaign-detail">
+    <StudioBack v-if="!detail" fallback="/campaign" />
     <div v-if="!detail" class="asset-picker__empty">
       <UIcon name="i-lucide-trophy" class="size-8" />
       <strong>{{ t('活动不存在') }}</strong>
@@ -177,18 +178,19 @@ onMounted(() => {
 
     <template v-else>
       <header class="campaign-hero">
-        <div class="campaign-hero__banner">
+        <StudioBack fallback="/campaign" variant="overlay" />
+        <div class="campaign-hero__media">
           <img v-if="detail.banner_url" :src="resolveMediaUrl(detail.banner_url)" :alt="detail.title">
           <span v-else class="campaign-card__banner-fallback"><UIcon name="i-lucide-trophy" class="size-10" /></span>
         </div>
         <div class="campaign-hero__body">
           <div class="campaign-hero__title">
-            <h1>{{ detail.title }}</h1>
-            <span v-if="detail.tag" class="campaign-tag">{{ detail.tag }}</span>
             <span
               class="campaign-badge"
               :class="settled ? 'is-past' : detail.status === CAMPAIGN_ACTIVE ? (notStarted(detail) ? 'is-soon' : 'is-active') : 'is-past'"
             >{{ statusLabel(detail) }}</span>
+            <span v-if="detail.tag" class="campaign-tag">{{ detail.tag }}</span>
+            <h1>{{ detail.title }}</h1>
           </div>
           <div class="campaign-hero__meta">
             <CampaignCountdown v-if="canEnter" :ends-at="detail.ends_at" />

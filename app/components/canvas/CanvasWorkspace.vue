@@ -129,6 +129,13 @@ import {
 } from '~/utils/canvas-refs'
 import { snapNodeAlign, type AlignGuide } from '~/utils/canvas-align'
 import { canvasCenterFlowPoint, canvasClampMenu, canvasOrganizePositions } from '~/utils/canvas-viewport'
+import {
+  applyCanvasLiveHud,
+  canvasLiveHudTransform,
+  copyCanvasLiveViewport,
+  sameCanvasLiveViewport,
+  type CanvasLiveViewport,
+} from '~/utils/canvas-live-viewport'
 import CanvasEmpty from '~/components/canvas/CanvasEmpty.vue'
 import CanvasToolsRail from '~/components/canvas/CanvasToolsRail.vue'
 import CanvasDock from '~/components/canvas/CanvasDock.vue'
@@ -261,6 +268,13 @@ const {
   removeEdges,
   $destroy,
 } = useVueFlow('easytv-canvas')
+
+/** 平移中不写这个，工具条 / 小地图跟 committed 走，避免每帧重绘整棵工作区 */
+const committedViewport = shallowRef<CanvasLiveViewport>(copyCanvasLiveViewport(viewport.value))
+const liveHudRef = ref<HTMLElement | null>(null)
+let liveHudStart: CanvasLiveViewport | null = null
+let liveHudOrigin = { left: 0, top: 0 }
+let liveHudWheelIdle = 0
 
 const nodes = ref<CanvasFlowNode[]>([])
 const edges = ref<Edge[]>([])
@@ -505,8 +519,8 @@ const hdPanelStyle = computed(() => {
   const box = selectedNodeBox()
   if (!box)
     return null
-  const panelW = showDepthMotionPanel.value ? Math.max(280, box.w * (viewport.value.zoom || 1)) : 360
-  return canvasPanelBelowNode(box, viewport.value, {
+  const panelW = showDepthMotionPanel.value ? Math.max(280, box.w * (committedViewport.value.zoom || 1)) : 360
+  return canvasPanelBelowNode(box, committedViewport.value, {
     paneRect: canvasFlowPaneRect(),
     panelW,
   })
@@ -521,7 +535,7 @@ const inspectorStyle = computed(() => {
   const stripGap = clipStripOpen.value
     ? clipStripMetrics(overlay.value?.width || 0).filmHeight + 28
     : (showRetakeStrip.value || extendStripOpen.value || splitStripOpen.value ? 68 : 16)
-  return canvasPanelBelowNode(selectedNodeBox(), viewport.value, {
+  return canvasPanelBelowNode(selectedNodeBox(), committedViewport.value, {
     paneRect: canvasFlowPaneRect(),
     panelW,
     gap: stripGap,
@@ -531,26 +545,26 @@ const depthBarStyle = computed(() => {
   if (!depthOpen.value)
     return null
   void flowPaneRectTick.value
-  return canvasPanelBelowNode(nodeBoxById(depthNodeId.value), viewport.value, { paneRect: canvasFlowPaneRect() })
+  return canvasPanelBelowNode(nodeBoxById(depthNodeId.value), committedViewport.value, { paneRect: canvasFlowPaneRect() })
 })
 /** 爆款复刻悬浮条：贴着源节点下缘居中，取消选中后条还跟着它 */
 const viralBarStyle = computed(() => {
   if (!viralOpen.value)
     return null
   void flowPaneRectTick.value
-  return canvasPanelBelowNode(nodeBoxById(viralNodeId.value), viewport.value, { paneRect: canvasFlowPaneRect() })
+  return canvasPanelBelowNode(nodeBoxById(viralNodeId.value), committedViewport.value, { paneRect: canvasFlowPaneRect() })
 })
 const lightPanelStyle = computed(() => {
   if (!lightOpen.value)
     return null
   void flowPaneRectTick.value
-  return canvasPanelBelowNode(nodeBoxById(lightNodeId.value), viewport.value, { paneRect: canvasFlowPaneRect() })
+  return canvasPanelBelowNode(nodeBoxById(lightNodeId.value), committedViewport.value, { paneRect: canvasFlowPaneRect() })
 })
 const anglePanelStyle = computed(() => {
   if (!angleOpen.value)
     return null
   void flowPaneRectTick.value
-  return canvasPanelBelowNode(nodeBoxById(angleNodeId.value), viewport.value, { paneRect: canvasFlowPaneRect() })
+  return canvasPanelBelowNode(nodeBoxById(angleNodeId.value), committedViewport.value, { paneRect: canvasFlowPaneRect() })
 })
 const inspectorKind = computed(() => {
   const kind = selected.value?.data?.kind
@@ -646,7 +660,7 @@ const {
   onDockPointer,
 } = useCanvasChrome({
   nodes,
-  viewport,
+  viewport: committedViewport,
   dimensions,
   zoomTo,
   isMac,
@@ -676,7 +690,7 @@ const selectionKeyCode = computed(() => {
 const barMode = computed(() => canvasBarMode(selectedNodes.value, selectedGroup.value))
 const overlay = computed(() => {
   void flowPaneRectTick.value
-  const z = viewport.value.zoom || 1
+  const z = committedViewport.value.zoom || 1
   // 悬浮条自己的节点优先：点画布空白取消选中后，条还挂着，定位要跟着它的源节点
   const overlayNodeId = gridSplitOpen.value
     ? gridSplitNodeId.value
@@ -740,8 +754,54 @@ const overlay = computed(() => {
 })
 
 function flowToClient(x: number, y: number) {
-  return canvasFlowToClient(viewport.value, x, y, canvasFlowPaneRect())
+  return canvasFlowToClient(committedViewport.value, x, y, canvasFlowPaneRect())
 }
+
+function beginLiveViewport() {
+  if (!liveHudStart)
+    liveHudStart = copyCanvasLiveViewport(viewport.value)
+  liveHudOrigin = canvasFlowPaneRect()
+  document.documentElement.classList.add('canvas-is-interacting')
+}
+
+function endLiveViewport() {
+  if (liveHudWheelIdle) {
+    window.clearTimeout(liveHudWheelIdle)
+    liveHudWheelIdle = 0
+  }
+  liveHudStart = null
+  applyCanvasLiveHud(liveHudRef.value, '', false)
+  document.documentElement.classList.remove('canvas-is-interacting')
+  const next = copyCanvasLiveViewport(viewport.value)
+  if (!sameCanvasLiveViewport(committedViewport.value, next))
+    committedViewport.value = next
+}
+
+function onFlowMoveStart() {
+  practiceCamera.cancel()
+  beginLiveViewport()
+}
+
+function onFlowMoveEnd() {
+  endLiveViewport()
+}
+
+watch(
+  () => [viewport.value.x, viewport.value.y, viewport.value.zoom] as const,
+  () => {
+    if (liveHudStart) {
+      applyCanvasLiveHud(
+        liveHudRef.value,
+        canvasLiveHudTransform(liveHudStart, copyCanvasLiveViewport(viewport.value), liveHudOrigin),
+        true,
+      )
+      return
+    }
+    const next = copyCanvasLiveViewport(viewport.value)
+    if (!sameCanvasLiveViewport(committedViewport.value, next))
+      committedViewport.value = next
+  },
+)
 
 function selectedNodeBox() {
   const node = selected.value
@@ -3152,12 +3212,24 @@ function onNodeClick({ event, node }: NodeMouseEvent) {
 function onNodeDragStart() {
   practiceCamera.cancel()
   alignGuides.value = []
+  dragAlignOthers = null
+  dragAlignKey = ''
+  pendingDragAlign = null
+  if (dragAlignRaf) {
+    cancelAnimationFrame(dragAlignRaf)
+    dragAlignRaf = 0
+  }
 }
 
 const ALIGN_SCREEN_PX = 6
 const alignGuides = ref<AlignGuide[]>([])
+type DragAlignBox = { id: string, x: number, y: number, w: number, h: number }
+let dragAlignOthers: DragAlignBox[] | null = null
+let dragAlignKey = ''
+let dragAlignRaf = 0
+let pendingDragAlign: NodeDragEvent | null = null
 
-function onNodeDrag({ node, nodes: dragging }: NodeDragEvent) {
+function applyNodeDragAlign({ node, nodes: dragging }: NodeDragEvent) {
   const dragIds = new Set(dragging.map(item => item.id))
   const grabbed = node as CanvasFlowNode
   const parentAlso = Boolean(grabbed.parentNode && dragIds.has(grabbed.parentNode))
@@ -3181,17 +3253,21 @@ function onNodeDrag({ node, nodes: dragging }: NodeDragEvent) {
   }
   const abs = liveAt(target)
   const size = nodeSize(target)
-  const others = nodes.value
-    .filter(item => !dragIds.has(item.id) && !item.hidden)
-    .map((item) => {
-      const pos = absPosition(item, nodes.value)
-      const box = nodeSize(item)
-      return { id: item.id, x: pos.x, y: pos.y, w: box.w, h: box.h }
-    })
+  const key = [...dragIds].sort().join('\0')
+  if (dragAlignKey !== key || !dragAlignOthers) {
+    dragAlignKey = key
+    dragAlignOthers = nodes.value
+      .filter(item => !dragIds.has(item.id) && !item.hidden)
+      .map((item) => {
+        const pos = absPosition(item, nodes.value)
+        const box = nodeSize(item)
+        return { id: item.id, x: pos.x, y: pos.y, w: box.w, h: box.h }
+      })
+  }
   const zoom = viewport.value.zoom || 1
   const snapped = snapNodeAlign(
     { id: target.id, x: abs.x, y: abs.y, w: size.w, h: size.h },
-    others,
+    dragAlignOthers,
     ALIGN_SCREEN_PX / zoom,
   )
   const dx = snapped.x - abs.x
@@ -3207,7 +3283,30 @@ function onNodeDrag({ node, nodes: dragging }: NodeDragEvent) {
   alignGuides.value = snapped.guides
 }
 
+function onNodeDrag(event: NodeDragEvent) {
+  pendingDragAlign = event
+  if (dragAlignRaf)
+    return
+  dragAlignRaf = requestAnimationFrame(() => {
+    dragAlignRaf = 0
+    const next = pendingDragAlign
+    pendingDragAlign = null
+    if (next)
+      applyNodeDragAlign(next)
+  })
+}
+
 function onNodeDragStop() {
+  if (dragAlignRaf) {
+    cancelAnimationFrame(dragAlignRaf)
+    dragAlignRaf = 0
+  }
+  const leftover = pendingDragAlign
+  pendingDragAlign = null
+  if (leftover)
+    applyNodeDragAlign(leftover)
+  dragAlignOthers = null
+  dragAlignKey = ''
   alignGuides.value = []
   pushHistory()
 }
@@ -3407,6 +3506,12 @@ function onWindowWheel(event: WheelEvent) {
   // 捕获阶段截走事件后 Vue Flow 的 @move-start 收不到：跟练的相机补间若在飞，
   // 不在这里取消的话它会每帧把用户刚缩的 zoom 写回补间起点（§6.3「打断与取消」的滚轮一路）
   practiceCamera.cancel()
+  beginLiveViewport()
+  window.clearTimeout(liveHudWheelIdle)
+  liveHudWheelIdle = window.setTimeout(() => {
+    liveHudWheelIdle = 0
+    endLiveViewport()
+  }, 120)
   const current = viewport.value
   const zoom = current.zoom || 1
   const nextZoom = clampCanvasZoom(zoom * 2 ** canvasWheelZoomDelta(event, isMac.value))
@@ -3463,6 +3568,12 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  if (dragAlignRaf) {
+    cancelAnimationFrame(dragAlignRaf)
+    dragAlignRaf = 0
+  }
+  pendingDragAlign = null
+  dragAlignOthers = null
   // 这两个是跨组件的全局 useState：离开画布不清，下一张画布会带着「选元素模式 / 翻转中的节点 id」打开
   canvasMarkPick.value = emptyMarkPick()
   canvasMarkTap.value = null
@@ -3472,6 +3583,7 @@ onUnmounted(() => {
   window.removeEventListener('paste', onWindowPaste)
   window.removeEventListener('blur', onWindowBlur)
   window.removeEventListener('wheel', onWindowWheel, true)
+  endLiveViewport()
   if (flowPaneResizeObserver) {
     flowPaneResizeObserver.disconnect()
     flowPaneResizeObserver = null
@@ -5884,6 +5996,7 @@ const styleLibValue = computed(() => {
       :connection-mode="ConnectionMode.Strict"
       :is-valid-connection="isValidConnection"
       :connection-line-type="ConnectionLineType.Bezier"
+      :only-render-visible-elements="true"
       class="canvas-flow"
       :class="{
         'is-pan': isPanning,
@@ -5896,7 +6009,8 @@ const styleLibValue = computed(() => {
       @connect-start="onConnectStart"
       @connect-end="onConnectEnd"
       @pane-click="onPaneClick"
-      @move-start="practiceCamera.cancel()"
+      @move-start="onFlowMoveStart"
+      @move-end="onFlowMoveEnd"
       @node-click="onNodeClick"
       @node-double-click="onNodeDblClick"
       @node-context-menu="onNodeContextMenu"
@@ -6066,6 +6180,7 @@ const styleLibValue = computed(() => {
       @minimap-pointer="onMinimapPointer"
     />
 
+    <div ref="liveHudRef" class="canvas-live-hud">
     <CanvasInspector
       v-if="showInspector && inspectorStyle && !smartEditOpen && !depthOpen && !lightOpen && !angleOpen && !cropOpen && !eraseOpen && !mattingOpen && !viralOpen && !outpaintOpen && !flipOpen && !markOpen && !extendStudioOpen && !extendStripOpen && !clipStripOpen && !splitStripOpen"
       :key="selected?.id"
@@ -6127,6 +6242,37 @@ const styleLibValue = computed(() => {
       @update:params="onDepthMotionParamsUpdate"
       @submit="onDepthMotionSubmit"
     />
+
+    <CanvasSelBar
+      v-if="overlay && barMode && !practiceLocked && !showHelp && !smartEditOpen && !depthOpen && !lightOpen && !angleOpen && !cropOpen && !eraseOpen && !mattingOpen && !viralOpen && !outpaintOpen && !flipOpen && !markOpen && !extendStudioOpen && !extendStripOpen && !clipStripOpen"
+      :mode="barMode"
+      :left="overlay.left"
+      :top="overlay.top"
+      :width="overlay.width"
+      :height="overlay.height"
+      :color="barMode === 'text' && selected && isContentNode(selected)
+        ? (selected.data.color || '#ffffff')
+        : (selectedGroup && isGroupNode(selectedGroup) ? selectedGroup.data.color : '#ececee')"
+      :layout="selectedGroup && isGroupNode(selectedGroup) ? selectedGroup.data.layout : 'grid'"
+      :collapsed="Boolean(selectedGroup && isGroupNode(selectedGroup) && selectedGroup.data.collapsed)"
+      :storyboard-cols="selectedGroup && isGroupNode(selectedGroup) && selectedGroup.data.storyboard ? selectedGroup.data.storyboard.cols : 0"
+      :storyboard-max="selectedGroup ? Math.max(1, nodes.filter(node => node.parentNode === selectedGroup!.id).length) : 1"
+      :show-box="barMode === 'pick'"
+      :font-size="barMode === 'text' && selected && isContentNode(selected) ? (selected.data.fontSize || 16) : 16"
+      :montage-ready="barMode === 'pick' && montageAvailable"
+      :compose-ready="barMode === 'pick' && composeAvailable"
+      :merge-ready="barMode === 'pick' && mergeReady"
+      :merge-count="mergeClipList.length"
+      :merging-videos="mergeRunning"
+      :locked="selectionLocked"
+      @action="onSelAction"
+      @unavailable="onBarUnavailable"
+      @color="onBarColor"
+      @layout="setGroupLayout"
+      @storyboard-cols="onStoryboardCols"
+      @storyboard-off="onStoryboardOff"
+    />
+    </div>
 
     <CanvasPromptOptimizeModal
       v-if="optimizeOpen"
@@ -6435,36 +6581,6 @@ const styleLibValue = computed(() => {
     />
 
     <CanvasMergeToast />
-
-    <CanvasSelBar
-      v-if="overlay && barMode && !practiceLocked && !showHelp && !smartEditOpen && !depthOpen && !lightOpen && !angleOpen && !cropOpen && !eraseOpen && !mattingOpen && !viralOpen && !outpaintOpen && !flipOpen && !markOpen && !extendStudioOpen && !extendStripOpen && !clipStripOpen"
-      :mode="barMode"
-      :left="overlay.left"
-      :top="overlay.top"
-      :width="overlay.width"
-      :height="overlay.height"
-      :color="barMode === 'text' && selected && isContentNode(selected)
-        ? (selected.data.color || '#ffffff')
-        : (selectedGroup && isGroupNode(selectedGroup) ? selectedGroup.data.color : '#ececee')"
-      :layout="selectedGroup && isGroupNode(selectedGroup) ? selectedGroup.data.layout : 'grid'"
-      :collapsed="Boolean(selectedGroup && isGroupNode(selectedGroup) && selectedGroup.data.collapsed)"
-      :storyboard-cols="selectedGroup && isGroupNode(selectedGroup) && selectedGroup.data.storyboard ? selectedGroup.data.storyboard.cols : 0"
-      :storyboard-max="selectedGroup ? Math.max(1, nodes.filter(node => node.parentNode === selectedGroup!.id).length) : 1"
-      :show-box="barMode === 'pick'"
-      :font-size="barMode === 'text' && selected && isContentNode(selected) ? (selected.data.fontSize || 16) : 16"
-      :montage-ready="barMode === 'pick' && montageAvailable"
-      :compose-ready="barMode === 'pick' && composeAvailable"
-      :merge-ready="barMode === 'pick' && mergeReady"
-      :merge-count="mergeClipList.length"
-      :merging-videos="mergeRunning"
-      :locked="selectionLocked"
-      @action="onSelAction"
-      @unavailable="onBarUnavailable"
-      @color="onBarColor"
-      @layout="setGroupLayout"
-      @storyboard-cols="onStoryboardCols"
-      @storyboard-off="onStoryboardOff"
-    />
 
     <CanvasTextEditor
       v-if="textEditorOpen"

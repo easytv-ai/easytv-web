@@ -398,9 +398,11 @@ function onStoryboardExpand() {
     storyboardSplit.value = true
 }
 
-function applyStageSize(w: number, h: number) {
+function applyStageSize(w: number, h: number, syncFlow = true) {
   stageBox.w = w
   stageBox.h = h
+  if (!syncFlow)
+    return
   updateNode(props.id, {
     width: w,
     height: h,
@@ -526,7 +528,7 @@ function onResizeStart(event: PointerEvent) {
     const z = viewport.value.zoom || 1
     const w = Math.max(stagePreset.value.minW, startW + (move.clientX - startX) / z)
     const h = Math.max(stagePreset.value.minH, startH + (move.clientY - startY) / z)
-    applyStageSize(w, h)
+    applyStageSize(w, h, false)
   }
 
   function onUp() {
@@ -534,6 +536,7 @@ function onResizeStart(event: PointerEvent) {
     el.removeEventListener('pointermove', onMove)
     el.removeEventListener('pointerup', onUp)
     el.removeEventListener('pointercancel', onUp)
+    applyStageSize(stageBox.w, stageBox.h)
     updateNodeInternals([props.id])
     canvasChange?.commit()
   }

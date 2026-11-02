@@ -53,22 +53,44 @@ const lists = { published, likes }
 const name = computed(() => profile.value?.nickname || t('创作者'))
 const mine = computed(() => Boolean(profile.value?.mine))
 /** 接口不返回头像，本人主页用登录态里的头像，其余用昵称首字 */
-const avatar = computed(() => mine.value ? String(user.value?.avatar || '') : '')
+const avatar = computed(() => mine.value ? resolveMediaUrl(String(user.value?.avatar || '')) : '')
 /** 关注按钮只对别人的主页显示（后端 mine 为真时隐藏） */
 const canFollow = computed(() => !!profile.value && !mine.value && authorId.value > 0)
 const current = computed(() => lists[tab.value])
+
+const followListOpen = ref(false)
 
 const stats = computed(() => {
   const p = profile.value
   if (!p)
     return []
   return [
-    { label: t('粉丝'), value: p.followers ?? 0 },
-    { label: t('关注'), value: p.following_count ?? 0 },
-    { label: t('获赞'), value: p.like_total },
-    { label: t('播放'), value: p.view_total },
+    { key: 'followers', label: t('粉丝'), value: p.followers ?? 0, open: false },
+    { key: 'following', label: t('关注'), value: p.following_count ?? 0, open: mine.value },
+    { key: 'likes', label: t('获赞'), value: p.like_total, open: false },
+    { key: 'views', label: t('播放'), value: p.view_total, open: false },
   ]
 })
+
+function openFollowList() {
+  followListOpen.value = true
+}
+
+function onStatClick(event: Event, open: boolean) {
+  if (!open)
+    return
+  ;(event.currentTarget as HTMLElement | null)?.blur()
+  openFollowList()
+}
+
+function onFollowingCount(delta: number) {
+  if (!profile.value)
+    return
+  profile.value = {
+    ...profile.value,
+    following_count: Math.max(0, (profile.value.following_count ?? 0) + delta),
+  }
+}
 
 function onFollowChange(following: boolean, followers: number) {
   if (!profile.value)
@@ -119,6 +141,7 @@ const shareAuthor = computed<ShareAuthor | null>(() => {
     workCount: p.work_count,
     followers: p.followers ?? 0,
     cover: published.items.value[0]?.cover_url,
+    avatar: avatar.value,
   }
 })
 
@@ -144,6 +167,7 @@ function stopPreview(event: MouseEvent) {
 
 <template>
   <section class="author-page">
+    <StudioBack v-if="error" fallback="/explore" />
     <div v-if="error" class="asset-picker__empty author-page__error">
       <UIcon name="i-lucide-user-x" class="size-8" />
       {{ error }}
@@ -159,12 +183,21 @@ function stopPreview(event: MouseEvent) {
               <p>{{ t('{time} 加入 EasyTV', { time: fmtDate(profile.joined_at) }) }}</p>
             </div>
           </div>
-          <dl class="author-side__stats">
-            <div v-for="s in stats" :key="s.label">
-              <dd :title="s.value.toLocaleString()">{{ formatCount(s.value) }}</dd>
-              <dt>{{ s.label }}</dt>
-            </div>
-          </dl>
+          <div class="author-side__stats">
+            <component
+              :is="s.open ? 'button' : 'div'"
+              v-for="s in stats"
+              :key="s.key"
+              :type="s.open ? 'button' : undefined"
+              class="author-side__stat"
+              :class="{ 'is-btn': s.open }"
+              :title="s.value.toLocaleString()"
+              @click="onStatClick($event, s.open)"
+            >
+              <strong>{{ formatCount(s.value) }}</strong>
+              <span>{{ s.label }}</span>
+            </component>
+          </div>
           <div class="author-side__actions">
             <ClientOnly>
               <StudioFollowButton
@@ -205,6 +238,7 @@ function stopPreview(event: MouseEvent) {
 
       <div class="author-main">
         <nav class="author-tabs" :aria-label="t('作品')">
+          <StudioBack fallback="/explore" variant="icon" />
           <button type="button" :class="{ 'is-on': tab === 'published' }" @click="selectTab('published')">
             {{ t('author.published') }}
             <small v-if="profile">{{ profile.work_count }}</small>
@@ -304,6 +338,7 @@ function stopPreview(event: MouseEvent) {
       </div>
     </div>
     <StudioShareModal :open="shareOpen" :author="shareAuthor" @close="shareOpen = false" />
+    <StudioFollowListModal :open="followListOpen" @close="followListOpen = false" @change="onFollowingCount" />
   </section>
 </template>
 

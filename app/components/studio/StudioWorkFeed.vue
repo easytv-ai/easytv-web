@@ -11,10 +11,13 @@ const props = withDefaults(defineProps<{
   /** 是否展示本周热门 */
   hot?: boolean
   title?: string
+  /** 探索页顶部已有「探索 / 关注 / 榜单」，不再重复标题 */
+  hideTitle?: boolean
 }>(), {
   featured: false,
   hot: true,
   title: '',
+  hideTitle: false,
 })
 
 const { t } = useI18n()
@@ -176,7 +179,7 @@ onBeforeUnmount(() => {
 
   <header class="show-toolbar">
     <div class="show-page__inner show-toolbar__row">
-      <div class="show-toolbar__title">
+      <div v-if="!hideTitle" class="show-toolbar__title">
         <h2>{{ heading }}</h2>
         <NuxtLink v-if="featured" :to="localePath('/explore')" class="studio-hot__more">
           {{ t('查看全部') }}<UIcon name="i-lucide-chevron-right" class="size-3.5" />

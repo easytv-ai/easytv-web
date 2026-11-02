@@ -20,6 +20,7 @@ export type ShareAuthor = {
   followers: number
   /** 海报封面，取主页第一部作品的封面 */
   cover?: string
+  avatar?: string
 }
 
 const props = defineProps<{
@@ -31,7 +32,7 @@ const props = defineProps<{
 const target = computed(() => {
   if (props.work) {
     const w = props.work
-    return { kind: 'work' as const, id: w.id, path: `/watch/${w.id}`, title: w.title, subtitle: `@${w.author?.nickname || t('创作者')}`, cover: w.cover_url }
+    return { kind: 'work' as const, id: w.id, path: `/watch/${w.id}`, title: w.title, subtitle: `@${w.author?.nickname || t('创作者')}`, cover: w.cover_url, avatar: '' }
   }
   if (props.author) {
     const a = props.author
@@ -42,6 +43,7 @@ const target = computed(() => {
       title: a.nickname,
       subtitle: `${t('{n} 部作品', { n: a.workCount })} · ${t('{n} 位粉丝', { n: a.followers })}`,
       cover: a.cover || '',
+      avatar: a.avatar || '',
     }
   }
   return null
@@ -72,6 +74,12 @@ const qrPulse = ref(false)
 const isMobile = ref(false)
 
 const coverUrl = computed(() => target.value?.cover ? resolveMediaUrl(target.value.cover) : '')
+const authorAvatarUrl = computed(() => {
+  if (target.value?.kind !== 'author' || !target.value.avatar)
+    return ''
+  return resolveMediaUrl(target.value.avatar)
+})
+const authorAvatarLetter = computed(() => (target.value?.title || '?').slice(0, 1))
 const scanLabel = computed(() => target.value?.kind === 'author' ? t('share.scanVisit') : t('扫码观看'))
 
 const link = computed(() => {
@@ -421,7 +429,8 @@ onUnmounted(() => {
             <div class="share-card">
               <img v-if="coverUrl" :src="coverUrl" alt="" class="share-card__bg" aria-hidden="true">
               <div class="share-card__main">
-                <span v-if="target.kind === 'author'" class="share-card__avatar">{{ target.title.slice(0, 1) }}</span>
+                <img v-if="target.kind === 'author' && authorAvatarUrl" :src="authorAvatarUrl" :alt="target.title" class="share-card__avatar">
+                <span v-else-if="target.kind === 'author'" class="share-card__avatar">{{ authorAvatarLetter }}</span>
                 <img v-else-if="coverUrl" :src="coverUrl" :alt="target.title" class="share-card__thumb">
                 <div class="share-card__text">
                   <strong>{{ target.title }}</strong>

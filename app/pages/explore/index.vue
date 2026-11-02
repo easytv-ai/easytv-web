@@ -1,5 +1,6 @@
 <script setup lang="ts">
 const { t } = useI18n()
+const { exploreTabs } = useStudioNav()
 
 definePageMeta({
   layout: 'studio',
@@ -11,10 +12,15 @@ useHead({ title: t('探索') })
 </script>
 
 <template>
-  <section class="agent-page explore-page">
-    <h1 class="sr-only">{{ t('探索') }}</h1>
+  <section class="show-page explore-page">
     <div class="agent-feed">
-      <StudioWorkFeed :hot="false" :title="t('探索')" />
+      <div class="show-tabs-bar">
+        <div class="show-page__inner show-tabs-bar__row">
+          <h1 class="sr-only">{{ t('探索') }}</h1>
+          <StudioSectionTabs :items="exploreTabs" :label="t('探索')" />
+        </div>
+      </div>
+      <StudioWorkFeed :hot="false" hide-title />
     </div>
   </section>
 </template>

@@ -61,6 +61,12 @@ function syncTime() {
     video.currentTime = 0.04
 }
 
+function onTimeUpdate() {
+  if (!playing.value && !hovering.value && !props.alwaysOn)
+    return
+  syncTime()
+}
+
 function publishMeta() {
   syncTime()
   const video = videoRef.value
@@ -157,7 +163,7 @@ onUnmounted(() => {
       :muted="muted"
       playsinline
       preload="metadata"
-      @timeupdate="syncTime"
+      @timeupdate="onTimeUpdate"
       @loadedmetadata="publishMeta"
       @loadeddata="publishMeta"
       @play="playing = true"

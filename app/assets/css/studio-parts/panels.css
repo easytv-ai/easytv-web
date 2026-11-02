@@ -5730,26 +5730,51 @@ html.dark .canvas-agent__choice.is-on {
   margin: 0;
 }
 
-.author-side__stats div {
+.author-side__stat {
   display: flex;
   min-width: 0;
   flex-direction: column;
   align-items: flex-start;
   gap: 2px;
+  margin: 0 -6px;
+  padding: 6px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
 }
 
-.author-side__stats dd {
+.author-side__stat.is-btn {
+  cursor: pointer;
+}
+
+.author-side__stat.is-btn:hover span,
+.author-side__stat.is-btn:focus-visible span {
+  color: var(--st-text);
+}
+
+.author-side__stat.is-btn:hover,
+.author-side__stat.is-btn:focus,
+.author-side__stat.is-btn:focus-visible,
+.author-side__stat.is-btn:active {
+  background: transparent;
+  outline: none;
+  box-shadow: none;
+}
+
+.author-side__stat strong {
   max-width: 100%;
-  margin: 0;
   overflow: hidden;
   font-size: 16px;
+  font-weight: 700;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
 
-.author-side__stats dt {
+.author-side__stat span {
   color: var(--st-text-soft);
   font-size: 12px;
 }
@@ -5869,8 +5894,30 @@ html.dark .canvas-agent__choice.is-on {
 
 .author-tabs {
   display: flex;
+  align-items: center;
   gap: 4px;
   margin-bottom: 20px;
+}
+
+.author-tabs button.studio-back {
+  width: 34px;
+  min-width: 34px;
+  margin-right: 6px;
+  padding: 0;
+  background: var(--author-fill-strong);
+  color: var(--st-text);
+}
+
+.author-tabs button.studio-back svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+.author-tabs button.studio-back:hover,
+.author-tabs button.studio-back:focus-visible {
+  background: color-mix(in srgb, var(--st-text) 22%, transparent);
+  color: var(--st-text);
 }
 
 .author-tabs button {
