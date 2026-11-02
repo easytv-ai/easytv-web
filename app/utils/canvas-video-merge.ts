@@ -28,7 +28,37 @@ export type MergeVideoClip = {
 
 import { isMediaUrl } from '~/utils/media'
 
+/** 两段都要留得下，贴着首尾或彼此太近的分割点不要 */
+export const SPLIT_MIN_PART = 0.3
+/** 一次最多切这么多段，避免浏览器里连续转码把内存打满 */
+export const SPLIT_MAX_PARTS = 12
+
 export type MergeVideoErrorCode = 'browser' | 'load' | 'fetch' | 'read' | 'encode' | 'needTwo'
+
+/** 比例分割点（0~1）换成首尾相接的秒区间。不合法时返回 null */
+export function splitRanges(ratios: number[], duration: number, minPart = SPLIT_MIN_PART) {
+  if (!(duration > minPart * 2))
+    return null
+  const cuts = ratios
+    .map(value => Math.round(Math.min(1, Math.max(0, Number(value) || 0)) * duration * 100) / 100)
+    .filter(value => value >= minPart && value <= duration - minPart)
+    .sort((left, right) => left - right)
+  const kept: number[] = []
+  for (const cut of cuts) {
+    const prev = kept.length ? kept[kept.length - 1]! : 0
+    if (cut - prev >= minPart - 0.001)
+      kept.push(cut)
+  }
+  if (!kept.length || duration - kept[kept.length - 1]! < minPart - 0.001)
+    return null
+  if (kept.length + 1 > SPLIT_MAX_PARTS)
+    kept.length = SPLIT_MAX_PARTS - 1
+  const edges = [0, ...kept, duration]
+  return edges.slice(0, -1).map((start, index) => ({
+    start,
+    end: edges[index + 1]!,
+  }))
+}
 
 export class MergeVideoError extends Error {
   readonly code: MergeVideoErrorCode
@@ -131,6 +161,20 @@ export function mergeDurationShort(inputs: number[], output: number) {
   return output + 0.35 < sum * 0.9
 }
 
+/**
+ * 拷贝拼接后体积只剩第一段左右，才当没接上。
+ * 容器时长经常只写第一段，不能拿它决定要不要在浏览器里整段转码。
+ */
+export function concatOutputTruncated(outputBytes: number, inputBytes: number[]) {
+  const sizes = inputBytes.filter(item => item > 0)
+  const sum = sizes.reduce((total, item) => total + item, 0)
+  if (outputBytes <= 0 || sizes.length < 2 || sum <= 0)
+    return false
+  const first = sizes[0] || 0
+  const rest = sum - first
+  return outputBytes < first + rest * 0.35
+}
+
 /** 同一次拼接的百分比只往前走。后一段转码从 0 报起时，不能把条打回 55。 */
 export function forwardMergeProgress(previous: number | null, next: number) {
   if (previous == null || next >= previous)
@@ -166,6 +210,19 @@ export function isMergeResult(data: { content?: string, params?: Record<string, 
 export function ffmpegClock(seconds: number) {
   const value = Number.isFinite(seconds) ? Math.max(0, seconds) : 0
   return value.toFixed(3)
+}
+
+/** 先按关键帧拷贝裁切，失败再转码。 */
+export function trimCopyArgs(input: string, output: string, start: number, end: number) {
+  return [
+    '-ss', ffmpegClock(start),
+    '-to', ffmpegClock(end),
+    '-i', input,
+    '-c', 'copy',
+    '-avoid_negative_ts', 'make_zero',
+    '-movflags', '+faststart',
+    output,
+  ]
 }
 
 /**

@@ -1,5 +1,8 @@
 <script setup lang="ts">
-import { stripKeyResult } from '~/utils/canvas-strip-keys'
+import { fillI18n } from '~/utils/i18n-fill'
+import { canInsertSplitCut, clipStripAspect, clipStripMetrics, moveSplitCut, nearestSplitCut, splitLabelRows, stripKeyResult } from '~/utils/canvas-strip-keys'
+import { SPLIT_MAX_PARTS } from '~/utils/canvas-video-merge'
+import { captureVideoStripFrames } from '~/utils/canvas-video-frame'
 
 const { t } = useI18n()
 
@@ -28,13 +31,14 @@ const props = withDefaults(defineProps<{
 const emit = defineEmits<{
   close: []
   /** duration 是探测到的源视频时长（秒），0 表示读不到；片段截取按 start/end 比例 × duration 换算成秒 */
-  submit: [payload: { seconds: number, start: number, end: number, duration: number }]
+  /** cuts 是分割点比例（0~1），确认后每段各成一个视频节点 */
+  submit: [payload: { seconds: number, start: number, end: number, duration: number, cuts?: number[] }]
   'update:range': [payload: { start: number, end: number, seconds: number, index: number }]
 }>()
 
 const duration = ref(0)
-const start = ref(0.35)
-const end = ref(0.72)
+const start = ref(props.variant === 'clip' || props.variant === 'retake' ? 0 : 0.35)
+const end = ref(props.variant === 'clip' || props.variant === 'retake' ? 1 : 0.72)
 const frames = ref<string[]>([])
 /** 浏览器读不到视频帧（跨域）：只能按兜底时长选点 */
 const frameError = ref(false)
@@ -46,27 +50,96 @@ const isClip = computed(() => props.variant === 'clip')
 const isRetake = computed(() => props.variant === 'retake')
 const isExtend = computed(() => props.variant === 'extend')
 const isSplit = computed(() => props.variant === 'split')
+/** 分割点比例。默认一条在正中，点空白再加，每段对应一个视频节点 */
+const cuts = ref<number[]>([0.5])
+const activeCut = ref(0)
+const clipLayout = computed(() => {
+  const box = props.box
+  return clipStripMetrics(box?.width || 0, clipStripAspect(box?.width || 0, box?.height || 0))
+})
+const frameCount = computed(() => (isClip.value ? clipLayout.value.frameCount : FRAME_COUNT))
 
-/** 分割点（秒）：分割模式只用 start 一个游标 */
-const cutSeconds = computed(() => (duration.value > 0 ? start.value * duration.value : 0))
-const cutLabel = computed(() => `${cutSeconds.value.toFixed(2)} s`)
+const orderedCuts = computed(() => [...cuts.value].sort((left, right) => left - right))
+const splitGoLabel = computed(() => {
+  const vars = { n: cuts.value.length + 1 }
+  return fillI18n(String(t('canvas.cut.splitGo', vars)), vars)
+})
+
+function splitMinGap() {
+  if (duration.value > 0)
+    return Math.min(0.2, 0.3 / duration.value)
+  return 0.08
+}
+
+function cutClock(ratio: number) {
+  const seconds = duration.value > 0 ? ratio * duration.value : 0
+  return `${seconds.toFixed(2)} s`
+}
 
 function setCut(ratio: number) {
-  const v = snapRatio(Math.min(1, Math.max(0, ratio)))
-  start.value = v
-  end.value = v
+  const value = snapRatio(Math.min(1, Math.max(0, ratio)))
+  cuts.value = [value]
+  activeCut.value = 0
+  start.value = value
+  end.value = value
+}
+
+function removeCut(index: number) {
+  if (cuts.value.length <= 1)
+    return
+  cuts.value = cuts.value.filter((_, item) => item !== index)
+  activeCut.value = Math.min(index, cuts.value.length - 1)
 }
 
 const layerStyle = computed(() => {
   const box = props.box
   if (!box)
     return null
-  const width = Math.max(box.width, 360)
+  const width = isClip.value ? clipLayout.value.width : Math.max(box.width, 360)
   return {
     left: `${box.left + box.width / 2 - width / 2}px`,
     top: `${box.top + box.height + 12}px`,
     width: `${width}px`,
+    height: isClip.value ? `${clipLayout.value.filmHeight + 16}px` : undefined,
   }
+})
+
+/** 一条时间大概占这么宽，靠得比这近就换行，避免叠字 */
+const SPLIT_LABEL_PX = 64
+const SPLIT_LABEL_ROW = 14
+const filmWidth = ref(0)
+
+function splitFilmWidth() {
+  if (filmWidth.value > 0)
+    return filmWidth.value
+  const box = props.box?.width || 0
+  return Math.max(160, (box > 0 ? Math.max(box, 360) : 360) - 148)
+}
+
+const cutRows = computed(() => splitLabelRows(cuts.value, SPLIT_LABEL_PX / splitFilmWidth()))
+const cutRowCount = computed(() => cutRows.value.reduce((max, row) => Math.max(max, row + 1), 1))
+
+function syncFilmWidth() {
+  const width = stripRef.value?.clientWidth || 0
+  if (width > 0)
+    filmWidth.value = width
+}
+
+watch(() => [props.open, props.box?.width] as const, ([open]) => {
+  if (open)
+    nextTick(syncFilmWidth)
+})
+
+const filmStyle = computed(() => {
+  if (isClip.value) {
+    return {
+      height: `${clipLayout.value.filmHeight}px`,
+      '--clip-strip-aspect': String(clipLayout.value.aspect),
+    }
+  }
+  if (isSplit.value)
+    return { marginBottom: `${2 + cutRowCount.value * SPLIT_LABEL_ROW}px` }
+  return undefined
 })
 
 const selectedSeconds = computed(() => {
@@ -156,9 +229,25 @@ function onHandleDown(which: 'start' | 'end' | 'move', event: PointerEvent) {
   catch {}
   grabbing.value = true
   if (isSplit.value) {
-    // 分割：点哪里游标到哪里，拖动跟手
-    setCut(ratioAt(event))
-    const onCutMove = (move: PointerEvent) => setCut(ratioAt(move))
+    // 点在分割线上就拖它；点空白就再加一条。每条线之间是一段独立视频
+    const ratio = ratioAt(event)
+    const width = el.getBoundingClientRect().width || 1
+    let index = nearestSplitCut(cuts.value, ratio, Math.max(0.02, 14 / width))
+    if (index < 0 && canInsertSplitCut(cuts.value, ratio, splitMinGap(), SPLIT_MAX_PARTS - 1)) {
+      cuts.value = [...cuts.value, ratio]
+      index = cuts.value.length - 1
+    }
+    else if (index < 0) {
+      index = nearestSplitCut(cuts.value, ratio, 1)
+    }
+    if (index < 0) {
+      grabbing.value = false
+      return
+    }
+    activeCut.value = index
+    const onCutMove = (move: PointerEvent) => {
+      cuts.value = moveSplitCut(cuts.value, index, ratioAt(move), splitMinGap())
+    }
     const onCutUp = () => {
       grabbing.value = false
       el.removeEventListener('pointermove', onCutMove)
@@ -200,85 +289,42 @@ function onHandleDown(which: 'start' | 'end' | 'move', event: PointerEvent) {
   el.addEventListener('pointercancel', onUp)
 }
 
+let captureSeq = 0
+
 async function captureFrames(src: string) {
+  const seq = ++captureSeq
   frames.value = []
   duration.value = 0
   frameError.value = false
-  const video = document.createElement('video')
-  video.muted = true
-  video.playsInline = true
-  video.preload = 'auto'
-  video.crossOrigin = 'anonymous'
-  video.src = src
-  try {
-    await new Promise<void>((resolve, reject) => {
-      video.onloadedmetadata = () => resolve()
-      video.onerror = () => reject(new Error('load'))
-    })
-    duration.value = Number.isFinite(video.duration) ? video.duration : 0
-    if (duration.value > 0) {
-      if (isRetake.value) {
-        clampRange(0, 1)
-      }
-      else if (isSplit.value) {
-        setCut(0.5)
-      }
-      else if (isClip.value) {
-        const window = Math.min(2, Math.max(0.5, duration.value * 0.35))
-        const mid = duration.value / 2
-        clampRange(
-          Math.max(0, (mid - window / 2) / duration.value),
-          Math.min(1, (mid + window / 2) / duration.value),
-        )
-      }
-      else {
-        const window = Math.min(5, duration.value)
-        const mid = duration.value / 2
-        clampRange(
-          Math.max(0, (mid - window / 2) / duration.value),
-          Math.min(1, (mid + window / 2) / duration.value),
-        )
-      }
-    }
-    const canvas = document.createElement('canvas')
-    const ctx = canvas.getContext('2d')
-    if (!ctx)
-      return
-    const shots: string[] = []
-    for (let i = 0; i < FRAME_COUNT; i++) {
-      const time = duration.value > 0 ? (i / Math.max(1, FRAME_COUNT - 1)) * duration.value * 0.98 : 0
-      await new Promise<void>((resolve) => {
-        let settled = false
-        const done = () => {
-          if (settled)
-            return
-          settled = true
-          video.removeEventListener('seeked', done)
-          resolve()
-        }
-        video.addEventListener('seeked', done)
-        video.currentTime = time
-        window.setTimeout(done, 400)
-      })
-      canvas.width = video.videoWidth || 160
-      canvas.height = video.videoHeight || 90
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
-      try {
-        shots.push(canvas.toDataURL('image/jpeg', 0.72))
-      }
-      catch {
-        break
-      }
-    }
-    frames.value = shots
-  }
-  catch {
-    duration.value = 0
-    frameError.value = true
+  const result = await captureVideoStripFrames(src, frameCount.value, () => seq !== captureSeq)
+  if (seq !== captureSeq)
+    return
+  duration.value = result.duration
+  frames.value = result.frames
+  frameError.value = !result.frames.length
+  if (duration.value > 0)
+    applyDefaultRange()
+  else {
     applyFallbackDuration()
+    if (!(duration.value > 0))
+      return
   }
-  finally {
-    video.src = ''
+}
+
+function applyDefaultRange() {
+  if (!(duration.value > 0))
+    return
+  if (isRetake.value || isClip.value)
+    clampRange(0, 1)
+  else if (isSplit.value)
+    setCut(0.5)
+  else {
+    const window = Math.min(5, duration.value)
+    const mid = duration.value / 2
+    clampRange(
+      Math.max(0, (mid - window / 2) / duration.value),
+      Math.min(1, (mid + window / 2) / duration.value),
+    )
   }
 }
 
@@ -289,7 +335,7 @@ function applyFallbackDuration() {
   duration.value = props.fallbackDuration
   if (isSplit.value)
     setCut(0.5)
-  else if (isRetake.value)
+  else if (isRetake.value || isClip.value)
     clampRange(0, 1)
   else
     clampRange(0.35, 0.72)
@@ -302,8 +348,13 @@ watch(() => props.fallbackDuration, () => {
 
 watch(() => [props.open, props.src] as const, ([open, src]) => {
   if (!open || !src) {
+    captureSeq += 1
     frames.value = []
     return
+  }
+  if (props.variant === 'clip' || props.variant === 'retake') {
+    start.value = 0
+    end.value = 1
   }
   void captureFrames(src)
 }, { immediate: true })
@@ -324,12 +375,19 @@ function onKeydown(event: KeyboardEvent) {
   const target = event.target as HTMLElement | null
   if (target && (target.isContentEditable || /^(?:INPUT|TEXTAREA|SELECT)$/.test(target.tagName)))
     return
+  if (isSplit.value && (event.key === 'Delete' || event.key === 'Backspace')) {
+    event.preventDefault()
+    event.stopImmediatePropagation()
+    removeCut(activeCut.value)
+    return
+  }
+  const cursor = isSplit.value ? (cuts.value[activeCut.value] ?? cuts.value[0] ?? 0.5) : start.value
   const result = stripKeyResult(
     { key: event.key, shift: event.shiftKey, alt: event.altKey },
     {
       variant: isSplit.value ? 'split' : isClip.value ? 'clip' : 'extend',
-      start: start.value,
-      end: end.value,
+      start: cursor,
+      end: isSplit.value ? cursor : end.value,
       duration: duration.value,
       snap: snapSec.value,
       minRange: MIN_RANGE,
@@ -340,10 +398,15 @@ function onKeydown(event: KeyboardEvent) {
   event.preventDefault()
   event.stopImmediatePropagation()
   if (result.type === 'range') {
-    if (isSplit.value)
-      setCut(result.start)
-    else
+    if (isSplit.value) {
+      const index = Math.min(activeCut.value, Math.max(0, cuts.value.length - 1))
+      cuts.value = moveSplitCut(cuts.value, index, result.start, splitMinGap())
+      start.value = cuts.value[index] ?? result.start
+      end.value = start.value
+    }
+    else {
       clampRange(result.start, result.end)
+    }
     return
   }
   if (result.command === 'submit')
@@ -370,7 +433,9 @@ onBeforeUnmount(() => {
 })
 
 const shortcutLines = computed(() => {
-  const lines = [t('← → 移动，按住 Shift 每次 1 秒')]
+  const lines = isSplit.value
+    ? [t('点击空白添加分割点'), t('拖动分割线，← → 移动当前分割点，按住 Shift 每次 1 秒'), t('点 × 或 Delete 删除分割点')]
+    : [t('← → 移动，按住 Shift 每次 1 秒')]
   if (!isSplit.value) {
     lines.push(t('Alt + ← → 调整终点'))
     lines.push(t('↑ ↓ 放大或缩小选区'))
@@ -385,7 +450,15 @@ function onSubmit() {
   if (props.submitting)
     return
   if (isSplit.value) {
-    emit('submit', { seconds: Math.round(cutSeconds.value * 100) / 100, start: start.value, end: start.value, duration: duration.value })
+    const points = orderedCuts.value
+    const first = points[0] ?? 0.5
+    emit('submit', {
+      seconds: duration.value > 0 ? Math.round(first * duration.value * 100) / 100 : 0,
+      start: first,
+      end: first,
+      duration: duration.value,
+      cuts: points,
+    })
     return
   }
   const seconds = Math.round(selectedSeconds.value * 100) / 100
@@ -423,12 +496,14 @@ function onSubmit() {
           :aria-label="t('快捷键')"
         >
           <UIcon name="i-lucide-keyboard" class="size-4" />
-          <span class="canvas-tip canvas-tip--up canvas-tip--lines">{{ shortcutLines }}</span>
+          <span class="canvas-tip canvas-tip--up canvas-tip--up-start canvas-tip--lines">{{ shortcutLines }}</span>
         </button>
       </div>
       <div
         ref="stripRef"
         class="canvas-extend-strip__film"
+        :style="filmStyle"
+        :title="isSplit ? t('点击空白添加分割点，每段会生成一个视频节点') : undefined"
         @pointerdown="onHandleDown('move', $event)"
       >
         <div class="canvas-extend-strip__frames">
@@ -441,9 +516,26 @@ function onSubmit() {
           >
           <span v-if="!frames.length" class="canvas-extend-strip__empty">{{ frameError ? t('浏览器读不到视频帧，按时长选择') : t('读取视频帧…') }}</span>
         </div>
-        <div v-if="isSplit" class="canvas-extend-strip__cut" :style="{ left: `${start * 100}%` }">
-          <em>{{ cutLabel }}</em>
-        </div>
+        <template v-if="isSplit">
+          <div
+            v-for="(cut, index) in cuts"
+            :key="`cut-${index}`"
+            class="canvas-extend-strip__cut"
+            :class="{ 'is-on': index === activeCut }"
+            :style="{ left: `${cut * 100}%`, '--cut-row': String(cutRows[index] || 0) }"
+          >
+            <em>
+              {{ cutClock(cut) }}
+              <button
+                v-if="cuts.length > 1 && index === activeCut"
+                type="button"
+                :aria-label="t('删除分割点')"
+                @pointerdown.stop
+                @click.stop="removeCut(index)"
+              >×</button>
+            </em>
+          </div>
+        </template>
         <i v-if="!isSplit" class="canvas-extend-strip__dim is-left" :style="{ width: `${start * 100}%` }" />
         <i v-if="!isSplit" class="canvas-extend-strip__dim is-right" :style="{ width: `${(1 - end) * 100}%` }" />
         <div v-if="!isSplit" class="canvas-extend-strip__range" :style="rangeStyle">
@@ -501,7 +593,7 @@ function onSubmit() {
         :disabled="submitting || (isSplit && !(duration > 0))"
         @click="onSubmit"
       >
-        {{ submitting ? t('提交中…') : (isSplit ? t('确认分割') : t('确认续写')) }}
+        {{ submitting ? t('提交中…') : (isSplit ? splitGoLabel : t('确认续写')) }}
       </button>
       <button
         v-else

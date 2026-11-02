@@ -5,13 +5,13 @@
 
 import { authUserHeaders } from '~/utils/auth-user'
 import {
-  mergeDurationShort,
+  concatOutputTruncated,
   mergeReadableUrl,
   mergeReencodeArgs,
   mergeToTsArgs,
   mergeTsConcatArgs,
   MergeVideoError,
-  parseClockDuration,
+  trimCopyArgs,
   trimVideoArgs,
   type MergeVideoProgress,
 } from '~/utils/canvas-video-merge'
@@ -70,10 +70,22 @@ function wait(ms: number) {
   return new Promise(resolve => window.setTimeout(resolve, ms))
 }
 
+async function fetchFailStatus(response: Response) {
+  const status = response.status
+  try {
+    const body = await response.json() as { statusMessage?: string, message?: string }
+    const text = String(body.statusMessage || body.message || '').trim()
+    if (text)
+      return `${status} ${text}`
+  }
+  catch {}
+  return status
+}
+
 function canRetryFetch(error: unknown) {
   if (!(error instanceof MergeVideoError) || error.code !== 'fetch')
     return true
-  const status = Number(error.detail)
+  const status = Number(String(error.detail ?? '').match(/^\d+/)?.[0])
   if (!Number.isFinite(status) || status <= 0)
     return true
   return status >= 500
@@ -106,7 +118,7 @@ async function readVideoBlob(url: string) {
     try {
       const response = await openVideo(url)
       if (!response.ok)
-        throw new MergeVideoError('fetch', response.status)
+        throw new MergeVideoError('fetch', await fetchFailStatus(response))
       return await response.blob()
     }
     catch (cause) {
@@ -164,8 +176,10 @@ export async function mergeVideoBlobs(
   const names: string[] = []
   try {
     const blobs = await readAllVideos(urls, onProgress)
+    const inputBytes: number[] = []
     for (let index = 0; index < blobs.length; index += 1) {
       const name = `input-${index}.mp4`
+      inputBytes.push(blobs[index]!.size)
       await ffmpeg.writeFile(name, await fetchFile(blobs[index]!))
       names.push(name)
       blobs[index] = new Blob()
@@ -180,8 +194,12 @@ export async function mergeVideoBlobs(
           progress: Math.min(96, 55 + Math.round((done / Math.max(1, total)) * 41)),
         })
       })
-      if (exitCode === 0 && await timelineStoppedEarly(ffmpeg, names))
+      if (exitCode === 0) {
+        const copied = await outputBlob(ffmpeg, 'merged.mp4')
+        if (!concatOutputTruncated(copied.size, inputBytes))
+          return copied
         exitCode = 1
+      }
       if (exitCode !== 0) {
         await ffmpeg.deleteFile('merged.mp4').catch(() => undefined)
         const onEncode = ({ progress }: { progress: number }) => {
@@ -249,6 +267,53 @@ export async function trimVideoBlob(
   }
 }
 
+/**
+ * 按区间切成多段。每段都重编码，保证画面从分割点开始，
+ * 不走关键帧拷贝（拷贝经常把整段或切点前的画面留在文件里）。
+ */
+export async function splitVideoParts(
+  url: string,
+  ranges: Array<{ start: number, end: number }>,
+  onProgress?: (progress: MergeVideoProgress) => void,
+) {
+  if (!import.meta.client)
+    throw new MergeVideoError('browser')
+  if (ranges.length < 2 || ranges.some(range => !(range.end > range.start + 0.05)))
+    throw new MergeVideoError('encode')
+  const report = (progress: MergeVideoProgress) => onProgress?.({ ...progress, job: 'split' })
+  const ffmpeg = await loadFfmpeg(report)
+  const input = 'split-in.mp4'
+  const names = ranges.map((_, index) => `split-part-${index}.mp4`)
+  try {
+    report({ phase: 'reading', progress: 8, index: 0, total: ranges.length })
+    await writeSource(ffmpeg, url, input)
+    const blobs: Blob[] = []
+    const span = 84 / ranges.length
+    for (let index = 0; index < ranges.length; index += 1) {
+      const range = ranges[index]!
+      const name = names[index]!
+      const base = 12 + Math.round(index * span)
+      report({ phase: 'encoding', progress: base, index: index + 1, total: ranges.length })
+      const code = await encodeRangeAccurate(ffmpeg, input, name, range.start, range.end, (progress) => {
+        report({
+          phase: 'encoding',
+          progress: Math.min(96, base + Math.round(progress * span)),
+          index: index + 1,
+          total: ranges.length,
+        })
+      })
+      if (code !== 0)
+        throw new MergeVideoError('encode')
+      blobs.push(await outputBlob(ffmpeg, name))
+      await ffmpeg.deleteFile(name).catch(() => undefined)
+    }
+    return blobs
+  }
+  finally {
+    await Promise.all([input, ...names].map(file => ffmpeg.deleteFile(file).catch(() => undefined)))
+  }
+}
+
 /** 在 at 秒处切成前后两段。 */
 export async function splitVideoBlob(
   url: string,
@@ -256,37 +321,13 @@ export async function splitVideoBlob(
   duration: number,
   onProgress?: (progress: MergeVideoProgress) => void,
 ) {
-  if (!import.meta.client)
-    throw new MergeVideoError('browser')
   if (!(at >= 0.3) || !(duration > at + 0.3))
     throw new MergeVideoError('encode')
-  const report = (progress: MergeVideoProgress) => onProgress?.({ ...progress, job: 'split' })
-  const ffmpeg = await loadFfmpeg(report)
-  const input = 'split-in.mp4'
-  const headName = 'split-head.mp4'
-  const tailName = 'split-tail.mp4'
-  try {
-    report({ phase: 'reading', progress: 12 })
-    await writeSource(ffmpeg, url, input)
-    report({ phase: 'encoding', progress: 30 })
-    const headCode = await encodeRange(ffmpeg, input, headName, 0, at, (progress) => {
-      report({ phase: 'encoding', progress: 30 + Math.round(progress * 30) })
-    })
-    if (headCode !== 0)
-      throw new MergeVideoError('encode')
-    const head = await outputBlob(ffmpeg, headName)
-    await ffmpeg.deleteFile(headName).catch(() => undefined)
-    const tailCode = await encodeRange(ffmpeg, input, tailName, at, duration, (progress) => {
-      report({ phase: 'encoding', progress: 62 + Math.round(progress * 34) })
-    })
-    if (tailCode !== 0)
-      throw new MergeVideoError('encode')
-    const tail = await outputBlob(ffmpeg, tailName)
-    return { head, tail }
-  }
-  finally {
-    await Promise.all([input, headName, tailName].map(file => ffmpeg.deleteFile(file).catch(() => undefined)))
-  }
+  const [head, tail] = await splitVideoParts(url, [
+    { start: 0, end: at },
+    { start: at, end: duration },
+  ], onProgress)
+  return { head: head!, tail: tail! }
 }
 
 async function writeSource(ffmpeg: FfmpegHandle, url: string, name: string) {
@@ -295,6 +336,34 @@ async function writeSource(ffmpeg: FfmpegHandle, url: string, name: string) {
     throw new MergeVideoError('read', 1)
   const { fetchFile } = await import('@ffmpeg/util')
   await ffmpeg.writeFile(name, await fetchFile(blob))
+}
+
+/** 分割必须重编码。关键帧拷贝的文件经常仍从切点之前开始播。 */
+async function encodeRangeAccurate(
+  ffmpeg: FfmpegHandle,
+  input: string,
+  output: string,
+  start: number,
+  end: number,
+  onRatio?: (progress: number) => void,
+) {
+  const onEncode = ({ progress }: { progress: number }) => {
+    const value = Number(progress)
+    if (Number.isFinite(value))
+      onRatio?.(Math.max(0, Math.min(1, value)))
+  }
+  ffmpeg.on('progress', onEncode)
+  try {
+    let code = await ffmpeg.exec(trimVideoArgs(input, output, start, end, true))
+    if (code !== 0) {
+      await ffmpeg.deleteFile(output).catch(() => undefined)
+      code = await ffmpeg.exec(trimVideoArgs(input, output, start, end, false))
+    }
+    return code
+  }
+  finally {
+    ffmpeg.off('progress', onEncode)
+  }
 }
 
 async function encodeRange(
@@ -312,7 +381,11 @@ async function encodeRange(
   }
   ffmpeg.on('progress', onEncode)
   try {
-    let code = await ffmpeg.exec(trimVideoArgs(input, output, start, end, true))
+    let code = await ffmpeg.exec(trimCopyArgs(input, output, start, end))
+    if (code !== 0) {
+      await ffmpeg.deleteFile(output).catch(() => undefined)
+      code = await ffmpeg.exec(trimVideoArgs(input, output, start, end, true))
+    }
     if (code !== 0) {
       await ffmpeg.deleteFile(output).catch(() => undefined)
       code = await ffmpeg.exec(trimVideoArgs(input, output, start, end, false))
@@ -376,29 +449,3 @@ async function concatWithTimeline(
   return code
 }
 
-async function fileDuration(ffmpeg: FfmpegHandle, file: string) {
-  let duration = 0
-  const onLog = ({ message }: { message: string }) => {
-    duration = Math.max(duration, parseClockDuration(message))
-  }
-  ffmpeg.on('log', onLog)
-  try {
-    await ffmpeg.exec(['-i', file])
-  }
-  catch {
-    return duration
-  }
-  finally {
-    ffmpeg.off('log', onLog)
-  }
-  return duration
-}
-
-/** 成片容器时长停在前一段，就当成没接上，改走转码。 */
-async function timelineStoppedEarly(ffmpeg: FfmpegHandle, names: string[]) {
-  const inputs: number[] = []
-  for (const name of names)
-    inputs.push(await fileDuration(ffmpeg, name))
-  const output = await fileDuration(ffmpeg, 'merged.mp4')
-  return mergeDurationShort(inputs, output)
-}

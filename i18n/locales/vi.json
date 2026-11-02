@@ -3963,7 +3963,8 @@
       "uploading": "Đang tải kết quả lên",
       "busy": "Đang xử lý một video khác. Hãy đợi",
       "trimOk": "Đã cắt đoạn và thêm nút mới",
-      "splitOk": "Đã tách video thành hai đoạn",
+      "splitGo": "Tách thành {n} đoạn",
+      "splitOk": "Đã tách thành {n} đoạn, mỗi đoạn là một nút video",
       "uploadFail": "Kết quả đã nằm trên khung vẽ, nhưng tải lên thất bại. Kiểm tra mạng rồi làm lại, nếu không làm mới trang sẽ mất."
     },
     "align": {

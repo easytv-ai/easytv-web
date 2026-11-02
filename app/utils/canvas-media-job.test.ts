@@ -55,11 +55,21 @@ describe('mediaActionState', () => {
     expect(mediaBarItemState(actions, 'box-subtitles').available).toBe(false)
     expect(mediaBarItemState(actions, 'download').available).toBe(true)
     expect(MEDIA_BAR_ACTIONS.depth).toBe('depth_extract')
-    expect(MEDIA_BAR_ACTIONS['video-split']).toBe('split')
+    expect(MEDIA_BAR_ACTIONS['clip-cut']).toBeUndefined()
+    expect(MEDIA_BAR_ACTIONS['video-split']).toBeUndefined()
     expect(MEDIA_BAR_ACTIONS['grid-split']).toBe('grid_split')
     expect(MEDIA_BAR_ACTIONS['smart-extend']).toBe('extend')
     expect(mediaBarItemState(actions, 'depth').available).toBe(false)
     expect(mediaBarItemState([], 'depth').available).toBe(true)
+  })
+
+  it('片段裁剪、视频分割走浏览器 ffmpeg，不看服务端 trim/split', () => {
+    const noFfmpeg: MediaAction[] = [
+      { action: 'trim', label: '片段截取', engine: 'local', source: ['video'], outputs: ['same'], available: false, reason: '服务器未安装 ffmpeg', free: true },
+      { action: 'split', label: '视频分割', engine: 'local', source: ['video'], outputs: ['same'], available: false, reason: '服务器未安装 ffmpeg', free: true },
+    ]
+    expect(mediaBarItemState(noFfmpeg, 'clip-cut')).toEqual({ available: true, reason: '', known: false })
+    expect(mediaBarItemState(noFfmpeg, 'video-split')).toEqual({ available: true, reason: '', known: false })
   })
 
   it('独立接口：清单里没有这条就放行，有就听清单', () => {

@@ -348,10 +348,12 @@ function toggleEdit() {
 }
 
 function onVideoMenuItem(id: string) {
-  const state = videoItemState(id)
-  if (!state.available) {
-    emit('unavailable', id, state.reason)
-    return
+  if (!BROWSER_VIDEO_ITEMS.has(id)) {
+    const state = videoItemState(id)
+    if (!state.available) {
+      emit('unavailable', id, state.reason)
+      return
+    }
   }
   videoMenuOpen.value = ''
   emit('action', id)

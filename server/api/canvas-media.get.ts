@@ -1,12 +1,14 @@
 import { Readable } from 'node:stream'
 import type { ReadableStream as WebReadableStream } from 'node:stream/web'
 import { getRequestHeader, sendStream } from 'h3'
+import { allowedMediaHosts, isAllowedMediaUrl } from '../utils/media-hosts'
 
 const MAX_BYTES = 512 * 1024 * 1024
 
 function isMediaType(type: string) {
   return type.startsWith('video/')
     || type.startsWith('audio/')
+    || type.startsWith('image/')
     || type === 'application/octet-stream'
     || type === 'application/mp4'
     || type === 'binary/octet-stream'
@@ -23,10 +25,13 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: '无效的视频地址' })
   }
   const { hosts, apiHost } = allowedMediaHosts()
-  if (target.protocol !== 'https:' || !hosts.has(target.hostname))
+  if (!isAllowedMediaUrl(target, hosts))
     throw createError({ statusCode: 400, statusMessage: '不支持的视频地址' })
 
   const headers: Record<string, string> = {}
+  const range = getRequestHeader(event, 'range')
+  if (range)
+    headers.range = range
   if (apiHost && target.hostname === apiHost) {
     const authorization = getRequestHeader(event, 'authorization')
     if (authorization)
@@ -46,12 +51,24 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 502, statusMessage: '视频读取失败' })
 
   const length = Number(res.headers.get('content-length') || 0)
-  if (!Number.isFinite(length) || length > MAX_BYTES)
+  const contentRange = res.headers.get('content-range') || ''
+  const totalMatch = contentRange.match(/\/(\d+)\s*$/)
+  const total = totalMatch ? Number(totalMatch[1]) : length
+  if (Number.isFinite(total) && total > MAX_BYTES)
     throw createError({ statusCode: 413, statusMessage: '视频过大' })
   const type = ((res.headers.get('content-type') || '').split(';')[0] ?? '').trim().toLowerCase()
   if (type && !isMediaType(type))
     throw createError({ statusCode: 400, statusMessage: '不是视频' })
 
+  if (res.status === 206)
+    setResponseStatus(event, 206)
+  if (contentRange)
+    setHeader(event, 'content-range', contentRange)
+  const acceptRanges = res.headers.get('accept-ranges')
+  if (acceptRanges)
+    setHeader(event, 'accept-ranges', acceptRanges)
+  else if (res.status === 206 || range)
+    setHeader(event, 'accept-ranges', 'bytes')
   setHeader(event, 'content-type', type || 'video/mp4')
   if (length > 0)
     setHeader(event, 'content-length', length)
@@ -70,7 +87,7 @@ async function openAllowedMedia(target: URL, hosts: Set<string>, headers: Record
     if (!location)
       throw createError({ statusCode: 502, statusMessage: '视频读取失败' })
     const next = new URL(location, current)
-    if (next.protocol !== 'https:' || !hosts.has(next.hostname))
+    if (!isAllowedMediaUrl(next, hosts))
       throw createError({ statusCode: 400, statusMessage: '不支持的视频地址' })
     current = next
   }

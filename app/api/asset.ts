@@ -12,12 +12,12 @@ export const assetApi = {
     return http.get(`/user/asset/${id}`)
   },
 
-  upload(file: File, projectId?: number): Promise<ApiResponse<Asset>> {
+  upload(file: File, projectId?: number, onProgress?: (percent: number) => void): Promise<ApiResponse<Asset>> {
     const form = new FormData()
     form.append('file', file, file.name)
     if (projectId)
       form.append('project_id', String(projectId))
-    return http.post('/user/asset/upload', form)
+    return http.postForm('/user/asset/upload', form, onProgress)
   },
 
   /** 仍被画布 / 主体 / 作品 / 时间线引用时不删，返回 success=false 且 data={ reason:'in_use', refs }；确认后 force=true 再删（API.md 14.1） */

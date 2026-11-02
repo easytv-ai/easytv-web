@@ -39,14 +39,13 @@ export function pickMediaSourceNode<T extends { id: string }>(
 /**
  * 画布工具条按钮 → 媒体工具动作（API.md 23）。
  * 只列需要按 GET /user/media/actions 的 available 决定能不能点的按钮；没列的按钮不受清单影响。
+ * 片段裁剪 / 视频分割在浏览器里用 ffmpeg.wasm 完成，故意不映射 trim / split，避免服务器没装 ffmpeg 时点不开。
  */
 export const MEDIA_BAR_ACTIONS: Record<string, string> = {
   'hd': 'upscale',
   'depth': 'depth_extract',
   'retake': 'retake_segment',
   'frame-by-frame': 'storyboard',
-  'clip-cut': 'trim',
-  'video-split': 'split',
   'smart-extend': 'extend',
   'add-bgm': 'mix_bgm',
   'grid-split': 'grid_split',

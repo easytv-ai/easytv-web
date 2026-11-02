@@ -605,16 +605,110 @@
 }
 
 .canvas-extend-strip.is-clip {
+  height: auto;
+  min-height: 60px;
   gap: 8px;
-  padding: 6px 8px;
+  padding: 6px 10px;
 }
 
-/* 多行提示（胶片条快捷键清单） */
+/* 片段裁剪选区：白描边；左右手柄一半露在选区外，平时若隐若现 */
+.canvas-extend-strip.is-clip .canvas-extend-strip__film {
+  overflow: visible;
+  background: transparent;
+}
+
+.canvas-extend-strip.is-clip .canvas-extend-strip__frames {
+  overflow: hidden;
+  gap: 1px;
+  border-radius: 10px;
+  background: #111;
+}
+
+.canvas-extend-strip.is-clip .canvas-extend-strip__frames img {
+  flex: 0 0 auto;
+  width: auto;
+  height: 100%;
+  aspect-ratio: var(--clip-strip-aspect, 16 / 9);
+  object-fit: contain;
+  background: #111;
+}
+
+.canvas-extend-strip.is-clip .canvas-extend-strip__dim {
+  background: rgba(8, 8, 10, 0.28);
+}
+
+.canvas-extend-strip.is-clip .canvas-extend-strip__range {
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  box-shadow: inset 0 0 0 2px #fff;
+}
+
+.canvas-extend-strip.is-clip .canvas-extend-strip__range em {
+  z-index: 1;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #111;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1;
+  text-shadow: none;
+}
+
+.canvas-extend-strip.is-clip .canvas-extend-strip__handle {
+  top: 6px;
+  bottom: 6px;
+  left: 0;
+  z-index: 2;
+  width: 12px;
+  border-radius: 999px;
+  background: #fff;
+  opacity: 0.2;
+  transform: translateX(-50%);
+  transition: opacity 0.16s ease;
+}
+
+.canvas-extend-strip.is-clip .canvas-extend-strip__handle.is-end {
+  left: auto;
+  right: 0;
+  transform: translateX(50%);
+}
+
+.canvas-extend-strip.is-clip .canvas-extend-strip__film:hover .canvas-extend-strip__handle,
+.canvas-extend-strip.is-clip .canvas-extend-strip__handle:hover,
+.canvas-extend-strip.is-clip.is-grab .canvas-extend-strip__handle {
+  opacity: 1;
+}
+
+/* 多行提示（胶片条快捷键清单）：按内容撑开，避免被 32px 按钮挤成逐字换行 */
 .canvas-tip.canvas-tip--lines {
   display: block;
-  white-space: pre-line;
+  width: max-content;
+  max-width: min(260px, 70vw);
+  white-space: pre;
   text-align: left;
   line-height: 1.6;
+}
+
+.canvas-extend-strip.is-split {
+  height: auto;
+  align-items: flex-start;
+}
+
+.canvas-extend-strip.is-split .canvas-extend-strip__left,
+.canvas-extend-strip.is-split .canvas-extend-strip__ok {
+  height: 40px;
+}
+
+.canvas-extend-strip.is-split .canvas-extend-strip__ok {
+  display: inline-flex;
+  align-items: center;
+}
+
+.canvas-extend-strip.is-split .canvas-extend-strip__film {
+  overflow: visible;
+  cursor: col-resize;
 }
 
 .canvas-extend-strip__cut {
@@ -622,27 +716,41 @@
   top: 0;
   bottom: 0;
   width: 0;
-  border-left: 2px solid #f472b6;
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35);
+  border-left: 1.5px solid #fff;
+  box-shadow: 1px 0 0 rgba(0, 0, 0, 0.45);
   pointer-events: none;
 }
 
 .canvas-extend-strip__cut em {
   position: absolute;
-  top: 2px;
-  left: 6px;
-  padding: 1px 5px;
-  border-radius: 6px;
-  background: rgba(236, 72, 153, 0.85);
-  color: #fff;
-  font-size: 11px;
+  top: calc(100% + 2px + var(--cut-row, 0) * 14px);
+  left: 50%;
+  display: inline-flex;
+  align-items: center;
+  color: var(--st-text);
+  font-size: 10px;
   font-style: normal;
-  font-weight: 700;
+  font-weight: 600;
+  line-height: 1.2;
   white-space: nowrap;
+  transform: translateX(-50%);
 }
 
-.canvas-extend-strip.is-split .canvas-extend-strip__film {
-  cursor: col-resize;
+.canvas-extend-strip__cut.is-on {
+  z-index: 2;
+  border-left-width: 2px;
+}
+
+.canvas-extend-strip__cut em button {
+  pointer-events: auto;
+  margin-left: 2px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  line-height: 1;
+  cursor: pointer;
 }
 
 .canvas-extend-strip__left,

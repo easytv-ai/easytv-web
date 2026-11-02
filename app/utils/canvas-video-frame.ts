@@ -1,21 +1,273 @@
-/** 从视频地址截取指定时间点的一帧，返回 jpeg Blob 与像素尺寸 */
+import { authUserHeaders } from '~/utils/auth-user'
+import { isSameOriginMediaUrl } from '~/utils/canvas-image-edit'
+import { mergeReadableUrl } from '~/utils/canvas-video-merge'
 
-export async function captureVideoFrame(
-  src: string,
-  timeSec: number,
-): Promise<{ blob: Blob, width: number, height: number, time: number }> {
+/**
+ * 阿里云 OSS 视频截帧地址。t 是毫秒，img 直接显示不需要 CORS。
+ * 签名地址和已经带 process 的不改，避免把签名算坏。
+ */
+export function isOssSnapshotableUrl(src: string) {
+  const value = String(src || '').trim()
+  if (!/^https?:\/\//i.test(value))
+    return false
+  return !/[?&](Signature|OSSAccessKeyId|x-oss-process)=/i.test(value)
+}
+
+export function ossVideoSnapshotUrl(src: string, timeSec: number, width = 240) {
+  if (!isOssSnapshotableUrl(src))
+    return ''
+  const ms = Math.max(0, Math.round(timeSec * 1000))
+  const w = Math.max(80, Math.round(width) || 240)
+  const sep = src.includes('?') ? '&' : '?'
+  return `${src}${sep}x-oss-process=video/snapshot,t_${ms},f_jpg,w_${w},h_0,m_fast`
+}
+
+export function stripFrameTimes(duration: number, count: number) {
+  const n = Math.max(1, Math.floor(count) || 1)
+  const d = Number.isFinite(duration) && duration > 0 ? duration : 0
+  if (n === 1)
+    return [d > 0 ? Math.min(0.04, d * 0.5) : 0]
+  const times: number[] = []
+  for (let i = 0; i < n; i++)
+    times.push(d > 0 ? (i / (n - 1)) * d * 0.98 : 0)
+  return times
+}
+
+function readableVideoUrl(src: string) {
+  return mergeReadableUrl(src, typeof location === 'undefined' ? 'http://localhost' : location.origin)
+}
+
+async function waitVideo(video: HTMLVideoElement, event: 'loadedmetadata', timeoutMs: number) {
+  await new Promise<void>((resolve, reject) => {
+    let settled = false
+    const done = (ok: boolean) => {
+      if (settled)
+        return
+      settled = true
+      video.removeEventListener(event, onOk)
+      video.removeEventListener('error', onErr)
+      window.clearTimeout(timer)
+      if (ok)
+        resolve()
+      else
+        reject(new Error(event))
+    }
+    const onOk = () => done(true)
+    const onErr = () => done(false)
+    video.addEventListener(event, onOk)
+    video.addEventListener('error', onErr)
+    const timer = window.setTimeout(() => done(false), timeoutMs)
+  })
+}
+
+async function fetchReadableVideoBlob(src: string) {
+  const proxied = readableVideoUrl(src)
+  if (proxied !== src) {
+    try {
+      const direct = await fetch(src, { mode: 'cors', cache: 'force-cache' })
+      if (direct.ok)
+        return await direct.blob()
+      await direct.body?.cancel()
+    }
+    catch {
+      // OSS 没 CORS 头时浏览器会直接拒
+    }
+  }
+  const headers: Record<string, string> = {}
+  const apiBase = String(useRuntimeConfig().public.apiBaseUrl || '').replace(/\/$/, '')
+  if (apiBase && src.startsWith(apiBase))
+    Object.assign(headers, authUserHeaders())
+  const res = await fetch(proxied, { headers, cache: 'force-cache' })
+  if (!res.ok)
+    throw new Error('fetch')
+  return await res.blob()
+}
+
+function bindCaptureVideo(src: string, objectUrl = '') {
   const video = document.createElement('video')
   video.muted = true
   video.playsInline = true
   video.preload = 'auto'
-  video.crossOrigin = 'anonymous'
-  video.src = src
+  const playable = objectUrl || readableVideoUrl(src)
+  if (!isSameOriginMediaUrl(playable))
+    video.crossOrigin = 'anonymous'
+  video.src = playable
+  return {
+    video,
+    dispose() {
+      video.removeAttribute('src')
+      video.load()
+      if (objectUrl)
+        URL.revokeObjectURL(objectUrl)
+    },
+  }
+}
+
+async function prepareCaptureVideo(src: string) {
+  const first = bindCaptureVideo(src)
+  try {
+    await waitVideo(first.video, 'loadedmetadata', 8000)
+    return first
+  }
+  catch {
+    first.dispose()
+  }
+  const blob = await fetchReadableVideoBlob(src)
+  const bound = bindCaptureVideo(src, URL.createObjectURL(blob))
+  try {
+    await waitVideo(bound.video, 'loadedmetadata', 8000)
+    return bound
+  }
+  catch (error) {
+    bound.dispose()
+    throw error
+  }
+}
+
+async function imageLoads(src: string, timeoutMs = 4000) {
+  return await new Promise<boolean>((resolve) => {
+    const img = new Image()
+    const timer = window.setTimeout(() => {
+      img.src = ''
+      resolve(false)
+    }, timeoutMs)
+    img.onload = () => {
+      window.clearTimeout(timer)
+      resolve(true)
+    }
+    img.onerror = () => {
+      window.clearTimeout(timer)
+      resolve(false)
+    }
+    img.src = src
+  })
+}
+
+async function seekVideo(video: HTMLVideoElement, time: number) {
+  await new Promise<void>((resolve) => {
+    let settled = false
+    const done = () => {
+      if (settled)
+        return
+      settled = true
+      video.removeEventListener('seeked', done)
+      resolve()
+    }
+    video.addEventListener('seeked', done)
+    try {
+      if (Math.abs(video.currentTime - time) < 0.001 && video.readyState >= 2)
+        done()
+      else
+        video.currentTime = time
+    }
+    catch {
+      done()
+    }
+    window.setTimeout(done, 400)
+  })
+}
+
+async function grabStripFromVideo(
+  src: string,
+  count: number,
+  isStale?: () => boolean,
+): Promise<{ duration: number, frames: string[] }> {
+  const bound = await prepareCaptureVideo(src)
+  const { video, dispose } = bound
+  try {
+    if (isStale?.())
+      return { duration: 0, frames: [] }
+    const duration = Number.isFinite(video.duration) ? Math.max(0, video.duration) : 0
+    const canvas = document.createElement('canvas')
+    const ctx = canvas.getContext('2d')
+    if (!ctx)
+      return { duration, frames: [] }
+    const frames: string[] = []
+    for (const time of stripFrameTimes(duration, count)) {
+      await seekVideo(video, time)
+      if (isStale?.())
+        return { duration: 0, frames: [] }
+      canvas.width = video.videoWidth || 160
+      canvas.height = video.videoHeight || 90
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+      try {
+        frames.push(canvas.toDataURL('image/jpeg', 0.72))
+      }
+      catch {
+        break
+      }
+    }
+    return { duration, frames }
+  }
+  finally {
+    dispose()
+  }
+}
+
+/**
+ * 胶片条抽帧：OSS 视频走截帧参数（img 能显示、不需 CORS）；
+ * 读不到再走本站代理 / blob，用 canvas 截。
+ */
+export async function captureVideoStripFrames(
+  src: string,
+  count: number,
+  isStale?: () => boolean,
+): Promise<{ duration: number, frames: string[] }> {
+  if (!import.meta.client)
+    return { duration: 0, frames: [] }
+  const n = Math.max(1, Math.floor(count) || 1)
+  let duration = await probeMediaDuration(src)
+  if (isStale?.())
+    return { duration: 0, frames: [] }
+
+  const ossFrames = isOssSnapshotableUrl(src)
+    ? stripFrameTimes(duration, n).map(time => ossVideoSnapshotUrl(src, time))
+    : []
+  if (ossFrames.length && ossFrames.every(Boolean) && await imageLoads(ossFrames[0]!)) {
+    if (isStale?.())
+      return { duration: 0, frames: [] }
+    return { duration, frames: ossFrames }
+  }
 
   try {
-    await new Promise<void>((resolve, reject) => {
-      video.onloadedmetadata = () => resolve()
-      video.onerror = () => reject(new Error('load'))
-    })
+    const grabbed = await grabStripFromVideo(src, n, isStale)
+    if (grabbed.duration > 0)
+      duration = grabbed.duration
+    return { duration, frames: grabbed.frames }
+  }
+  catch {
+    return { duration, frames: [] }
+  }
+}
+
+/** 从视频地址截取指定时间点的一帧，返回 jpeg Blob 与像素尺寸 */
+export async function captureVideoFrame(
+  src: string,
+  timeSec: number,
+): Promise<{ blob: Blob, width: number, height: number, time: number }> {
+  const snap = ossVideoSnapshotUrl(src, timeSec, 1280)
+  if (snap) {
+    try {
+      const res = await fetch(readableVideoUrl(snap), { cache: 'force-cache' })
+      const type = (res.headers.get('content-type') || '').toLowerCase()
+      if (res.ok && type.startsWith('image/')) {
+        const blob = await res.blob()
+        if (blob.size) {
+          const bmp = await createImageBitmap(blob)
+          const width = bmp.width
+          const height = bmp.height
+          bmp.close()
+          return { blob, width, height, time: timeSec }
+        }
+      }
+    }
+    catch {
+      // 代理没放行 OSS 时退回 video + canvas
+    }
+  }
+
+  const { video, dispose } = await prepareCaptureVideo(src)
+  try {
 
     const duration = Number.isFinite(video.duration) ? video.duration : 0
     let target = Math.max(0, timeSec)
@@ -69,8 +321,7 @@ export async function captureVideoFrame(
     return { blob, width, height, time: target }
   }
   finally {
-    video.removeAttribute('src')
-    video.load()
+    dispose()
   }
 }
 

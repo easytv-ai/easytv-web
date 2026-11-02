@@ -2,7 +2,7 @@ import type { Ref } from 'vue'
 import assetApi from '~/api/asset'
 import type { CanvasMediaSpawnLayout } from '~/composables/useCanvasMediaJobs'
 import { absPosition, isContentNode, type CanvasFlowNode } from '~/utils/canvas-group'
-import { canvasMergeRunning, flushMergeUploads, publishMergeProgress, trackMergeUpload } from '~/utils/canvas-merge-state'
+import { canvasMergeRunning, publishMergeProgress, trackMergeUpload } from '~/utils/canvas-merge-state'
 import type { CanvasNodeData } from '~/utils/canvas-node-kinds'
 import {
   mergeResultOrigin,
@@ -12,7 +12,7 @@ import {
 import { resolveMediaUrl } from '~/utils/media'
 
 /**
- * 多选视频一键拼接：浏览器 ffmpeg 出片后先落到选区右侧，再后台上传。
+ * 多选视频一键拼接：浏览器 ffmpeg 出片后先落到画布，再后台上传进资产。
  * 不走合成接口，也不烧字幕、配音或配乐。
  */
 export function useCanvasVideoMerge(opts: {
@@ -109,11 +109,10 @@ export function useCanvasVideoMerge(opts: {
       }
       opts.pushHistory()
       const nodeId = sibling.id
-      const localUrl = blobUrl
       blobUrl = ''
-      publishMergeProgress(null)
       opts.notify(opts.t('canvas.merge.ok', { n: clips.length }))
-      const task = saveMergedAsset(nodeId, blob, localUrl, clips.length)
+      publishMergeProgress(null)
+      const task = saveMergedAsset(nodeId, blob, clips.length)
       trackMergeUpload(task)
       void task.catch(() => undefined)
     }
@@ -131,13 +130,12 @@ export function useCanvasVideoMerge(opts: {
     }
   }
 
-  async function saveMergedAsset(nodeId: string, blob: Blob, localUrl: string, count: number) {
+  async function saveMergedAsset(nodeId: string, blob: Blob, count: number) {
     try {
       const file = new File([blob], `merged-${count}.mp4`, { type: 'video/mp4' })
-      const asset = await uploadMerged(file)
+      const asset = await uploadAssetOnce(file)
       opts.updateNodeData(nodeId, { content: asset.url, assetId: asset.id })
       opts.pushHistory()
-      window.setTimeout(() => URL.revokeObjectURL(localUrl), 2000)
     }
     catch {
       opts.notify(opts.t('canvas.merge.uploadFail'), 'error')
@@ -148,15 +146,9 @@ export function useCanvasVideoMerge(opts: {
   return { running, mergeClips }
 }
 
-async function uploadMerged(file: File) {
-  let last = ''
-  for (let attempt = 0; attempt < 3; attempt += 1) {
-    const uploaded = await assetApi.upload(file)
-    if (uploaded?.success && uploaded.data?.url)
-      return uploaded.data
-    last = uploaded?.message || ''
-    if (attempt < 2)
-      await new Promise(resolve => window.setTimeout(resolve, 600 * (attempt + 1)))
-  }
-  throw new Error(last)
+async function uploadAssetOnce(file: File) {
+  const uploaded = await assetApi.upload(file)
+  if (uploaded?.success && uploaded.data?.url)
+    return uploaded.data
+  throw new Error(uploaded?.message || '')
 }

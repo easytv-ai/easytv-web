@@ -76,6 +76,7 @@ import {
   mediaActionState,
   retakeSegmentRange,
 } from '~/utils/canvas-media-job'
+import { clipStripMetrics } from '~/utils/canvas-strip-keys'
 import { addNodeDataPatch, buildAssistNodes, orderAssistChanges, updatePromptPatch, type AssistChange, type AssistNodeSummary } from '~/utils/canvas-assist'
 import { CANVAS_STALE_KEY, computeStaleMap, type InputSnapshot } from '~/utils/canvas-upstream'
 import { useCanvasPracticeHost } from '~/composables/useCanvasPracticeHost'
@@ -517,7 +518,9 @@ const inspectorStyle = computed(() => {
   void flowPaneRectTick.value
   const kind = node.data?.kind
   const panelW = kind === 'image' || kind === 'video' ? 760 : 680
-  const stripGap = showRetakeStrip.value || clipStripOpen.value || extendStripOpen.value || splitStripOpen.value ? 68 : 16
+  const stripGap = clipStripOpen.value
+    ? clipStripMetrics(overlay.value?.width || 0).filmHeight + 28
+    : (showRetakeStrip.value || extendStripOpen.value || splitStripOpen.value ? 68 : 16)
   return canvasPanelBelowNode(selectedNodeBox(), viewport.value, {
     paneRect: canvasFlowPaneRect(),
     panelW,
@@ -1573,6 +1576,39 @@ function onFlowElementsChange(changes: Array<NodeChange | EdgeChange>) {
 
 function hasBlobMedia() {
   return nodes.value.some(node => isContentNode(node) && String(node.data.content || '').startsWith('blob:'))
+}
+
+/** 分割 / 裁剪先落成本地地址。保存前把还没传上的片段补传到资产库，失败的个数返回给页面。 */
+async function replaceBlobMedia() {
+  const pending = nodes.value.filter(node => isContentNode(node) && String(node.data.content || '').startsWith('blob:'))
+  let failed = 0
+  let uploaded = 0
+  for (const node of pending) {
+    if (!isContentNode(node))
+      continue
+    const src = String(node.data.content || '')
+    const kind = node.data.kind === 'audio' ? 'audio' : node.data.kind === 'image' ? 'image' : 'video'
+    const ext = kind === 'audio' ? 'm4a' : kind === 'image' ? 'png' : 'mp4'
+    const mime = kind === 'audio' ? 'audio/mp4' : kind === 'image' ? 'image/png' : 'video/mp4'
+    try {
+      const res = await fetch(src)
+      if (!res.ok)
+        throw new Error('blob')
+      const blob = await res.blob()
+      const file = new File([blob], `${node.id}.${ext}`, { type: blob.type || mime })
+      const uploadedAsset = await assetApi.upload(file)
+      if (!uploadedAsset?.success || !uploadedAsset.data?.url)
+        throw new Error(uploadedAsset?.message || 'upload')
+      updateNodeData(node.id, { content: uploadedAsset.data.url, assetId: uploadedAsset.data.id })
+      uploaded += 1
+    }
+    catch {
+      failed += 1
+    }
+  }
+  if (uploaded)
+    pushHistory()
+  return failed
 }
 
 /** 导出当前画布（供页面保存）：摘掉 Vue Flow 运行时拷贝和 data URL，参考线只留两端 id。 */
@@ -4820,7 +4856,7 @@ function openStyleLibrary(target: '' | 'extend' | 'chat' = '') {
   styleLibOpen.value = true
 }
 
-defineExpose({ getGraph, loadGraph, flushMergeUploads, hasBlobMedia, addNodeAtCenter, insertTextNode, insertImageNodes, insertAudioNodes, insertVideoNodes, resetBriefPlaced, generateBriefPlaced, estimateBriefPlaced, placeBriefVideos, composeBrief, pickAssetFromChat, addAssetNodeAtCenter, selectionLabels, assistContext, applyAssistChanges, undoAssistChanges, openStyleLibrary, refreshRunQueue, locateNode, commentNodeHint })
+defineExpose({ getGraph, loadGraph, flushMergeUploads, hasBlobMedia, replaceBlobMedia, addNodeAtCenter, insertTextNode, insertImageNodes, insertAudioNodes, insertVideoNodes, resetBriefPlaced, generateBriefPlaced, estimateBriefPlaced, placeBriefVideos, composeBrief, pickAssetFromChat, addAssetNodeAtCenter, selectionLabels, assistContext, applyAssistChanges, undoAssistChanges, openStyleLibrary, refreshRunQueue, locateNode, commentNodeHint })
 
 function commentNodeHint(nodeId: string) {
   return canvasCommentNodeHint(nodes.value, nodeId, t)
@@ -5738,6 +5774,7 @@ const {
   addEdges: edge => addEdges(edge as any),
   defaultEdgeOptions,
   pushHistory,
+  groupNodeList,
   addSelectedNodes: list => addSelectedNodes(list as any),
   updateNodeData,
   notifyChange,

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { stripKeyResult, stripKeyStep } from './canvas-strip-keys'
+import { canInsertSplitCut, clipStripAspect, clipStripMetrics, moveSplitCut, nearestSplitCut, splitLabelRows, stripKeyResult, stripKeyStep } from './canvas-strip-keys'
 
 const base = { variant: 'clip' as const, start: 0.4, end: 0.6, duration: 10, snap: false, minRange: 0.08 }
 
@@ -68,5 +68,53 @@ describe('stripKeyResult', () => {
     expect(stripKeyResult({ key: 'L' }, base)).toEqual({ type: 'command', command: 'toggle-loop' })
     expect(stripKeyResult({ key: 's' }, { ...base, variant: 'extend' })).toBeNull()
     expect(stripKeyResult({ key: 'Delete' }, base)).toBeNull()
+  })
+})
+
+describe('分割点', () => {
+  it('点在线上就拖已有分割点，离得远才能再加一条', () => {
+    expect(nearestSplitCut([0.2, 0.8], 0.21, 0.03)).toBe(0)
+    expect(nearestSplitCut([0.2, 0.8], 0.5, 0.03)).toBe(-1)
+    expect(canInsertSplitCut([0.5], 0.2, 0.08, 11)).toBe(true)
+    expect(canInsertSplitCut([0.5], 0.53, 0.08, 11)).toBe(false)
+    expect(canInsertSplitCut([0.5], 0.02, 0.08, 11)).toBe(false)
+    expect(canInsertSplitCut([0.2, 0.5], 0.8, 0.08, 2)).toBe(false)
+  })
+
+  it('时间靠得近就换到下一行，离得开的仍在第一行', () => {
+    expect(splitLabelRows([0.1, 0.5, 0.9], 0.2)).toEqual([0, 0, 0])
+    expect(splitLabelRows([0.4, 0.45, 0.8], 0.12)).toEqual([0, 1, 0])
+    expect(splitLabelRows([0.5, 0.52, 0.54], 0.1)).toEqual([0, 1, 2])
+    expect(splitLabelRows([], 0.1)).toEqual([])
+  })
+
+  it('拖动时夹在相邻分割线之间，两边留出最短一段', () => {
+    expect(moveSplitCut([0.2, 0.5, 0.8], 1, 0.9, 0.08)[1]).toBeCloseTo(0.72)
+    expect(moveSplitCut([0.2, 0.5, 0.8], 1, 0.1, 0.08)[1]).toBeCloseTo(0.28)
+    expect(moveSplitCut([0.5], 0, 0.02, 0.08)[0]).toBeCloseTo(0.08)
+  })
+})
+
+describe('clipStripMetrics', () => {
+  it('条比节点更宽，格子按当前视频比例铺，竖屏比横屏更密', () => {
+    const wide = clipStripMetrics(800, 16 / 9)
+    expect(wide.width).toBe(960)
+    expect(wide.filmHeight).toBe(44)
+    expect(wide.aspect).toBeCloseTo(16 / 9)
+    expect(clipStripMetrics(400).width).toBe(720)
+    expect(clipStripMetrics(200).filmHeight).toBe(44)
+    const landscape = clipStripMetrics(800, 16 / 9).frameCount
+    const square = clipStripMetrics(800, 1).frameCount
+    const portrait = clipStripMetrics(800, 9 / 16).frameCount
+    expect(portrait).toBeGreaterThan(square)
+    expect(square).toBeGreaterThan(landscape)
+  })
+
+  it('读不到尺寸时按 16:9，极端比例夹在合理区间', () => {
+    expect(clipStripAspect(0, 0)).toBeCloseTo(16 / 9)
+    expect(clipStripAspect(1920, 1080)).toBeCloseTo(16 / 9)
+    expect(clipStripAspect(1080, 1920)).toBeCloseTo(9 / 16)
+    expect(clipStripAspect(100, 1)).toBeLessThanOrEqual(21 / 9)
+    expect(clipStripAspect(1, 100)).toBeGreaterThanOrEqual(9 / 21)
   })
 })

@@ -4,8 +4,7 @@
  * 底栏提供 模型 / 类型（延长·全能参考·首尾帧·视频编辑）/ 风格 / 资产 / 运镜 / 输出规格 的选择。
  * 提交语义见 utils/canvas-extend-studio.ts；抽帧选区与 CanvasExtendStrip 同一套手法。
  */
-import { isSameOriginMediaUrl } from '~/utils/canvas-image-edit'
-import { captureVideoFrame } from '~/utils/canvas-video-frame'
+import { captureVideoFrame, captureVideoStripFrames } from '~/utils/canvas-video-frame'
 import { CAMERA_MOVE_ITEMS } from '~/utils/canvas-node-kinds'
 import { estimateTaskPoints, effectiveUnitPrice } from '~/utils/model-price'
 import assetApi from '~/api/asset'
@@ -318,36 +317,6 @@ function onHandleDown(which: 'move' | 'start' | 'end', event: PointerEvent) {
   el.addEventListener('pointercancel', onUp)
 }
 
-/** 带 cors 读元数据；失败返回 null（OSS 没跨域头时带 crossOrigin 的加载会直接失败） */
-function probeMeta(src: string, cors: boolean) {
-  return new Promise<{ duration: number, width: number, height: number } | null>((resolve) => {
-    const video = document.createElement('video')
-    video.muted = true
-    video.playsInline = true
-    video.preload = 'metadata'
-    if (cors)
-      video.crossOrigin = 'anonymous'
-    video.src = src
-    const finish = (value: { duration: number, width: number, height: number } | null) => {
-      video.removeAttribute('src')
-      video.load()
-      resolve(value)
-    }
-    video.onloadedmetadata = () => finish({
-      duration: Number.isFinite(video.duration) ? video.duration : 0,
-      width: video.videoWidth || 0,
-      height: video.videoHeight || 0,
-    })
-    video.onerror = () => finish(null)
-    window.setTimeout(() => finish(null), 12000)
-  })
-}
-
-/**
- * 胶片缩略图 + 时长探测（与 CanvasExtendStrip 同一套手法）。
- * OSS 视频往往没有 CORS 头：带 crossOrigin 的加载会失败 → 再不带 cors 读一次元数据，
- * 时长/时间线照常可用，只是出不了缩略图（canvas 读跨域像素必须 CORS）。
- */
 function applyKnownDuration(seconds: number) {
   if (!(seconds > 0))
     return
@@ -366,95 +335,15 @@ async function captureFrames(src: string) {
   duration.value = 0
   frameError.value = false
   notePlayerDuration()
-  const video = document.createElement('video')
-  video.muted = true
-  video.playsInline = true
-  video.preload = 'auto'
-  // 同源 / blob 设了 crossOrigin，没有 ACAO 头时浏览器会直接拒，预览能播、抽帧却一直挂着
-  if (!isSameOriginMediaUrl(src))
-    video.crossOrigin = 'anonymous'
-  video.src = src
-  try {
-    await new Promise<void>((resolve, reject) => {
-      const timer = window.setTimeout(() => reject(new Error('timeout')), 8000)
-      const finish = (ok: boolean) => {
-        window.clearTimeout(timer)
-        if (ok)
-          resolve()
-        else
-          reject(new Error('load'))
-      }
-      video.onloadedmetadata = () => finish(true)
-      video.onerror = () => finish(false)
-    })
-    if (seq !== captureSeq)
-      return
-    applyKnownDuration(Number.isFinite(video.duration) ? video.duration : 0)
-    const canvas = document.createElement('canvas')
-    const ctx = canvas.getContext('2d')
-    if (!ctx)
-      return
-    const shots: string[] = []
-    for (let i = 0; i < FRAME_COUNT; i++) {
-      const time = duration.value > 0 ? (i / Math.max(1, FRAME_COUNT - 1)) * duration.value * 0.98 : 0
-      await new Promise<void>((resolve) => {
-        let settled = false
-        const done = () => {
-          if (settled)
-            return
-          settled = true
-          video.removeEventListener('seeked', done)
-          resolve()
-        }
-        video.addEventListener('seeked', done)
-        try {
-          if (Math.abs(video.currentTime - time) < 0.001 && video.readyState >= 2)
-            done()
-          else
-            video.currentTime = time
-        }
-        catch {
-          done()
-        }
-        window.setTimeout(done, 400)
-      })
-      if (seq !== captureSeq)
-        return
-      canvas.width = video.videoWidth || 160
-      canvas.height = video.videoHeight || 90
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
-      try {
-        shots.push(canvas.toDataURL('image/jpeg', 0.72))
-      }
-      catch {
-        break
-      }
-    }
-    if (seq !== captureSeq)
-      return
-    frames.value = shots
-    if (!shots.length)
-      frameError.value = true
-  }
-  catch {
-    if (seq !== captureSeq)
-      return
-    // 无 CORS 兜底：不带 crossOrigin 再读一次元数据，保住时长与时间线（缩略图放弃）
-    frameError.value = true
-    const meta = await probeMeta(src, false)
-    if (seq !== captureSeq)
-      return
-    if (meta?.duration) {
-      applyKnownDuration(meta.duration)
-      return
-    }
-    if (!(duration.value > 0))
-      applyFallbackDuration()
-  }
-  finally {
-    video.removeAttribute('src')
-    video.load()
-  }
+  const result = await captureVideoStripFrames(src, FRAME_COUNT, () => seq !== captureSeq)
+  if (seq !== captureSeq)
+    return
+  if (result.duration > 0)
+    applyKnownDuration(result.duration)
+  else
+    applyFallbackDuration()
+  frames.value = result.frames
+  frameError.value = !result.frames.length
 }
 
 function applyFallbackDuration() {

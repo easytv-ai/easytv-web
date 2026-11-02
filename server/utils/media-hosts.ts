@@ -5,6 +5,8 @@
  * - NUXT_PUBLIC_SITE_URL      本站域名（public/ 下的静态素材）
  * - NUXT_PUBLIC_MEDIA_HOSTS   额外域名，逗号分隔（OSS / CDN）
  */
+export { isAllowedMediaUrl } from '~/utils/media-hosts'
+
 export function allowedMediaHosts(): { hosts: Set<string>, apiHost: string } {
   const pub = useRuntimeConfig().public
   const hosts = new Set<string>()

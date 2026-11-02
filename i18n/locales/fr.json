@@ -3963,7 +3963,8 @@
       "uploading": "Envoi du résultat",
       "busy": "Une vidéo est déjà en cours de traitement. Patientez",
       "trimOk": "Passage découpé. Un nouveau nœud a été ajouté",
-      "splitOk": "Vidéo coupée en deux",
+      "splitGo": "Couper en {n}",
+      "splitOk": "Vidéo coupée en {n} extraits, chacun sur son nœud",
       "uploadFail": "Le résultat est sur le canevas, mais l’envoi a échoué. Vérifiez le réseau et réessayez, sinon il disparaîtra au rafraîchissement."
     },
     "align": {

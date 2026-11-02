@@ -3988,7 +3988,8 @@
       "uploading": "Uploading the result",
       "busy": "A video is already being processed. Please wait",
       "trimOk": "Clip trimmed. A new node was added",
-      "splitOk": "Video split into two clips",
+      "splitGo": "Split into {n}",
+      "splitOk": "Split into {n} clips. Each clip is its own video node",
       "uploadFail": "The result is on the canvas, but the upload failed. Check the network and try again, or it will disappear after a refresh."
     },
     "align": {

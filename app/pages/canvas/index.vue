@@ -10,6 +10,7 @@ import assetApi from '~/api/asset'
 import canvasApi from '~/api/canvas'
 import projectApi from '~/api/project'
 import type { CanvasGraph } from '~/types/creative'
+import { canvasMergeUploading, flushMergeUploads, hasPendingMergeUploads } from '~/utils/canvas-merge-state'
 import { takeChatEntry } from '~/utils/chat-entry'
 import { beginSave,
   createSaveMachine,
@@ -228,6 +229,8 @@ const conflictOpen = ref(false)
 const conflictBusy = ref(false)
 
 const saveLabel = computed(() => {
+  if (canvasMergeUploading.value && (saveState.value === 'dirty' || saveState.value === 'idle'))
+    return t('上传中…')
   switch (saveState.value) {
     case 'dirty': return t('未保存')
     case 'saving': return t('保存中…')
@@ -423,6 +426,7 @@ let savedNodeCount = 0
 let wipeWarned = false
 let graphSizeWarned = false
 let graphNearWarned = false
+let blobSaveWarned = false
 function rememberNodeCount(graph?: { nodes?: unknown[] } | null) {
   savedNodeCount = Array.isArray(graph?.nodes) ? graph!.nodes!.length : 0
   wipeWarned = false
@@ -470,6 +474,38 @@ function save(manual = false, keepHistoryPin = false): Promise<void> {
   return saver.request(manual)
 }
 
+/**
+ * 本地片段还在时不能把画布写成「已保存」：刷新后 blob 地址会失效。
+ * 上传中就等它结束；已经失败的再补传一次。仍然传不上就停住并说明原因。
+ */
+async function settleLocalMedia(manual: boolean) {
+  if (hasPendingMergeUploads() || canvasMergeUploading.value) {
+    try {
+      await flushMergeUploads()
+    }
+    catch {
+      // 某一段失败了，下面再补传还留在节点上的本地地址
+    }
+  }
+  if (workspace.value?.hasBlobMedia()) {
+    try {
+      await workspace.value.replaceBlobMedia()
+    }
+    catch {
+      // 补传自己吞掉单段失败，这里只防它抛出后把保存流程打断
+    }
+  }
+  if (!workspace.value?.hasBlobMedia()) {
+    blobSaveWarned = false
+    return true
+  }
+  if (manual || !blobSaveWarned) {
+    blobSaveWarned = true
+    notify(t('有片段还在本地，上传失败，画布暂时不能保存'), 'error')
+  }
+  return false
+}
+
 /** 保存失败时判断是否乐观锁冲突：后端只给文案，文案对不上时再比一次服务端 version */
 async function detectVersionConflict(message?: string) {
   if (isCanvasVersionConflictMessage(message))
@@ -486,20 +522,10 @@ async function runSave(manual: boolean) {
   // 自动保存只在确有改动时发；手动保存没改动也发（新建画布 / 记一条版本快照）
   if (!manual && !hasPendingChanges(saveMachine.value))
     return
+  // 分割 / 裁剪先是本地地址。先等正在传的，再把没传上的补传一次，然后才写画布。
+  if (!await settleLocalMedia(manual))
+    return
   saveMachine.value = beginSave(saveMachine.value)
-  try {
-    await workspace.value?.flushMergeUploads()
-  }
-  catch {
-    saveMachine.value = finishSave(saveMachine.value, 'error')
-    return
-  }
-  if (workspace.value?.hasBlobMedia()) {
-    if (manual)
-      notify(t('canvas.merge.uploadFail'), 'error')
-    saveMachine.value = finishSave(saveMachine.value, 'error')
-    return
-  }
   const graph = workspace.value?.getGraph()
   if (!graph) {
     saveMachine.value = releaseSave(saveMachine.value)

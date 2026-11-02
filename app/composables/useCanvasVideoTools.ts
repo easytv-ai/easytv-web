@@ -5,7 +5,9 @@
 import { nextTick, watch, type ComputedRef, type Ref } from 'vue'
 import assetApi from '~/api/asset'
 import { canvasMergeRunning, publishMergeProgress, trackMergeUpload } from '~/utils/canvas-merge-state'
-import { MergeVideoError } from '~/utils/canvas-video-merge'
+import { MergeVideoError, splitRanges } from '~/utils/canvas-video-merge'
+import { mediaGridLayout } from '~/utils/canvas-media-job'
+import { fillI18n } from '~/utils/i18n-fill'
 import { resolveMediaUrl } from '~/utils/media'
 import type { CanvasOverlayKey } from '~/composables/useCanvasToolOverlays'
 import type { CanvasNodeData } from '~/utils/canvas-node-kinds'
@@ -69,6 +71,8 @@ export function useCanvasVideoTools(ctx: {
   addEdges: (edge: Record<string, unknown>) => void
   defaultEdgeOptions: Record<string, unknown>
   pushHistory: () => void
+  /** 多段分割结果打成一组，方便一起挪 */
+  groupNodeList: (ids: string[]) => void
   addSelectedNodes: (nodes: CanvasFlowNode[]) => void
   updateNodeData: (id: string, patch: Partial<CanvasNodeData>) => void
   notifyChange: () => void
@@ -102,6 +106,7 @@ export function useCanvasVideoTools(ctx: {
     addEdges,
     defaultEdgeOptions,
     pushHistory,
+    groupNodeList,
     addSelectedNodes,
     updateNodeData,
     notifyChange,
@@ -109,6 +114,14 @@ export function useCanvasVideoTools(ctx: {
 
   function nodeFrozen(node: CanvasFlowNode | undefined | null) {
     return isNodeLocked(node, nodes.value)
+  }
+
+  /** 上传完成后节点已是资产地址，用最新的；还没传完就继续用打开胶片条时的本地地址 */
+  function liveVideoSrc(node: ContentNode, opened: string) {
+    const latest = String(node.data.content || '').trim()
+    if (/^https?:\/\//i.test(latest))
+      return latest
+    return opened || latest
   }
 
   function openClipStrip() {
@@ -156,8 +169,8 @@ export function useCanvasVideoTools(ctx: {
     void loadStripDuration(node)
   }
 
-  /** 视频分割：浏览器 ffmpeg 在分割点切成两段，前段在右侧、后段在下方 */
-  async function onSplitStripSubmit(payload: { seconds: number, start: number, end: number, duration: number }) {
+  /** 视频分割：按分割点重编码成多段，源节点右侧每个片段一个视频节点 */
+  async function onSplitStripSubmit(payload: { seconds: number, start: number, end: number, duration: number, cuts?: number[] }) {
     const node = findNode(splitStripNodeId.value)
     if (!node || !isContentNode(node) || node.data.kind !== 'video' || splitBusy.value || nodeFrozen(node))
       return
@@ -166,8 +179,9 @@ export function useCanvasVideoTools(ctx: {
       notify(t('还没读到视频时长，请稍后再试'), 'error')
       return
     }
-    const at = Math.round(Math.min(1, Math.max(0, payload.start)) * duration * 100) / 100
-    if (at < 0.3 || at > duration - 0.3) {
+    const ratios = payload.cuts?.length ? payload.cuts : [payload.start]
+    const ranges = splitRanges(ratios, duration)
+    if (!ranges) {
       notify(t('分割点太靠近首尾，请重新选择'), 'error')
       return
     }
@@ -175,36 +189,43 @@ export function useCanvasVideoTools(ctx: {
       notify(t('canvas.cut.busy'))
       return
     }
-    const src = resolveMediaUrl(splitStripSrc.value || String(node.data.content || ''))
+    const src = resolveMediaUrl(liveVideoSrc(node, splitStripSrc.value))
     splitStripOpen.value = false
     clipStripOpen.value = false
     const sourceLabel = node.data.label || t('视频节点')
     const size = nodeSize(node)
     const prompt = String(node.data.prompt || '')
+    const origin = { x: node.position.x + size.w + 80, y: node.position.y }
+    const { positions } = mediaGridLayout(ranges.length, origin, size, 48)
     splitBusy.value = true
     canvasMergeRunning.value = true
     publishMergeProgress({ phase: 'loading', progress: 0, job: 'split' })
     try {
-      const { splitVideoBlob } = await import('~/utils/canvas-video-merge.ffmpeg')
-      const parts = await splitVideoBlob(src, at, duration, publishMergeProgress)
-      const headUrl = URL.createObjectURL(parts.head)
-      const tailUrl = URL.createObjectURL(parts.tail)
-      const first = spawnMediaNode(node, 'video', '分割', `${sourceLabel}_${t('分割')} 1 · 0-${formatFrameClock(at)}`, {
-        select: true,
-        data: browserCutData(headUrl, prompt, 'split'),
+      const { splitVideoParts } = await import('~/utils/canvas-video-merge.ffmpeg')
+      const parts = await splitVideoParts(src, ranges, publishMergeProgress)
+      const ids: string[] = []
+      const uploads: Array<Promise<void>> = []
+      parts.forEach((blob, index) => {
+        const range = ranges[index]
+        if (!range)
+          return
+        const localUrl = URL.createObjectURL(blob)
+        const sibling = spawnMediaNode(node, 'video', '分割', `${sourceLabel}_${t('分割')} ${index + 1} · ${formatFrameClock(range.start)}-${formatFrameClock(range.end)}`, {
+          at: positions[index],
+          select: index === 0,
+          data: browserCutData(localUrl, prompt, 'split'),
+        })
+        ids.push(sibling.id)
+        uploads.push(saveBrowserCut(sibling.id, blob, localUrl, `split-${index + 1}.mp4`))
       })
-      const second = spawnMediaNode(node, 'video', '分割', `${sourceLabel}_${t('分割')} 2 · ${formatFrameClock(at)}-${formatFrameClock(duration)}`, {
-        at: { x: node.position.x + size.w + 80, y: node.position.y + size.h + 48 },
-        select: false,
-        data: browserCutData(tailUrl, prompt, 'split'),
-      })
-      pushHistory()
+      if (ids.length > 1)
+        nextTick(() => groupNodeList(ids))
+      else
+        pushHistory()
+      const vars = { n: ids.length }
+      notify(fillI18n(String(t('canvas.cut.splitOk', vars)), vars))
       publishMergeProgress(null)
-      notify(t('canvas.cut.splitOk'))
-      const task = Promise.all([
-        saveBrowserCut(first.id, parts.head, headUrl, 'split-1.mp4'),
-        saveBrowserCut(second.id, parts.tail, tailUrl, 'split-2.mp4'),
-      ]).then(() => undefined)
+      const task = Promise.all(uploads).then(() => undefined)
       trackMergeUpload(task)
       void task.catch(() => undefined)
     }
@@ -302,7 +323,7 @@ export function useCanvasVideoTools(ctx: {
       notify(t('canvas.cut.busy'))
       return
     }
-    const src = resolveMediaUrl(clipStripSrc.value || String(node.data.content || ''))
+    const src = resolveMediaUrl(liveVideoSrc(node, clipStripSrc.value))
     clipStripOpen.value = false
     splitStripOpen.value = false
     const sourceLabel = node.data.label || t('视频节点')
@@ -318,8 +339,8 @@ export function useCanvasVideoTools(ctx: {
         data: browserCutData(localUrl, prompt, 'trim'),
       })
       pushHistory()
-      publishMergeProgress(null)
       notify(t('canvas.cut.trimOk'))
+      publishMergeProgress(null)
       const task = saveBrowserCut(sibling.id, blob, localUrl, 'clip.mp4')
       trackMergeUpload(task)
       void task.catch(() => undefined)
@@ -333,6 +354,19 @@ export function useCanvasVideoTools(ctx: {
         if (!canvasMergeRunning.value)
           publishMergeProgress(null)
       }, 700)
+    }
+  }
+
+  async function saveBrowserCut(nodeId: string, blob: Blob, localUrl: string, filename: string) {
+    try {
+      const file = new File([blob], filename, { type: 'video/mp4' })
+      const asset = await uploadCutFile(file)
+      updateNodeData(nodeId, { content: asset.url, assetId: asset.id })
+      pushHistory()
+    }
+    catch {
+      notify(t('canvas.cut.uploadFail'))
+      throw new Error('cut-upload')
     }
   }
 
@@ -361,20 +395,6 @@ export function useCanvasVideoTools(ctx: {
         return t('canvas.merge.browserOnly')
     }
     return error instanceof Error && error.message ? error.message : t('canvas.merge.fail')
-  }
-
-  async function saveBrowserCut(nodeId: string, blob: Blob, localUrl: string, filename: string) {
-    try {
-      const file = new File([blob], filename, { type: 'video/mp4' })
-      const asset = await uploadCutFile(file)
-      updateNodeData(nodeId, { content: asset.url, assetId: asset.id })
-      pushHistory()
-      window.setTimeout(() => URL.revokeObjectURL(localUrl), 2000)
-    }
-    catch {
-      notify(t('canvas.cut.uploadFail'))
-      throw new Error('cut-upload')
-    }
   }
 
   /** 高清报价 / 提交共用的源时长：节点参数 → 资产库 → 浏览器探测 */
@@ -611,16 +631,10 @@ export function useCanvasVideoTools(ctx: {
   }
 
   async function uploadCutFile(file: File) {
-    let last = ''
-    for (let attempt = 0; attempt < 3; attempt += 1) {
-      const uploaded = await assetApi.upload(file)
-      if (uploaded?.success && uploaded.data?.url)
-        return uploaded.data
-      last = uploaded?.message || ''
-      if (attempt < 2)
-        await new Promise(resolve => window.setTimeout(resolve, 600 * (attempt + 1)))
-    }
-    throw new Error(last)
+    const uploaded = await assetApi.upload(file)
+    if (uploaded?.success && uploaded.data?.url)
+      return uploaded.data
+    throw new Error(uploaded?.message || '')
   }
 
   return {

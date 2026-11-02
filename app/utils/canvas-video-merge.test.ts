@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   isMergeResult,
   mergeConcatScript,
+  concatOutputTruncated,
   mergeDurationShort,
   mergeReadableUrl,
   mergeReencodeArgs,
@@ -12,8 +13,11 @@ import {
   mergeVideoOrder,
   parseClockDuration,
   forwardMergeProgress,
+  trimCopyArgs,
   trimVideoArgs,
   ffmpegClock,
+  splitRanges,
+  SPLIT_MAX_PARTS,
 } from './canvas-video-merge'
 
 describe('mergeVideoOrder', () => {
@@ -87,6 +91,48 @@ describe('trimVideoArgs', () => {
       'cut-out.mp4',
     ])
     expect(trimVideoArgs('cut-in.mp4', 'cut-out.mp4', 0, 2, false)).toContain('-an')
+    expect(trimCopyArgs('cut-in.mp4', 'cut-out.mp4', 1.25, 4.5)).toEqual([
+      '-ss', '1.250',
+      '-to', '4.500',
+      '-i', 'cut-in.mp4',
+      '-c', 'copy',
+      '-avoid_negative_ts', 'make_zero',
+      '-movflags', '+faststart',
+      'cut-out.mp4',
+    ])
+  })
+})
+
+describe('splitRanges', () => {
+  it('每个分割点切开一段，首尾相接，顺序就是节点顺序', () => {
+    expect(splitRanges([0.5], 10)).toEqual([
+      { start: 0, end: 5 },
+      { start: 5, end: 10 },
+    ])
+    expect(splitRanges([0.75, 0.25], 8)).toEqual([
+      { start: 0, end: 2 },
+      { start: 2, end: 6 },
+      { start: 6, end: 8 },
+    ])
+  })
+
+  it('贴边、太密或没有分割点时不切', () => {
+    expect(splitRanges([0.01], 10)).toBeNull()
+    expect(splitRanges([0.99], 10)).toBeNull()
+    expect(splitRanges([], 10)).toBeNull()
+    expect(splitRanges([0.5], 0.4)).toBeNull()
+    expect(splitRanges([0.5, 0.52], 10)).toEqual([
+      { start: 0, end: 5 },
+      { start: 5, end: 10 },
+    ])
+  })
+
+  it('超过上限时只保留前若干段', () => {
+    const ratios = Array.from({ length: 20 }, (_, index) => (index + 1) / 21)
+    const ranges = splitRanges(ratios, 21)
+    expect(ranges).toHaveLength(SPLIT_MAX_PARTS)
+    expect(ranges?.[0]).toEqual({ start: 0, end: 1 })
+    expect(ranges?.[SPLIT_MAX_PARTS - 1]?.end).toBe(21)
   })
 })
 
@@ -117,6 +163,13 @@ describe('concat 参数', () => {
     expect(mergeDurationShort([5, 5, 5, 5], 20)).toBe(false)
     expect(mergeDurationShort([5, 5, 5, 5, 5], 24.8)).toBe(false)
     expect(mergeDurationShort([0, 0], 0)).toBe(false)
+  })
+
+  it('只在体积还停在第一段时才当没接上', () => {
+    expect(concatOutputTruncated(5_000_000, [5_000_000, 5_000_000])).toBe(true)
+    expect(concatOutputTruncated(9_800_000, [5_000_000, 5_000_000])).toBe(false)
+    expect(concatOutputTruncated(12_000_000, [5_000_000, 5_000_000, 5_000_000])).toBe(false)
+    expect(concatOutputTruncated(0, [5_000_000, 5_000_000])).toBe(false)
   })
 
   it('进度百分比不会往回跳', () => {
