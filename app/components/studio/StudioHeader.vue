@@ -21,6 +21,7 @@ useTaskActivityPolling()
  */
 const sessionCookie = useCookie(AUTH_SESSION_COOKIE)
 const showUser = computed(() => isLoggedIn.value || String(sessionCookie.value ?? '') === '1')
+const mobileNavOpen = useState('studio-mobile-nav', () => false)
 
 if (import.meta.client)
   hydrate()
@@ -58,6 +59,15 @@ watch(isLoggedIn, (on) => {
 
 <template>
   <header class="studio-header">
+    <button
+      type="button"
+      class="studio-header__menu"
+      :aria-label="t('展开侧边栏')"
+      :aria-expanded="mobileNavOpen"
+      @click="mobileNavOpen = !mobileNavOpen"
+    >
+      <UIcon name="i-lucide-menu" class="size-5" />
+    </button>
     <NuxtLink :to="localePath('/agent')" class="studio-header__brand">
       <img src="/images/logo.svg" alt="EasyTV" width="24" height="24" class="size-6">
       EasyTV

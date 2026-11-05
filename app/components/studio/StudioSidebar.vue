@@ -6,6 +6,8 @@ const { resourceLinks } = useStudioNav()
 const { requireLogin } = useRequireLogin()
 
 const collapsed = useState('studio-sidebar-collapsed', () => false)
+const mobileNavOpen = useState('studio-mobile-nav', () => false)
+const isNarrow = ref(false)
 const navRef = ref<HTMLElement | null>(null)
 const indicatorOn = ref(false)
 const indicatorInstant = ref(true)
@@ -66,6 +68,10 @@ function gotoNav(event: MouseEvent, item: typeof resourceLinks[number], navigate
 }
 
 function toggleCollapsed() {
+  if (isNarrow.value) {
+    mobileNavOpen.value = false
+    return
+  }
   collapsed.value = !collapsed.value
 }
 
@@ -77,7 +83,24 @@ watch(collapsed, () => {
   syncIndicator(false)
 }, { flush: 'post' })
 
+watch(isNarrow, () => {
+  syncIndicator(false)
+}, { flush: 'post' })
+
+watch(() => route.fullPath, () => {
+  mobileNavOpen.value = false
+})
+
+function syncNarrow(matches: boolean) {
+  isNarrow.value = matches
+  if (!matches)
+    mobileNavOpen.value = false
+}
+
 onMounted(() => {
+  const mq = window.matchMedia('(max-width: 860px)')
+  syncNarrow(mq.matches)
+  mq.addEventListener('change', event => syncNarrow(event.matches))
   syncIndicator(false)
   if (typeof ResizeObserver === 'undefined' || !navRef.value)
     return
@@ -93,7 +116,11 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <aside class="studio-sidebar" :class="{ 'is-collapsed': collapsed }">
+  <aside
+    class="studio-sidebar"
+    :class="{ 'is-collapsed': collapsed && !isNarrow, 'is-mobile-open': mobileNavOpen }"
+    :aria-hidden="isNarrow && !mobileNavOpen ? 'true' : undefined"
+  >
     <div class="studio-sidebar__top">
       <NuxtLink
         v-if="!collapsed"

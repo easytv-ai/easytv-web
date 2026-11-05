@@ -86,6 +86,7 @@ watch(() => route.query.skill, gotoSkillFromQuery)
     </div>
 
     <div class="agent-feed">
+      <StudioRecentProjects class="show-page__inner" />
       <StudioWorkFeed featured />
     </div>
 

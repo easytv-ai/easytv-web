@@ -3,6 +3,7 @@ const { hydrate, isLoggedIn } = useAuth()
 const { restorePricingAfterLogin } = usePricingModal()
 const { load: loadAppConfig } = useStudioAppConfig()
 const { settingsMounted } = useSettingsModal()
+const mobileNavOpen = useState('studio-mobile-nav', () => false)
 
 onMounted(() => {
   hydrate()
@@ -15,6 +16,13 @@ onMounted(() => {
 <template>
   <div class="studio-shell">
     <StudioSidebar />
+    <button
+      v-if="mobileNavOpen"
+      type="button"
+      class="studio-nav-mask"
+      :aria-label="$t('收起菜单')"
+      @click="mobileNavOpen = false"
+    />
     <div class="studio-main">
       <StudioPromoBanner />
       <StudioHeader />
