@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   conduct, security policy, issue and pull request templates, Dependabot and
   GitHub Actions CI.
 - `NUXT_PUBLIC_MEDIA_HOSTS` and `NUXT_PUBLIC_CONTACT_EMAIL` runtime configuration for self-hosters.
+- Dual licensing: AGPL-3.0 remains the public license; [COMMERCIAL-LICENSE.md](COMMERCIAL-LICENSE.md) (and [zh-CN](COMMERCIAL-LICENSE.zh-CN.md)) is the commercial template for closed-source / SaaS use.
 
 ### Changed
 

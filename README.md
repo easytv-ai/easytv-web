@@ -6,6 +6,7 @@
 
 [![CI](https://github.com/easytv-ai/easytv-web/actions/workflows/ci.yml/badge.svg)](https://github.com/easytv-ai/easytv-web/actions/workflows/ci.yml)
 [![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL--3.0-blue.svg)](LICENSE)
+[![License: Commercial](https://img.shields.io/badge/License-Commercial-orange.svg)](COMMERCIAL-LICENSE.md)
 [![Nuxt 4](https://img.shields.io/badge/Nuxt-4-00DC82?logo=nuxt.js&logoColor=white)](https://nuxt.com)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
@@ -167,9 +168,21 @@ Release notes live in [CHANGELOG.md](CHANGELOG.md).
 
 ## License
 
-[GNU Affero General Public License v3.0](LICENSE).
+EasyTV Web is **dual-licensed**:
+
+| You want to… | Use |
+| --- | --- |
+| Study, modify, or self-host and you will follow AGPL-3.0 (including publishing corresponding source if you offer a modified version as a network service) | [GNU Affero GPL v3.0](LICENSE) |
+| Ship a closed-source product, or host a modified version as SaaS / white-label **without** those AGPL obligations | [Commercial License](COMMERCIAL-LICENSE.md) |
+
+The commercial terms in the repo are a template. They apply only after you and
+the EasyTV copyright holders sign an Order. Write to
+[leida@easyapi.com](mailto:leida@easyapi.com) with `[LICENSE] easytv-web` in
+the subject. [简体中文译本](COMMERCIAL-LICENSE.zh-CN.md) is provided for
+convenience; the English text governs.
 
 The director stage is a Vue port of [open-director](https://github.com/x1n9/open-director)
 (MIT); file headers reference the upstream files. The UE mannequin model in
 `public/director-assets/` is licensed separately — see the license file beside
-it and keep the attribution.
+it and keep the attribution. A commercial license does not relicense those
+third-party parts.

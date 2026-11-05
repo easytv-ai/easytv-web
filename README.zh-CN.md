@@ -6,6 +6,7 @@
 
 [![CI](https://github.com/easytv-ai/easytv-web/actions/workflows/ci.yml/badge.svg)](https://github.com/easytv-ai/easytv-web/actions/workflows/ci.yml)
 [![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL--3.0-blue.svg)](LICENSE)
+[![License: Commercial](https://img.shields.io/badge/License-Commercial-orange.svg)](COMMERCIAL-LICENSE.zh-CN.md)
 [![Nuxt 4](https://img.shields.io/badge/Nuxt-4-00DC82?logo=nuxt.js&logoColor=white)](https://nuxt.com)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
@@ -141,6 +142,15 @@ docker run -d -p 3005:3005 \
 
 ## 开源协议
 
-[GNU Affero General Public License v3.0](LICENSE)。
+EasyTV Web 采用 **AGPL + 商业** 双许可：
 
-导演台是 [open-director](https://github.com/x1n9/open-director)（MIT）的 Vue 移植，文件头标注了对应的上游文件。`public/director-assets/` 下的 UE 素体模型单独授权，见同目录的 license 文件并保留署名。
+| 你想… | 用这份 |
+| --- | --- |
+| 学习、修改或自建部署，并遵守 AGPL-3.0（把修改版作为网络服务提供给他人时，须公开对应源代码） | [GNU Affero GPL v3.0](LICENSE) |
+| 做闭源产品，或以 SaaS / 白标托管修改版，且**不想**承担上述 AGPL 义务 | [商业许可协议](COMMERCIAL-LICENSE.zh-CN.md) |
+
+仓库里的商业条款是模板，双方签署订单后才生效。写信到
+[leida@easyapi.com](mailto:leida@easyapi.com)，主题加 `[LICENSE] easytv-web`。
+[English terms](COMMERCIAL-LICENSE.md) 是准据文本。
+
+导演台是 [open-director](https://github.com/x1n9/open-director)（MIT）的 Vue 移植，文件头标注了对应的上游文件。`public/director-assets/` 下的 UE 素体模型单独授权，见同目录的 license 文件并保留署名。商业许可**不能**改变这些第三方组件的原有许可证。
