@@ -11,14 +11,26 @@ const label = computed(() => {
   const current = progress.value
   if (!current)
     return ''
-  if (current.job === 'trim' || current.job === 'split') {
+  if (current.job === 'trim' || current.job === 'split' || current.job === 'split-av' || current.job === 'silence' || current.job === 'mix' || current.job === 'crop' || current.job === 'frames') {
     if (current.phase === 'loading')
       return t('canvas.cut.loading')
     if (current.phase === 'reading')
       return t('canvas.cut.reading')
     if (current.phase === 'uploading')
       return t('canvas.cut.uploading')
-    return t(current.job === 'split' ? 'canvas.cut.splitting' : 'canvas.cut.trimming')
+    if (current.job === 'split')
+      return t('canvas.cut.splitting')
+    if (current.job === 'split-av')
+      return t('正在分离音轨…')
+    if (current.job === 'silence')
+      return t('正在去掉停顿…')
+    if (current.job === 'mix')
+      return t('正在混入配乐…')
+    if (current.job === 'crop')
+      return t('正在裁切画面…')
+    if (current.job === 'frames')
+      return t('正在抽帧…')
+    return t('canvas.cut.trimming')
   }
   if (current.phase === 'loading')
     return t('canvas.merge.loading')

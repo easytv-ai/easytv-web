@@ -2818,6 +2818,8 @@ html.dark .canvas-help__card {
   position: fixed;
   /* 高过 .canvas-sel-layer(14)：选中视频节点时上方的工具条不能盖住生成条上弹出的参数面板 */
   z-index: 15;
+  /* 父级 .canvas-live-hud 是 none：不写 auto 时点击会穿透到画布，节点被取消选中、条跟着消失 */
+  pointer-events: auto;
   display: flex;
   flex-direction: column;
   padding: 10px 12px 10px;

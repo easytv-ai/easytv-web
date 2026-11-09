@@ -12,6 +12,7 @@ import { buildViralShotPrompt, parseViralBreakdown, pickViralModel, viralAnalysi
 import {
   IMAGE_EDIT_PROMPTS,
   outpaintPrompt,
+  framePullInstruction,
   promptReverseInstruction,
   promptReverseVideoInstruction,
   upscaleClarity,
@@ -21,18 +22,22 @@ import {
 } from '~/utils/canvas-image-edit'
 import {
   captureVideoFrame,
+  formatFrameClock,
   probeMediaDuration,
   probeVideoDuration,
   promptReverseFrameRanges,
   samplePromptReverseTimes,
+  stripFrameTimes,
 } from '~/utils/canvas-video-frame'
 import { isGptImageModel, pickCanvasImageEditModel, pickImageEditModel, pickImageUpscaleModel, pickVisionTextModel, preferredImageModel } from '~/utils/image-input'
 import { cellNodeLayout, type GridCell } from '~/utils/canvas-grid-split'
 import { montageNodeSize, montageParams, type MontageOptions, type MontageSource } from '~/utils/canvas-montage'
 import { applyOptimizedPrompt, canOptimizePrompt, cleanOptimizedPrompt, promptOptimizeInstruction } from '~/utils/canvas-prompt-optimize'
-import { mediaActionState, mediaSourceRef } from '~/utils/canvas-media-job'
+import { mediaActionState, mediaGridLayout, mediaSourceRef } from '~/utils/canvas-media-job'
 import { expandPromptTokens } from '~/utils/canvas-mark'
 import { isMediaUrl, resolveMediaUrl } from '~/utils/media'
+import { canvasMergeRunning, publishMergeProgress, trackMergeUpload } from '~/utils/canvas-merge-state'
+import { clampCropRect, MergeVideoError } from '~/utils/canvas-video-merge'
 import {
   canvasFitMediaSize,
   canvasKindIndex,
@@ -89,6 +94,8 @@ export function useCanvasImageEdits(opts: { blocked?: () => boolean } & Record<s
     spawnDepthNode,
     runSubjectAction,
     relabelGroups,
+    groupNodeList,
+    updateNode,
     editSrc,
     montageOpen,
     gridSplitOpen,
@@ -1183,14 +1190,83 @@ async function onEraseSubmit(regions: Array<{ x: number, y: number, w: number, h
   await submitMediaJob(sibling, 'remove_subtitle', source, params, { label: '智能去字幕', dropOnFail: [sibling.id] })
 }
 
+function browserMediaFailText(error: unknown) {
+  if (error instanceof MergeVideoError) {
+    if (error.code === 'load')
+      return t('canvas.merge.loadFail')
+    if (error.code === 'fetch')
+      return t('canvas.merge.fetchFail', { status: error.detail ?? '' })
+    if (error.code === 'read')
+      return t('canvas.merge.unreadable', { n: error.detail ?? '' })
+    if (error.code === 'encode')
+      return t('canvas.merge.encodeFail')
+    if (error.code === 'browser')
+      return t('canvas.merge.browserOnly')
+    if (error.code === 'noAudio')
+      return t('这段素材没有音轨')
+  }
+  return error instanceof Error && error.message ? error.message : t('canvas.merge.fail')
+}
+
+function browserEditData(content: string, prompt: string, operation: string): Partial<CanvasNodeData> {
+  return {
+    content,
+    prompt,
+    taskStatus: 'succeeded',
+    taskProgress: 100,
+    taskError: '',
+    params: { videoEditOperation: operation },
+  }
+}
+
+async function uploadBrowserMedia(nodeId: string, blob: Blob, filename: string, mime: string) {
+  try {
+    const file = new File([blob], filename, { type: mime })
+    const uploaded = await assetApi.upload(file)
+    if (!uploaded?.success || !uploaded.data?.url)
+      throw new Error(uploaded?.message || '')
+    updateNodeData(nodeId, { content: uploaded.data.url, assetId: uploaded.data.id })
+    pushHistory()
+  }
+  catch {
+    notify(t('canvas.cut.uploadFail'))
+    throw new Error('cut-upload')
+  }
+}
+
+async function withBrowserMediaJob<T>(job: 'split-av' | 'silence' | 'mix' | 'crop' | 'frames', work: () => Promise<T>) {
+  if (canvasMergeRunning.value) {
+    notify(t('canvas.cut.busy'))
+    return null
+  }
+  canvasMergeRunning.value = true
+  publishMergeProgress({ phase: 'loading', progress: 0, job })
+  try {
+    const result = await work()
+    publishMergeProgress(null)
+    return result
+  }
+  catch (error) {
+    notify(browserMediaFailText(error), 'error')
+    return null
+  }
+  finally {
+    canvasMergeRunning.value = false
+    window.setTimeout(() => {
+      if (!canvasMergeRunning.value)
+        publishMergeProgress(null)
+    }, 700)
+  }
+}
+
 /**
  * 音视频分离 / 人声提取 / 背景音提取（API.md 23.3）：
- * 音轨走本地 split_av，一次出音轨 + 无声视频两份产物，分别写进音频节点与视频节点；
- * 人声 / 背景音走模型动作 vocal_separation / bgm_separation，只出一个音频节点。
+ * 音轨走浏览器 ffmpeg，一次出音轨 + 无声视频；
+ * 人声 / 背景音走模型动作 vocal_separation / bgm_separation。
  */
 async function onSeparateAv(audioTag: '音轨' | '人声' | '背景音' = '音轨') {
   const from = selected.value
-  if (!from || !isContentNode(from) || from.data.kind !== 'video')
+  if (!from || !isContentNode(from) || from.data.kind !== 'video' || nodeFrozen(from))
     return
   const src = from.data.content?.trim() || ''
   if (!src || !isMediaUrl(src)) {
@@ -1198,16 +1274,16 @@ async function onSeparateAv(audioTag: '音轨' | '人声' | '背景音' = '音�
     return
   }
   const action = audioTag === '人声' ? 'vocal_separation' : audioTag === '背景音' ? 'bgm_separation' : 'split_av'
-  if (!ensureMediaAction(action))
-    return
-  const source = mediaSourceOf(from)
-  if (!source)
-    return
   const index = canvasKindIndex(nodes.value, from.id, 'video')
   const sourceLabel = from.data.label || canvasNodeTitle('video', index, t)
   const audioLabel = t(audioTag)
 
   if (action !== 'split_av') {
+    if (!ensureMediaAction(action))
+      return
+    const source = mediaSourceOf(from)
+    if (!source)
+      return
     const audioNode = spawnMediaNode(from, 'audio', audioTag, `${sourceLabel}_${audioLabel}`, { select: true })
     await submitMediaJob(audioNode, action, source, {}, {
       label: audioTag === '人声' ? '人声提取' : '背景音提取',
@@ -1216,16 +1292,32 @@ async function onSeparateAv(audioTag: '音轨' | '人声' | '背景音' = '音�
     return
   }
 
-  const audioNode = spawnMediaNode(from, 'audio', audioTag, `${sourceLabel}_${audioLabel}`, { place: 'up' })
+  const url = resolveMediaUrl(src)
+  const parts = await withBrowserMediaJob('split-av', async () => {
+    const { splitAvBlobs } = await import('~/utils/canvas-video-merge.ffmpeg')
+    return splitAvBlobs(url, publishMergeProgress)
+  })
+  if (!parts)
+    return
+  const audioUrl = URL.createObjectURL(parts.audio)
+  const videoUrl = URL.createObjectURL(parts.video)
+  const prompt = String(from.data.prompt || '')
+  const audioNode = spawnMediaNode(from, 'audio', audioTag, `${sourceLabel}_${audioLabel}`, {
+    place: 'up',
+    data: browserEditData(audioUrl, '', 'split_av'),
+  })
   const silentNode = spawnMediaNode(from, 'video', '无声', `${sourceLabel}_${t('无声')}`, {
-    data: { prompt: String(from.data.prompt || ''), silent: true },
+    data: { ...browserEditData(videoUrl, prompt, 'split_av'), silent: true },
     select: true,
   })
-  await submitMediaJob(silentNode, 'split_av', source, {}, {
-    label: '音视频分离',
-    dropOnFail: [audioNode.id, silentNode.id],
-    linkedId: audioNode.id,
-  })
+  pushHistory()
+  notify(t('已分离音轨和无声画面'))
+  const task = Promise.all([
+    uploadBrowserMedia(audioNode.id, parts.audio, 'audio.m4a', 'audio/mp4'),
+    uploadBrowserMedia(silentNode.id, parts.video, 'mute.mp4', 'video/mp4'),
+  ]).then(() => undefined)
+  trackMergeUpload(task)
+  void task.catch(() => undefined)
 }
 
 /** 选中的视频 / 音频节点作为媒体动作的源：内容得是已落资产库的媒体 */
@@ -1291,21 +1383,36 @@ async function onTranscribeConfirm(opts: { language: string, diarize: boolean, m
   await submitMediaJob(textNode, 'transcribe', source, params, { label: '语音转字幕', model: opts.model, dropOnFail: [textNode.id] })
 }
 
-/** 去停顿（API.md 35.3）：本地免费动作 remove_silence，派生一个同类节点承接产物 */
+/** 去停顿：浏览器 ffmpeg 剪掉长静音，音画同步。 */
 async function onRemoveSilence() {
-  if (!ensureMediaAction('remove_silence'))
-    return
   const picked = selectedMediaSource()
   if (!picked)
     return
-  const { from, source } = picked
+  const { from, src } = picked
+  if (nodeFrozen(from))
+    return
   const kind = from.data.kind === 'audio' ? 'audio' : 'video'
   const sourceLabel = from.data.label || t(kind === 'audio' ? '音频' : '视频')
+  const url = resolveMediaUrl(src)
+  const duration = await probeMediaDuration(url)
+  const result = await withBrowserMediaJob('silence', async () => {
+    const { removeSilenceBlob } = await import('~/utils/canvas-video-merge.ffmpeg')
+    return removeSilenceBlob(url, duration, kind, publishMergeProgress)
+  })
+  if (!result)
+    return
+  const localUrl = URL.createObjectURL(result.blob)
+  const mime = kind === 'audio' ? 'audio/mp4' : 'video/mp4'
+  const filename = kind === 'audio' ? 'desilence.m4a' : 'desilence.mp4'
   const sibling = spawnMediaNode(from, kind, '去停顿', `${sourceLabel}_${t('去停顿')}`, {
-    data: { prompt: String(from.data.prompt || '') },
+    data: browserEditData(localUrl, String(from.data.prompt || ''), 'remove_silence'),
     select: true,
   })
-  await submitMediaJob(sibling, 'remove_silence', source, {}, { label: '去停顿', dropOnFail: [sibling.id] })
+  pushHistory()
+  notify(result.warning === 'no_silence' ? t('没有检测到可去掉的停顿') : t('已去掉停顿'))
+  const task = uploadBrowserMedia(sibling.id, result.blob, filename, mime)
+  trackMergeUpload(task.then(() => undefined))
+  void task.catch(() => undefined)
 }
 
 function readNodeVideoTime(nodeId: string) {
@@ -1800,7 +1907,7 @@ async function onCropConfirm(box: {
   const nodeId = cropNodeId.value
   cropOpen.value = false
   if (isVideo) {
-    spawnVideoCropNode(box)
+    await runVideoCrop(nodeId, box)
     return
   }
   await submitImageCrop(nodeId, box)
@@ -1857,53 +1964,47 @@ async function submitImageCrop(nodeId: string, box: {
   }, { label: '画面裁切', dropOnFail: [sibling.id] })
 }
 
-function spawnVideoCropNode(box: {
+async function runVideoCrop(nodeId: string, box: {
   x: number
   y: number
   w: number
   h: number
   rect?: { x: number, y: number, w: number, h: number }
 }) {
-  const from = findNode(cropNodeId.value) as CanvasFlowNode | undefined
-  if (!from || !isContentNode(from) || from.data.kind !== 'video')
+  const from = findNode(nodeId) as CanvasFlowNode | undefined
+  if (!from || !isContentNode(from) || from.data.kind !== 'video' || nodeFrozen(from))
     return
   const src = from.data.content?.trim() || ''
-  if (!src)
+  if (!src || !isMediaUrl(src)) {
+    notify(t('请先生成或添加一段视频'), 'error')
     return
-  notify(t('正在裁剪视频，请稍候...'))
-  const index = canvasKindIndex(nodes.value, from.id, 'video')
-  const sourceLabel = from.data.label || canvasNodeTitle('video', index, t)
+  }
   const size = nodeSize(from)
-  const cropW = Math.max(8, Math.round(box.w))
-  const cropH = Math.max(8, Math.round(box.h))
-  const next = canvasFitMediaSize(cropW, cropH)
-  const rect = box.rect || {
+  const rect = clampCropRect(box.rect || {
     x: size.w ? box.x / size.w : 0,
     y: size.h ? box.y / size.h : 0,
     w: size.w ? box.w / size.w : 1,
     h: size.h ? box.h / size.h : 1,
-  }
-  counts.video += 1
-  const id = `video-${counts.video}`
-  const sibling: CanvasFlowNode = {
-    id,
-    type: 'easytv',
-    position: { x: from.position.x, y: from.position.y + size.h + 80 },
-    width: next.w,
-    height: next.h,
-    style: {
-      ...(typeof from.style === 'object' && from.style ? from.style : {}),
-      width: `${next.w}px`,
-      height: `${next.h}px`,
-    },
+  })
+  const cropW = Math.max(8, Math.round(box.w))
+  const cropH = Math.max(8, Math.round(box.h))
+  const blob = await withBrowserMediaJob('crop', async () => {
+    const { cropVideoBlob } = await import('~/utils/canvas-video-merge.ffmpeg')
+    return cropVideoBlob(resolveMediaUrl(src), rect, publishMergeProgress)
+  })
+  if (!blob)
+    return
+  const localUrl = URL.createObjectURL(blob)
+  const index = canvasKindIndex(nodes.value, from.id, 'video')
+  const sourceLabel = from.data.label || canvasNodeTitle('video', index, t)
+  const next = canvasFitMediaSize(cropW, cropH)
+  const sibling = spawnMediaNode(from, 'video', '裁剪', `${sourceLabel}_${t('裁剪')}`, {
+    place: 'down',
+    w: next.w,
+    h: next.h,
+    select: true,
     data: {
-      kind: 'video',
-      label: `${sourceLabel}_${t('裁剪')}`,
-      tag: '裁剪',
-      content: src,
-      assetId: from.data.assetId,
-      prompt: String(from.data.prompt || ''),
-      mode: 'idle',
+      ...browserEditData(localUrl, String(from.data.prompt || ''), 'crop'),
       cropRect: {
         x: rect.x,
         y: rect.y,
@@ -1914,29 +2015,216 @@ function spawnVideoCropNode(box: {
         sourceLabel,
       },
     },
-  }
-  if (from.parentNode) {
-    sibling.parentNode = from.parentNode
-    sibling.extent = 'parent'
-    sibling.expandParent = true
-  }
-  for (const node of nodes.value)
-    node.selected = false
-  sibling.selected = true
-  addNodes(sibling)
-  addEdges({
-    id: `e-${from.id}-${id}-${Date.now()}`,
-    source: from.id,
-    target: id,
-    sourceHandle: 'out',
-    targetHandle: 'in',
-    ...defaultEdgeOptions,
   })
   pushHistory()
-  nextTick(() => {
-    const created = findNode(id)
-    if (created)
-      addSelectedNodes([created])
+  notify(t('已裁切画面'))
+  const task = uploadBrowserMedia(sibling.id, blob, 'crop.mp4', 'video/mp4')
+  trackMergeUpload(task.then(() => undefined))
+  void task.catch(() => undefined)
+}
+
+type StripFrameAsset = {
+  url: string
+  assetId: number
+  width: number
+  height: number
+  time: number
+}
+
+async function captureStripBrowser(src: string, count: number): Promise<StripFrameAsset[] | null> {
+  let duration = 0
+  try {
+    duration = await probeVideoDuration(src)
+  }
+  catch {
+    duration = 0
+  }
+  const times = stripFrameTimes(duration, count)
+  const out: StripFrameAsset[] = []
+  for (let i = 0; i < times.length; i++) {
+    publishMergeProgress({ phase: 'encoding', progress: 12 + Math.round(((i + 1) / times.length) * 70), job: 'frames' })
+    const frame = await captureVideoFrame(src, times[i]!)
+    const file = new File([frame.blob], `frame-${i + 1}.jpg`, { type: 'image/jpeg' })
+    const uploaded = await assetApi.upload(file)
+    if (!uploaded?.success || !uploaded.data?.url)
+      return null
+    out.push({
+      url: uploaded.data.url,
+      assetId: uploaded.data.id,
+      width: uploaded.data.width || frame.width,
+      height: uploaded.data.height || frame.height,
+      time: frame.time,
+    })
+  }
+  return out.length ? out : null
+}
+
+async function captureStripServer(from: CanvasFlowNode & { data: CanvasNodeData }, count: number): Promise<StripFrameAsset[] | null> {
+  const source = mediaSourceOf(from)
+  if (!source)
+    return null
+  const state = mediaActionState(mediaActions.value, 'extract_frames')
+  if (!state.available)
+    return null
+  notify(t('浏览器读不到这段视频，改由服务端抽帧…'))
+  const res = await mediaApi.create({
+    action: 'extract_frames',
+    ...source,
+    params: { mode: 'spread', count },
+    canvas_id: canvasId() || undefined,
+  })
+  if (!res?.success || !res.data) {
+    notify(res?.message || t('抽帧失败'), 'error')
+    return null
+  }
+  const job = await waitMediaJob(res.data.id)
+  const frames = (job?.outputs || []).filter(item => item.type === 'image' && item.url)
+  if (!job || job.status !== 2 || !frames.length) {
+    notify(job?.error || t('抽帧失败，视频可能无法跨域读取'), 'error')
+    return null
+  }
+  return frames.map(item => ({
+    url: item.url,
+    assetId: Number(item.asset_id) || 0,
+    width: Number(item.width) || 0,
+    height: Number(item.height) || 0,
+    time: Number(item.time) || 0,
+  }))
+}
+
+function placeStripFrames(
+  anchor: CanvasFlowNode & { data: CanvasNodeData },
+  frames: StripFrameAsset[],
+  tag: string,
+  labelPrefix: string,
+) {
+  const size = nodeSize(anchor)
+  const first = frames[0]!
+  const ratio = (first.height || size.h) / Math.max(1, first.width || size.w)
+  const cell = { w: 320, h: Math.max(120, Math.min(640, Math.round(320 * ratio))) }
+  const origin = { x: anchor.position.x + size.w + 80, y: anchor.position.y }
+  const { positions } = mediaGridLayout(frames.length, origin, cell, 24)
+  const ids: string[] = []
+  frames.forEach((frame, index) => {
+    const clock = frame.time > 0 ? ` · ${formatFrameClock(frame.time)}` : ''
+    const node = spawnMediaNode(anchor, 'image', tag, `${labelPrefix} ${index + 1}${clock}`, {
+      at: positions[index],
+      w: cell.w,
+      h: cell.h,
+      select: index === 0,
+      data: {
+        content: frame.url,
+        assetId: frame.assetId > 0 ? frame.assetId : undefined,
+        prompt: '',
+        taskStatus: 'succeeded',
+        taskProgress: 100,
+        taskError: '',
+      },
+    })
+    ids.push(node.id)
+  })
+  if (ids.length > 1)
+    nextTick(() => groupNodeList?.(ids))
+  else
+    pushHistory()
+  return { ids, cell, origin }
+}
+
+async function analyzeStripFrames(
+  anchor: CanvasFlowNode & { data: CanvasNodeData },
+  frames: StripFrameAsset[],
+  layout: { cell: { w: number, h: number }, origin: { x: number, y: number } },
+) {
+  const model = pickVisionTextModel(generationModelList.value, growthConfig.value?.vision_text_model)
+  if (!model) {
+    notify(t('暂无能识别图片的文本模型，请联系运营开通'), 'error')
+    return
+  }
+  const inputs = frames.slice(0, 4).filter(item => item.assetId > 0).map(item => ({ asset_id: item.assetId, role: 'image' as const }))
+  if (!inputs.length) {
+    notify(t('抽到的画面还没进资产库，解读先跳过'), 'error')
+    return
+  }
+  const { cols } = mediaGridLayout(frames.length, { x: 0, y: 0 }, layout.cell, 24)
+  const textNode = spawnDerivedText(anchor, '拉片解读')
+  updateNode?.(textNode.id, {
+    position: { x: layout.origin.x + cols * (layout.cell.w + 24), y: layout.origin.y },
+  })
+  await submitDerivedTask(textNode, '拉片解读', {
+    type: 'text',
+    model,
+    prompt: framePullInstruction(locale.value, inputs.length),
+    params: { reverse: 'frame-pull', frames: inputs.length },
+    inputs,
+  })
+}
+
+async function extractVideoFrames(
+  from: CanvasFlowNode & { data: CanvasNodeData },
+  count: number,
+  opts: { anchor: CanvasFlowNode & { data: CanvasNodeData }, tag: string, label: string, analyze: boolean },
+) {
+  const src = String(from.data.content || '').trim()
+  if (!src || !isMediaUrl(src)) {
+    notify(t('请先生成或添加一段视频'), 'error')
+    return
+  }
+  const n = Math.max(1, Math.floor(count) || 6)
+  let frames = await withBrowserMediaJob('frames', async () => {
+    try {
+      return await captureStripBrowser(resolveMediaUrl(src), n)
+    }
+    catch {
+      return null
+    }
+  })
+  if (!frames?.length)
+    frames = await captureStripServer(from, n)
+  if (!frames?.length) {
+    notify(t('抽帧失败，视频可能无法跨域读取'), 'error')
+    return
+  }
+  const layout = placeStripFrames(opts.anchor, frames, opts.tag, opts.label)
+  notify(t('已抽出 {n} 帧', { n: frames.length }))
+  if (opts.analyze)
+    await analyzeStripFrames(opts.anchor, frames, layout)
+}
+
+async function onExtractFrames(count: number) {
+  const from = selected.value
+  if (!from || !isContentNode(from) || from.data.kind !== 'video' || nodeFrozen(from))
+    return
+  await extractVideoFrames(from, count, {
+    anchor: from,
+    tag: '抽帧',
+    label: t('抽帧'),
+    analyze: false,
+  })
+}
+
+async function runFramePullSubmit(nodeId: string, payload: { count: number, analyze: boolean }) {
+  if (payload.analyze && opts.blocked?.()) {
+    notify(t('跟练中不能派生：先退出跟练'), 'error')
+    return
+  }
+  const node = findNode(nodeId) as CanvasFlowNode | undefined
+  if (!node || !isContentNode(node) || !isFramePullNode(node.data) || nodeFrozen(node))
+    return
+  if (node.data.taskStatus === 'pending' || node.data.taskStatus === 'running') {
+    notify(t('该节点正在生成中'))
+    return
+  }
+  const source = mediaSourceNode(node, node.data.frameParams?.sourceId) as CanvasFlowNode & { data: CanvasNodeData }
+  if (!source || !isContentNode(source))
+    return
+  updateNodeData(node.id, {
+    frameParams: { sourceId: '', sourceLabel: '', ...node.data.frameParams, count: payload.count, analyze: payload.analyze },
+  })
+  await extractVideoFrames(source, payload.count, {
+    anchor: node,
+    tag: '拉片帧',
+    label: t('拉片帧'),
+    analyze: payload.analyze,
   })
 }
 
@@ -2101,6 +2389,8 @@ async function runImageEdit(
     onTranscribeConfirm,
     onRemoveSilence,
     onCaptureVideoFrame,
+    onExtractFrames,
+    runFramePullSubmit,
     openOutpaintEditor,
     onOutpaintSubmit,
     openFlipEditor,

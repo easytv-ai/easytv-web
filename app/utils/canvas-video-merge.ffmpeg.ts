@@ -6,14 +6,34 @@
 import { authUserHeaders } from '~/utils/auth-user'
 import {
   concatOutputTruncated,
+  extractAudioArgs,
+  keepRanges,
   mergeReadableUrl,
   mergeReencodeArgs,
   mergeToTsArgs,
   mergeTsConcatArgs,
   MergeVideoError,
+  mixBgmArgs,
+  mixBgmFade,
+  mixBgmFilter,
+  mixBgmVolume,
+  muteVideoCopyArgs,
+  muteVideoReencodeArgs,
+  parseClockDuration,
+  parseSilenceIntervals,
+  removeSilenceAudioArgs,
+  removeSilenceVideoArgs,
+  silenceDetectArgs,
+  silenceKeepTotal,
+  silenceSelectExpr,
+  isWholeClipSilence,
+  SILENCE_MAX_SEGMENTS,
   trimCopyArgs,
   trimVideoArgs,
+  videoCropArgs,
+  videoCropFilter,
   type MergeVideoProgress,
+  type VideoCropRect,
 } from '~/utils/canvas-video-merge'
 
 type FfmpegHandle = {
@@ -397,13 +417,198 @@ async function encodeRange(
   }
 }
 
-async function outputBlob(ffmpeg: FfmpegHandle, name: string) {
+async function outputBlob(ffmpeg: FfmpegHandle, name: string, mime = 'video/mp4') {
   const output = await ffmpeg.readFile(name)
   if (typeof output === 'string' || !output.byteLength)
     throw new MergeVideoError('encode')
   const copy = new ArrayBuffer(output.byteLength)
   new Uint8Array(copy).set(output)
-  return new Blob([copy], { type: 'video/mp4' })
+  return new Blob([copy], { type: mime })
+}
+
+async function execLogged(ffmpeg: FfmpegHandle, args: string[]) {
+  const lines: string[] = []
+  const onLog = ({ message }: { message: string }) => {
+    if (message)
+      lines.push(message)
+  }
+  ffmpeg.on('log', onLog)
+  try {
+    const code = await ffmpeg.exec(args)
+    return { code, log: lines.join('\n') }
+  }
+  finally {
+    ffmpeg.off('log', onLog)
+  }
+}
+
+async function copyFile(ffmpeg: FfmpegHandle, from: string, to: string) {
+  const data = await ffmpeg.readFile(from)
+  if (typeof data === 'string')
+    throw new MergeVideoError('encode')
+  await ffmpeg.writeFile(to, data)
+}
+
+/** 抽出音轨 + 无声画面。没有音轨时抛 noAudio。 */
+export async function splitAvBlobs(
+  url: string,
+  onProgress?: (progress: MergeVideoProgress) => void,
+) {
+  if (!import.meta.client)
+    throw new MergeVideoError('browser')
+  const report = (progress: MergeVideoProgress) => onProgress?.({ ...progress, job: 'split-av' })
+  const ffmpeg = await loadFfmpeg(report)
+  const input = 'split-av-in.mp4'
+  const audioOut = 'split-av-audio.m4a'
+  const videoOut = 'split-av-mute.mp4'
+  try {
+    report({ phase: 'reading', progress: 12 })
+    await writeSource(ffmpeg, url, input)
+    report({ phase: 'encoding', progress: 40 })
+    const audio = await ffmpeg.exec(extractAudioArgs(input, audioOut))
+    if (audio !== 0)
+      throw new MergeVideoError('noAudio')
+    report({ phase: 'encoding', progress: 70 })
+    let mute = await ffmpeg.exec(muteVideoCopyArgs(input, videoOut))
+    if (mute !== 0) {
+      await ffmpeg.deleteFile(videoOut).catch(() => undefined)
+      mute = await ffmpeg.exec(muteVideoReencodeArgs(input, videoOut))
+    }
+    if (mute !== 0)
+      throw new MergeVideoError('encode')
+    return {
+      audio: await outputBlob(ffmpeg, audioOut, 'audio/mp4'),
+      video: await outputBlob(ffmpeg, videoOut),
+    }
+  }
+  finally {
+    await Promise.all([input, audioOut, videoOut].map(file => ffmpeg.deleteFile(file).catch(() => undefined)))
+  }
+}
+
+/** 去停顿。没检测到可剪的停顿时仍交回一份拷贝，warning = no_silence。 */
+export async function removeSilenceBlob(
+  url: string,
+  duration: number,
+  kind: 'video' | 'audio',
+  onProgress?: (progress: MergeVideoProgress) => void,
+) {
+  if (!import.meta.client)
+    throw new MergeVideoError('browser')
+  const report = (progress: MergeVideoProgress) => onProgress?.({ ...progress, job: 'silence' })
+  const ffmpeg = await loadFfmpeg(report)
+  const input = kind === 'audio' ? 'silence-in.m4a' : 'silence-in.mp4'
+  const output = kind === 'audio' ? 'silence-out.m4a' : 'silence-out.mp4'
+  const mime = kind === 'audio' ? 'audio/mp4' : 'video/mp4'
+  try {
+    report({ phase: 'reading', progress: 10 })
+    await writeSource(ffmpeg, url, input)
+    report({ phase: 'encoding', progress: 28 })
+    const detected = await execLogged(ffmpeg, silenceDetectArgs(input))
+    if (detected.code !== 0)
+      throw new MergeVideoError('noAudio')
+    const total = duration > 0.2 ? duration : parseClockDuration(detected.log)
+    const silences = parseSilenceIntervals(detected.log, total)
+    const keep = isWholeClipSilence(silences, total) ? null : keepRanges(silences, total)
+    const skip = !keep?.length
+      || keep.length > SILENCE_MAX_SEGMENTS
+      || silenceKeepTotal(keep) >= total - 0.05
+    report({ phase: 'encoding', progress: 55 })
+    if (skip) {
+      await copyFile(ffmpeg, input, output)
+      return { blob: await outputBlob(ffmpeg, output, mime), warning: 'no_silence' as const }
+    }
+    const expr = silenceSelectExpr(keep)
+    const code = await ffmpeg.exec(
+      kind === 'audio' ? removeSilenceAudioArgs(input, output, expr) : removeSilenceVideoArgs(input, output, expr),
+    )
+    if (code !== 0)
+      throw new MergeVideoError('encode')
+    return { blob: await outputBlob(ffmpeg, output, mime), warning: '' as const }
+  }
+  finally {
+    await Promise.all([input, output].map(file => ffmpeg.deleteFile(file).catch(() => undefined)))
+  }
+}
+
+/** 把一条音频循环铺进视频时长，尾部淡出后和原声混合。 */
+export async function mixBgmBlobs(
+  videoUrl: string,
+  audioUrl: string,
+  duration: number,
+  volume?: number,
+  onProgress?: (progress: MergeVideoProgress) => void,
+) {
+  if (!import.meta.client)
+    throw new MergeVideoError('browser')
+  if (!(duration > 0.3))
+    throw new MergeVideoError('encode')
+  const report = (progress: MergeVideoProgress) => onProgress?.({ ...progress, job: 'mix' })
+  const ffmpeg = await loadFfmpeg(report)
+  const videoIn = 'mix-v.mp4'
+  const audioIn = 'mix-a.m4a'
+  const output = 'mix-out.mp4'
+  const fade = mixBgmFade(duration)
+  const vol = mixBgmVolume(volume)
+  try {
+    report({ phase: 'reading', progress: 10 })
+    await writeSource(ffmpeg, videoUrl, videoIn)
+    report({ phase: 'reading', progress: 22 })
+    await writeSource(ffmpeg, audioUrl, audioIn)
+    report({ phase: 'encoding', progress: 40 })
+    const attempts: Array<{ hasAudio: boolean, copyVideo: boolean }> = [
+      { hasAudio: true, copyVideo: true },
+      { hasAudio: false, copyVideo: true },
+      { hasAudio: true, copyVideo: false },
+      { hasAudio: false, copyVideo: false },
+    ]
+    let code = 1
+    for (const attempt of attempts) {
+      await ffmpeg.deleteFile(output).catch(() => undefined)
+      const filter = mixBgmFilter(attempt.hasAudio, vol, fade.start, fade.length)
+      const audioMap = attempt.hasAudio ? '[a]' : '[bg]'
+      code = await ffmpeg.exec(mixBgmArgs(videoIn, audioIn, filter, audioMap, output, duration, attempt.copyVideo))
+      if (code === 0)
+        break
+    }
+    if (code !== 0)
+      throw new MergeVideoError('encode')
+    return await outputBlob(ffmpeg, output)
+  }
+  finally {
+    await Promise.all([videoIn, audioIn, output].map(file => ffmpeg.deleteFile(file).catch(() => undefined)))
+  }
+}
+
+/** 按归一化框裁画面，优先保留音轨。 */
+export async function cropVideoBlob(
+  url: string,
+  rect: VideoCropRect,
+  onProgress?: (progress: MergeVideoProgress) => void,
+) {
+  if (!import.meta.client)
+    throw new MergeVideoError('browser')
+  const report = (progress: MergeVideoProgress) => onProgress?.({ ...progress, job: 'crop' })
+  const ffmpeg = await loadFfmpeg(report)
+  const input = 'crop-in.mp4'
+  const output = 'crop-out.mp4'
+  const filter = videoCropFilter(rect)
+  try {
+    report({ phase: 'reading', progress: 12 })
+    await writeSource(ffmpeg, url, input)
+    report({ phase: 'encoding', progress: 40 })
+    let code = await ffmpeg.exec(videoCropArgs(input, output, filter, true))
+    if (code !== 0) {
+      await ffmpeg.deleteFile(output).catch(() => undefined)
+      code = await ffmpeg.exec(videoCropArgs(input, output, filter, false))
+    }
+    if (code !== 0)
+      throw new MergeVideoError('encode')
+    return await outputBlob(ffmpeg, output)
+  }
+  finally {
+    await Promise.all([input, output].map(file => ffmpeg.deleteFile(file).catch(() => undefined)))
+  }
 }
 
 const VIDEO_BITSTREAM_FILTERS = ['h264_mp4toannexb', 'hevc_mp4toannexb']

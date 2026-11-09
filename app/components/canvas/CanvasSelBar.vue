@@ -141,6 +141,8 @@ const editOpen = ref(false)
 const bgOpen = ref(false)
 const upscaleOpen = ref(false)
 const videoMenuOpen = ref('')
+const captureOpen = ref(false)
+const extractOpen = ref(false)
 
 /** 视频工具条：常驻按钮 + 「编辑」下拉 + 下载 */
 const VIDEO_ITEMS = [
@@ -156,11 +158,28 @@ const VIDEO_ITEMS = [
 const VIDEO_EDIT_ITEMS = [
   { id: 'clip-cut', label: '片段裁剪', icon: 'i-lucide-scissors' },
   { id: 'video-split', label: '视频分割', icon: 'i-lucide-columns-2' },
+  { id: 'frame-crop', label: '画面裁切', icon: 'i-lucide-crop' },
+  { id: 'capture-frame', label: '取帧', icon: 'i-lucide-aperture', more: true },
+  { id: 'extract-frames', label: '抽帧', icon: 'i-lucide-gallery-vertical-end', more: true },
+  { id: 'frame-by-frame', label: '逐帧拉片', icon: 'i-lucide-gem' },
+  { id: 'separate', label: '分离音频', icon: 'i-lucide-audio-lines' },
+  { id: 'remove-silence', label: '去停顿', icon: 'i-lucide-scissors-line-dashed' },
   { id: 'remove-subtitles', label: '字幕擦除', icon: 'i-lucide-captions-off' },
   { id: 'prompt-reverse', label: '反推提示词', icon: 'i-lucide-sparkles' },
-  { id: 'separate', label: '分离音频', icon: 'i-lucide-audio-lines' },
   { id: 'transcribe', label: '语音转字幕', icon: 'i-lucide-captions' },
-  { id: 'remove-silence', label: '去停顿', icon: 'i-lucide-scissors-line-dashed' },
+] as const
+
+const VIDEO_CAPTURE_ITEMS = [
+  { id: 'capture-frame', label: '当前画面' },
+  { id: 'capture-first', label: '首帧' },
+  { id: 'capture-last', label: '尾帧' },
+] as const
+
+const VIDEO_EXTRACT_ITEMS = [
+  { id: 'extract-frames-4', label: '4 帧' },
+  { id: 'extract-frames-6', label: '6 帧' },
+  { id: 'extract-frames-8', label: '8 帧' },
+  { id: 'extract-frames-12', label: '12 帧' },
 ] as const
 
 /** 音频工具条里的媒体动作（语音转字幕 / 去停顿），可用性同视频工具项 */
@@ -169,8 +188,24 @@ const AUDIO_MEDIA_ITEMS = [
   { id: 'remove-silence', label: '去停顿', icon: 'i-lucide-scissors-line-dashed' },
 ] as const
 
-/** 片段裁剪、视频分割在浏览器里用 ffmpeg 完成，不看服务端清单 */
-const BROWSER_VIDEO_ITEMS = new Set(['clip-cut', 'video-split'])
+/** 浏览器 ffmpeg / 截帧：不看服务端清单 */
+const BROWSER_VIDEO_ITEMS = new Set([
+  'clip-cut',
+  'video-split',
+  'add-bgm',
+  'separate',
+  'remove-silence',
+  'capture-frame',
+  'capture-first',
+  'capture-last',
+  'frame-crop',
+  'extract-frames',
+  'extract-frames-4',
+  'extract-frames-6',
+  'extract-frames-8',
+  'extract-frames-12',
+  'frame-by-frame',
+])
 
 /** 清单拉到后，未开通的媒体动作从工具条拿掉，避免点了只看到「暂未开放」 */
 const visibleVideoItems = computed(() => VIDEO_ITEMS.filter(item => videoItemState(item.id).available))
@@ -215,6 +250,8 @@ watch(() => [props.mode, props.left, props.top], () => {
   upscaleOpen.value = false
   videoMenuOpen.value = ''
   videoEditOpen.value = false
+  captureOpen.value = false
+  extractOpen.value = false
 })
 
 function onColor(value: string) {
@@ -287,6 +324,8 @@ function closeHoverMenus() {
   upscaleOpen.value = false
   videoMenuOpen.value = ''
   videoEditOpen.value = false
+  captureOpen.value = false
+  extractOpen.value = false
 }
 
 function openViewsMenu() {
@@ -356,6 +395,9 @@ function onVideoMenuItem(id: string) {
     }
   }
   videoMenuOpen.value = ''
+  videoEditOpen.value = false
+  captureOpen.value = false
+  extractOpen.value = false
   emit('action', id)
 }
 
@@ -395,7 +437,7 @@ const videoEditOpen = ref(false)
 /** 任一向下展开的菜单都要抬到生成条上面，否则下半截会被检查器挡住 */
 const menuOpen = computed(() => Boolean(
   colorOpen.value || layoutOpen.value || alignOpen.value || viewsOpen.value || editOpen.value
-  || bgOpen.value || upscaleOpen.value || videoMenuOpen.value || videoEditOpen.value,
+  || bgOpen.value || upscaleOpen.value || videoMenuOpen.value || videoEditOpen.value || captureOpen.value || extractOpen.value,
 ))
 
 function openVideoEditMenu() {
@@ -735,19 +777,64 @@ function toggleVideoEdit() {
           <UIcon name="i-lucide-chevron-down" class="size-3.5 canvas-selbar__chev" />
         </button>
         <div v-if="videoEditOpen" class="canvas-selbar__pop canvas-selbar__pop--list canvas-selbar__pop--menu canvas-selbar__pop--down">
-          <button
-            v-for="item in visibleVideoEditItems"
-            :key="item.id"
-            type="button"
-            @click="onVideoMenuItem(item.id)"
-          >
-            <UIcon :name="item.icon" class="size-4" />
-            <span>{{ t(item.label) }}</span>
-            <i v-if="item.id === 'prompt-reverse' && reverseCost !== ''" class="canvas-selbar__cost">
-              <UIcon name="i-lucide-zap" class="size-3.5" />
-              {{ reverseCost }}
-            </i>
-          </button>
+          <template v-for="item in visibleVideoEditItems" :key="item.id">
+            <div
+              v-if="item.id === 'capture-frame'"
+              class="canvas-selbar__fly"
+              @pointerenter="captureOpen = true"
+              @pointerleave="captureOpen = false"
+            >
+              <button type="button" :class="{ 'is-on': captureOpen }" @click="captureOpen = !captureOpen">
+                <UIcon :name="item.icon" class="size-4" />
+                <span>{{ t(item.label) }}</span>
+                <UIcon name="i-lucide-chevron-right" class="size-3.5 canvas-selbar__chev" />
+              </button>
+              <div v-if="captureOpen" class="canvas-selbar__pop canvas-selbar__pop--list canvas-selbar__pop--menu canvas-selbar__pop--fly">
+                <button
+                  v-for="sub in VIDEO_CAPTURE_ITEMS"
+                  :key="sub.id"
+                  type="button"
+                  @click="onVideoMenuItem(sub.id)"
+                >
+                  <span>{{ t(sub.label) }}</span>
+                </button>
+              </div>
+            </div>
+            <div
+              v-else-if="item.id === 'extract-frames'"
+              class="canvas-selbar__fly"
+              @pointerenter="extractOpen = true"
+              @pointerleave="extractOpen = false"
+            >
+              <button type="button" :class="{ 'is-on': extractOpen }" @click="extractOpen = !extractOpen">
+                <UIcon :name="item.icon" class="size-4" />
+                <span>{{ t(item.label) }}</span>
+                <UIcon name="i-lucide-chevron-right" class="size-3.5 canvas-selbar__chev" />
+              </button>
+              <div v-if="extractOpen" class="canvas-selbar__pop canvas-selbar__pop--list canvas-selbar__pop--menu canvas-selbar__pop--fly">
+                <button
+                  v-for="sub in VIDEO_EXTRACT_ITEMS"
+                  :key="sub.id"
+                  type="button"
+                  @click="onVideoMenuItem(sub.id)"
+                >
+                  <span>{{ t(sub.label) }}</span>
+                </button>
+              </div>
+            </div>
+            <button
+              v-else
+              type="button"
+              @click="onVideoMenuItem(item.id)"
+            >
+              <UIcon :name="item.icon" class="size-4" />
+              <span>{{ t(item.label) }}</span>
+              <i v-if="item.id === 'prompt-reverse' && reverseCost !== ''" class="canvas-selbar__cost">
+                <UIcon name="i-lucide-zap" class="size-3.5" />
+                {{ reverseCost }}
+              </i>
+            </button>
+          </template>
         </div>
         <!-- 同上：按钮→菜单死区的真实元素桥 -->
         <span v-if="videoEditOpen" aria-hidden="true" style="position: absolute; left: 0; top: 100%; width: 220px; height: 12px;" />

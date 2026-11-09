@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { dispatchCanvasSelAction, type CanvasSelActionApi } from './canvas-sel-actions'
+import { dispatchCanvasSelAction, parseExtractFramesAction, type CanvasSelActionApi } from './canvas-sel-actions'
 
 function api(overrides: Partial<CanvasSelActionApi> = {}): CanvasSelActionApi {
   const noop = () => {}
@@ -46,6 +46,7 @@ function api(overrides: Partial<CanvasSelActionApi> = {}): CanvasSelActionApi {
     captureFrame: noop,
     captureFirst: noop,
     captureLast: noop,
+    extractFrames: noop,
     runSubject: noop,
     runImageEdit: noop,
     saveWorkflow: noop,
@@ -106,6 +107,20 @@ describe('dispatchCanvasSelAction', () => {
     expect(captureLast).toHaveBeenCalledOnce()
     dispatchCanvasSelAction('frame-by-frame', api({ frameByFrame }))
     expect(frameByFrame).toHaveBeenCalledOnce()
+    const extractFrames = vi.fn()
+    dispatchCanvasSelAction('extract-frames-6', api({ extractFrames }))
+    expect(extractFrames).toHaveBeenCalledWith(6)
+    dispatchCanvasSelAction('extract-frames-12', api({ extractFrames }))
+    expect(extractFrames).toHaveBeenCalledWith(12)
+  })
+
+  it('抽帧只认 4/6/8/12', () => {
+    expect(parseExtractFramesAction('extract-frames-4')).toBe(4)
+    expect(parseExtractFramesAction('extract-frames-6')).toBe(6)
+    expect(parseExtractFramesAction('extract-frames-8')).toBe(8)
+    expect(parseExtractFramesAction('extract-frames-12')).toBe(12)
+    expect(parseExtractFramesAction('extract-frames-5')).toBe(0)
+    expect(parseExtractFramesAction('extract-frames')).toBe(0)
   })
 
   it('深度提取走 depth 回调，不走 runImageEdit', () => {

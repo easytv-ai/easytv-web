@@ -1,4 +1,5 @@
 import { isImageEditAction, parseUpscaleAction, type ImageEditAction, type UpscaleScale } from '~/utils/canvas-image-edit'
+import { FRAME_PULL_COUNT_ITEMS } from '~/utils/canvas-node-kinds'
 
 export type CanvasSelActionApi = {
   group: () => void
@@ -43,6 +44,7 @@ export type CanvasSelActionApi = {
   captureFrame: () => void
   captureFirst: () => void
   captureLast: () => void
+  extractFrames: (count: number) => void
   runSubject: (name: 'remove-subject' | 'edit-subject' | 'replace-subject') => void
   runImageEdit: (name: ImageEditAction) => void
   /** 把选中那串节点存成工作流模板（L3，API.md 31.1） */
@@ -93,6 +95,15 @@ const SIMPLE: Record<string, keyof CanvasSelActionApi> = {
   'capture-last': 'captureLast',
 }
 
+/** 抽帧条「extract-frames-N」→ 帧数；不在 4/6/8/12 里的当没点过 */
+export function parseExtractFramesAction(name: string) {
+  const matched = /^extract-frames-(\d+)$/.exec(name)
+  if (!matched)
+    return 0
+  const count = Number(matched[1])
+  return (FRAME_PULL_COUNT_ITEMS as readonly number[]).includes(count) ? count : 0
+}
+
 /** 选中工具条动作分发。只做路由，不改各动作自己的实现。 */
 export function dispatchCanvasSelAction(name: string, api: CanvasSelActionApi) {
   const simple = SIMPLE[name]
@@ -100,6 +111,11 @@ export function dispatchCanvasSelAction(name: string, api: CanvasSelActionApi) {
     const fn = api[simple]
     if (typeof fn === 'function')
       (fn as () => void)()
+    return
+  }
+  const extractCount = parseExtractFramesAction(name)
+  if (extractCount) {
+    api.extractFrames(extractCount)
     return
   }
   const upscaleScale = parseUpscaleAction(name)

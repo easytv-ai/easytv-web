@@ -18,6 +18,21 @@ import {
   ffmpegClock,
   splitRanges,
   SPLIT_MAX_PARTS,
+  extractAudioArgs,
+  muteVideoCopyArgs,
+  mixBgmFilter,
+  mixBgmFade,
+  mixBgmVolume,
+  mixBgmArgs,
+  parseSilenceIntervals,
+  keepRanges,
+  silenceSelectExpr,
+  MIX_BGM_VOLUME_DEFAULT,
+  silenceDetectArgs,
+  isWholeClipSilence,
+  clampCropRect,
+  videoCropFilter,
+  videoCropArgs,
 } from './canvas-video-merge'
 
 describe('mergeVideoOrder', () => {
@@ -183,5 +198,81 @@ describe('concat 参数', () => {
       { x: 0, y: 40, w: 200 },
       { x: 300, y: 0, w: 180 },
     ])).toEqual({ x: 600, y: 0 })
+  })
+})
+
+describe('分离音轨 / 配乐参数', () => {
+  it('抽音轨去掉画面，无声视频优先拷贝画面', () => {
+    expect(extractAudioArgs('in.mp4', 'audio.m4a')).toEqual([
+      '-i', 'in.mp4', '-vn', '-c:a', 'aac', '-b:a', '192k', 'audio.m4a',
+    ])
+    expect(muteVideoCopyArgs('in.mp4', 'mute.mp4')).toContain('-an')
+    expect(muteVideoCopyArgs('in.mp4', 'mute.mp4')).toContain('-c:v')
+  })
+
+  it('有原声时混音，没有原声只留配乐', () => {
+    const withAudio = mixBgmFilter(true, 0.2, 8, 2)
+    expect(withAudio).toContain('[0:a][bg]amix')
+    expect(withAudio).toContain('volume=0.20')
+    const musicOnly = mixBgmFilter(false, 0.2, 8, 2)
+    expect(musicOnly).not.toContain('amix')
+    expect(musicOnly).not.toContain('[0:a]')
+  })
+
+  it('配乐音量和尾部淡出跟服务端口径一致', () => {
+    expect(mixBgmVolume()).toBe(MIX_BGM_VOLUME_DEFAULT)
+    expect(mixBgmVolume(0)).toBe(0.05)
+    expect(mixBgmVolume(3)).toBe(1)
+    expect(mixBgmFade(10)).toEqual({ start: 8, length: 2 })
+    const short = mixBgmFade(2)
+    expect(short.start).toBeGreaterThanOrEqual(0)
+    expect(short.start + short.length).toBeLessThanOrEqual(2.01)
+    const args = mixBgmArgs('v.mp4', 'a.m4a', 'filter', '[a]', 'out.mp4', 10, true)
+    expect(args).toContain('-stream_loop')
+    expect(args).toContain('-t')
+    expect(args[args.indexOf('-t') + 1]).toBe('10.000')
+  })
+})
+
+describe('去停顿区间', () => {
+  it('从 silencedetect 日志解析静音，并按 pad 算出保留段', () => {
+    const log = '[silencedetect @ 0x1] silence_start: 1.25\n[silencedetect @ 0x1] silence_end: 2.75 | silence_duration: 1.5\n[silencedetect @ 0x1] silence_start: 3.9\n'
+    const silences = parseSilenceIntervals(log, 4)
+    expect(silences).toEqual([
+      { start: 1.25, end: 2.75 },
+      { start: 3.9, end: 4 },
+    ])
+    const keep = keepRanges(silences, 4, 0.15)
+    expect(keep).toEqual([
+      { start: 0, end: 1.4 },
+      { start: 2.6, end: 4 },
+    ])
+    expect(silenceSelectExpr(keep!)).toBe('between(t,0.000,1.400)+between(t,2.600,4.000)')
+    expect(keepRanges([], 4, 0.15)).toBeNull()
+  })
+
+  it('检测阈值必须是负数 dB，不能被时间格式夹成 0', () => {
+    const args = silenceDetectArgs('in.mp4')
+    const filter = args[args.indexOf('-af') + 1]
+    expect(filter).toContain('noise=-35.000dB')
+    expect(filter).not.toContain('noise=0.000dB')
+    expect(filter).toContain('d=0.600')
+  })
+
+  it('整段都被判成静音时不当真去停顿', () => {
+    expect(isWholeClipSilence([{ start: 0, end: 8 }], 8)).toBe(true)
+    expect(isWholeClipSilence([{ start: 1.25, end: 2.75 }], 8)).toBe(false)
+    expect(isWholeClipSilence([{ start: 0, end: 8 }, { start: 9, end: 10 }], 10)).toBe(false)
+  })
+})
+
+describe('画面裁切滤镜', () => {
+  it('归一化框夹到画面内，滤镜按偶数像素裁', () => {
+    expect(clampCropRect({ x: -1, y: 0.2, w: 2, h: 0.5 })).toEqual({ x: 0, y: 0.2, w: 1, h: 0.5 })
+    const filter = videoCropFilter({ x: 0.1, y: 0.2, w: 0.5, h: 0.4 })
+    expect(filter).toContain('trunc(iw*0.500000/2)*2')
+    expect(filter).toContain('trunc(ih*0.400000/2)*2')
+    expect(videoCropArgs('in.mp4', 'out.mp4', filter, true)).toContain('-vf')
+    expect(videoCropArgs('in.mp4', 'out.mp4', filter, false)).toContain('-an')
   })
 })

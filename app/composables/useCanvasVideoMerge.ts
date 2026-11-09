@@ -48,6 +48,8 @@ export function useCanvasVideoMerge(opts: {
         return opts.t('canvas.merge.needTwo')
       if (error.code === 'browser')
         return opts.t('canvas.merge.browserOnly')
+      if (error.code === 'noAudio')
+        return opts.t('这段素材没有音轨')
     }
     return error instanceof Error && error.message ? error.message : opts.t('canvas.merge.fail')
   }

@@ -11,8 +11,8 @@ export type MergeVideoProgress = {
   progress: number
   index?: number
   total?: number
-  /** 同一套进度条：拼接、裁剪、分割文案不同 */
-  job?: 'merge' | 'trim' | 'split'
+  /** 同一套进度条：拼接、裁剪、分割、分离、去停顿、配乐、画面裁切、抽帧文案不同 */
+  job?: 'merge' | 'trim' | 'split' | 'split-av' | 'silence' | 'mix' | 'crop' | 'frames'
 }
 
 export type MergeVideoClip = {
@@ -33,7 +33,7 @@ export const SPLIT_MIN_PART = 0.3
 /** 一次最多切这么多段，避免浏览器里连续转码把内存打满 */
 export const SPLIT_MAX_PARTS = 12
 
-export type MergeVideoErrorCode = 'browser' | 'load' | 'fetch' | 'read' | 'encode' | 'needTwo'
+export type MergeVideoErrorCode = 'browser' | 'load' | 'fetch' | 'read' | 'encode' | 'needTwo' | 'noAudio'
 
 /** 比例分割点（0~1）换成首尾相接的秒区间。不合法时返回 null */
 export function splitRanges(ratios: number[], duration: number, minPart = SPLIT_MIN_PART) {
@@ -221,6 +221,221 @@ export function trimCopyArgs(input: string, output: string, start: number, end: 
     '-c', 'copy',
     '-avoid_negative_ts', 'make_zero',
     '-movflags', '+faststart',
+    output,
+  ]
+}
+
+export function extractAudioArgs(input: string, output: string) {
+  return ['-i', input, '-vn', '-c:a', 'aac', '-b:a', '192k', output]
+}
+
+export function muteVideoCopyArgs(input: string, output: string) {
+  return ['-i', input, '-c:v', 'copy', '-an', '-movflags', '+faststart', output]
+}
+
+export function muteVideoReencodeArgs(input: string, output: string) {
+  return ['-i', input, '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '20', '-an', '-movflags', '+faststart', output]
+}
+
+export type VideoCropRect = { x: number, y: number, w: number, h: number }
+
+/** 归一化裁切框夹到 0~1，宽高至少留 2%。 */
+export function clampCropRect(rect: VideoCropRect): VideoCropRect {
+  const x = Math.min(0.98, Math.max(0, Number(rect.x) || 0))
+  const y = Math.min(0.98, Math.max(0, Number(rect.y) || 0))
+  const w = Math.min(1 - x, Math.max(0.02, Number(rect.w) || 0))
+  const h = Math.min(1 - y, Math.max(0.02, Number(rect.h) || 0))
+  return { x, y, w, h }
+}
+
+/** 偶数宽高的 crop 滤镜，h264 420 不接受奇数。 */
+export function videoCropFilter(rect: VideoCropRect) {
+  const box = clampCropRect(rect)
+  return `crop=trunc(iw*${box.w.toFixed(6)}/2)*2:trunc(ih*${box.h.toFixed(6)}/2)*2:trunc(iw*${box.x.toFixed(6)}/2)*2:trunc(ih*${box.y.toFixed(6)}/2)*2`
+}
+
+export function videoCropArgs(input: string, output: string, filter: string, withAudio: boolean) {
+  const args = ['-i', input, '-vf', filter, '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '20']
+  if (withAudio)
+    args.push('-c:a', 'aac', '-b:a', '192k')
+  else
+    args.push('-an')
+  args.push('-movflags', '+faststart', output)
+  return args
+}
+
+export const MIX_BGM_VOLUME_DEFAULT = 0.2
+
+export function mixBgmVolume(volume?: number) {
+  if (volume == null || !Number.isFinite(volume))
+    return MIX_BGM_VOLUME_DEFAULT
+  return Math.min(1, Math.max(0.05, volume))
+}
+
+export function mixBgmFade(duration: number) {
+  let length = 2
+  if (duration < 4)
+    length = duration / 2
+  if (length < 0.2)
+    length = 0.2
+  let start = duration - length
+  if (start < 0)
+    start = 0
+  return { start, length }
+}
+
+/** 配乐压低并尾部淡出；原片有声时再和原声混。 */
+export function mixBgmFilter(hasAudio: boolean, volume: number, fadeStart: number, fadeDur: number) {
+  const bg = `[1:a]volume=${volume.toFixed(2)},afade=t=out:st=${fadeStart.toFixed(1)}:d=${fadeDur.toFixed(1)}[bg]`
+  if (!hasAudio)
+    return bg
+  return `${bg};[0:a][bg]amix=inputs=2:duration=first:dropout_transition=2:normalize=0[a]`
+}
+
+export function mixBgmArgs(
+  video: string,
+  audio: string,
+  filter: string,
+  audioMap: string,
+  output: string,
+  duration: number,
+  copyVideo: boolean,
+) {
+  const args = [
+    '-i', video,
+    '-stream_loop', '-1',
+    '-i', audio,
+    '-filter_complex', filter,
+    '-map', '0:v:0',
+    '-map', audioMap,
+    '-t', ffmpegClock(duration),
+  ]
+  if (copyVideo)
+    args.push('-c:v', 'copy')
+  else
+    args.push('-c:v', 'libx264', '-preset', 'veryfast', '-crf', '20')
+  args.push('-c:a', 'aac', '-b:a', '192k', '-movflags', '+faststart', output)
+  return args
+}
+
+export const SILENCE_THRESHOLD_DEFAULT = -35
+export const SILENCE_MIN_DEFAULT = 0.6
+export const SILENCE_PAD = 0.15
+export const SILENCE_MAX_SEGMENTS = 400
+
+export type SilenceRange = { start: number, end: number }
+
+const SILENCE_START_RE = /silence_start:\s*(-?[0-9.]+)/
+const SILENCE_END_RE = /silence_end:\s*(-?[0-9.]+)/
+
+/** 从 silencedetect 日志里读静音区间；末尾没有 silence_end 时用 total 收口。 */
+export function parseSilenceIntervals(log: string, total: number): SilenceRange[] {
+  const list: SilenceRange[] = []
+  let start = -1
+  for (const line of String(log || '').split('\n')) {
+    const begin = line.match(SILENCE_START_RE)
+    if (begin) {
+      const value = Number(begin[1])
+      if (Number.isFinite(value))
+        start = Math.max(0, value)
+      continue
+    }
+    const end = line.match(SILENCE_END_RE)
+    if (end && start >= 0) {
+      const value = Number(end[1])
+      if (Number.isFinite(value) && value > start)
+        list.push({ start, end: value })
+      start = -1
+    }
+  }
+  if (start >= 0 && total > start)
+    list.push({ start, end: total })
+  return list.sort((left, right) => left.start - right.start)
+}
+
+/** 静音区间的补集：每段两头留 pad，没有可剪的停顿返回 null。 */
+export function keepRanges(silences: SilenceRange[], total: number, pad = SILENCE_PAD): SilenceRange[] | null {
+  if (!(total > 0))
+    return null
+  const cuts: SilenceRange[] = []
+  for (const item of silences) {
+    const start = item.start + pad
+    const end = item.end - pad
+    if (end - start <= 0.05)
+      continue
+    cuts.push({ start: Math.max(0, start), end: Math.min(total, end) })
+  }
+  if (!cuts.length)
+    return null
+  const keep: SilenceRange[] = []
+  let cursor = 0
+  for (const cut of cuts) {
+    if (cut.start > cursor + 0.02)
+      keep.push({ start: cursor, end: cut.start })
+    if (cut.end > cursor)
+      cursor = cut.end
+  }
+  if (total > cursor + 0.02)
+    keep.push({ start: cursor, end: total })
+  return keep
+}
+
+export function silenceSelectExpr(keep: SilenceRange[]) {
+  return keep.map(range => `between(t,${ffmpegClock(range.start)},${ffmpegClock(range.end)})`).join('+')
+}
+
+export function silenceKeepTotal(keep: SilenceRange[]) {
+  return keep.reduce((sum, range) => sum + (range.end - range.start), 0)
+}
+
+/** 滤镜数字：允许负数（静音阈值是 dB）。ffmpegClock 会把负数夹成 0，不能用在这里。 */
+export function ffmpegFilterNumber(value: number) {
+  return (Number.isFinite(value) ? value : 0).toFixed(3)
+}
+
+/** 整段从 0 到片尾都是静音：多半是阈值写错或没解出音轨，不能拿去剪。 */
+export function isWholeClipSilence(silences: SilenceRange[], total: number) {
+  if (!(total > 0) || silences.length !== 1)
+    return false
+  const span = silences[0]
+  if (!span)
+    return false
+  return span.start <= 0.05 && span.end >= total - 0.05
+}
+
+export function silenceDetectArgs(input: string, threshold = SILENCE_THRESHOLD_DEFAULT, minSilence = SILENCE_MIN_DEFAULT) {
+  return [
+    '-loglevel', 'info',
+    '-i', input,
+    '-vn',
+    '-af', `silencedetect=noise=${ffmpegFilterNumber(threshold)}dB:d=${ffmpegFilterNumber(minSilence)}`,
+    '-f', 'null',
+    '-',
+  ]
+}
+
+export function removeSilenceVideoArgs(input: string, output: string, expr: string) {
+  return [
+    '-i', input,
+    '-vf', `select='${expr}',setpts=N/FRAME_RATE/TB`,
+    '-af', `aselect='${expr}',asetpts=N/SR/TB`,
+    '-c:v', 'libx264',
+    '-preset', 'veryfast',
+    '-crf', '20',
+    '-c:a', 'aac',
+    '-b:a', '192k',
+    '-movflags', '+faststart',
+    output,
+  ]
+}
+
+export function removeSilenceAudioArgs(input: string, output: string, expr: string) {
+  return [
+    '-i', input,
+    '-vn',
+    '-af', `aselect='${expr}',asetpts=N/SR/TB`,
+    '-c:a', 'aac',
+    '-b:a', '192k',
     output,
   ]
 }
