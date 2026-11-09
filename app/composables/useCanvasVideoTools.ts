@@ -393,6 +393,8 @@ export function useCanvasVideoTools(ctx: {
         return t('canvas.merge.encodeFail')
       if (error.code === 'browser')
         return t('canvas.merge.browserOnly')
+      if (error.code === 'noAudio')
+        return t('这段素材没有音轨')
     }
     return error instanceof Error && error.message ? error.message : t('canvas.merge.fail')
   }

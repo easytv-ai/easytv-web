@@ -33,6 +33,8 @@ import { applyOptimizedPrompt, canOptimizePrompt, cleanOptimizedPrompt, promptOp
 import { mediaActionState, mediaSourceRef } from '~/utils/canvas-media-job'
 import { expandPromptTokens } from '~/utils/canvas-mark'
 import { isMediaUrl, resolveMediaUrl } from '~/utils/media'
+import { canvasMergeRunning, publishMergeProgress, trackMergeUpload } from '~/utils/canvas-merge-state'
+import { MergeVideoError } from '~/utils/canvas-video-merge'
 import {
   canvasFitMediaSize,
   canvasKindIndex,
@@ -1183,14 +1185,83 @@ async function onEraseSubmit(regions: Array<{ x: number, y: number, w: number, h
   await submitMediaJob(sibling, 'remove_subtitle', source, params, { label: '智能去字幕', dropOnFail: [sibling.id] })
 }
 
+function browserMediaFailText(error: unknown) {
+  if (error instanceof MergeVideoError) {
+    if (error.code === 'load')
+      return t('canvas.merge.loadFail')
+    if (error.code === 'fetch')
+      return t('canvas.merge.fetchFail', { status: error.detail ?? '' })
+    if (error.code === 'read')
+      return t('canvas.merge.unreadable', { n: error.detail ?? '' })
+    if (error.code === 'encode')
+      return t('canvas.merge.encodeFail')
+    if (error.code === 'browser')
+      return t('canvas.merge.browserOnly')
+    if (error.code === 'noAudio')
+      return t('这段素材没有音轨')
+  }
+  return error instanceof Error && error.message ? error.message : t('canvas.merge.fail')
+}
+
+function browserEditData(content: string, prompt: string, operation: string): Partial<CanvasNodeData> {
+  return {
+    content,
+    prompt,
+    taskStatus: 'succeeded',
+    taskProgress: 100,
+    taskError: '',
+    params: { videoEditOperation: operation },
+  }
+}
+
+async function uploadBrowserMedia(nodeId: string, blob: Blob, filename: string, mime: string) {
+  try {
+    const file = new File([blob], filename, { type: mime })
+    const uploaded = await assetApi.upload(file)
+    if (!uploaded?.success || !uploaded.data?.url)
+      throw new Error(uploaded?.message || '')
+    updateNodeData(nodeId, { content: uploaded.data.url, assetId: uploaded.data.id })
+    pushHistory()
+  }
+  catch {
+    notify(t('canvas.cut.uploadFail'))
+    throw new Error('cut-upload')
+  }
+}
+
+async function withBrowserMediaJob<T>(job: 'split-av' | 'silence' | 'mix', work: () => Promise<T>) {
+  if (canvasMergeRunning.value) {
+    notify(t('canvas.cut.busy'))
+    return null
+  }
+  canvasMergeRunning.value = true
+  publishMergeProgress({ phase: 'loading', progress: 0, job })
+  try {
+    const result = await work()
+    publishMergeProgress(null)
+    return result
+  }
+  catch (error) {
+    notify(browserMediaFailText(error), 'error')
+    return null
+  }
+  finally {
+    canvasMergeRunning.value = false
+    window.setTimeout(() => {
+      if (!canvasMergeRunning.value)
+        publishMergeProgress(null)
+    }, 700)
+  }
+}
+
 /**
  * 音视频分离 / 人声提取 / 背景音提取（API.md 23.3）：
- * 音轨走本地 split_av，一次出音轨 + 无声视频两份产物，分别写进音频节点与视频节点；
- * 人声 / 背景音走模型动作 vocal_separation / bgm_separation，只出一个音频节点。
+ * 音轨走浏览器 ffmpeg，一次出音轨 + 无声视频；
+ * 人声 / 背景音走模型动作 vocal_separation / bgm_separation。
  */
 async function onSeparateAv(audioTag: '音轨' | '人声' | '背景音' = '音轨') {
   const from = selected.value
-  if (!from || !isContentNode(from) || from.data.kind !== 'video')
+  if (!from || !isContentNode(from) || from.data.kind !== 'video' || nodeFrozen(from))
     return
   const src = from.data.content?.trim() || ''
   if (!src || !isMediaUrl(src)) {
@@ -1198,16 +1269,16 @@ async function onSeparateAv(audioTag: '音轨' | '人声' | '背景音' = '音�
     return
   }
   const action = audioTag === '人声' ? 'vocal_separation' : audioTag === '背景音' ? 'bgm_separation' : 'split_av'
-  if (!ensureMediaAction(action))
-    return
-  const source = mediaSourceOf(from)
-  if (!source)
-    return
   const index = canvasKindIndex(nodes.value, from.id, 'video')
   const sourceLabel = from.data.label || canvasNodeTitle('video', index, t)
   const audioLabel = t(audioTag)
 
   if (action !== 'split_av') {
+    if (!ensureMediaAction(action))
+      return
+    const source = mediaSourceOf(from)
+    if (!source)
+      return
     const audioNode = spawnMediaNode(from, 'audio', audioTag, `${sourceLabel}_${audioLabel}`, { select: true })
     await submitMediaJob(audioNode, action, source, {}, {
       label: audioTag === '人声' ? '人声提取' : '背景音提取',
@@ -1216,16 +1287,32 @@ async function onSeparateAv(audioTag: '音轨' | '人声' | '背景音' = '音�
     return
   }
 
-  const audioNode = spawnMediaNode(from, 'audio', audioTag, `${sourceLabel}_${audioLabel}`, { place: 'up' })
+  const url = resolveMediaUrl(src)
+  const parts = await withBrowserMediaJob('split-av', async () => {
+    const { splitAvBlobs } = await import('~/utils/canvas-video-merge.ffmpeg')
+    return splitAvBlobs(url, publishMergeProgress)
+  })
+  if (!parts)
+    return
+  const audioUrl = URL.createObjectURL(parts.audio)
+  const videoUrl = URL.createObjectURL(parts.video)
+  const prompt = String(from.data.prompt || '')
+  const audioNode = spawnMediaNode(from, 'audio', audioTag, `${sourceLabel}_${audioLabel}`, {
+    place: 'up',
+    data: browserEditData(audioUrl, '', 'split_av'),
+  })
   const silentNode = spawnMediaNode(from, 'video', '无声', `${sourceLabel}_${t('无声')}`, {
-    data: { prompt: String(from.data.prompt || ''), silent: true },
+    data: { ...browserEditData(videoUrl, prompt, 'split_av'), silent: true },
     select: true,
   })
-  await submitMediaJob(silentNode, 'split_av', source, {}, {
-    label: '音视频分离',
-    dropOnFail: [audioNode.id, silentNode.id],
-    linkedId: audioNode.id,
-  })
+  pushHistory()
+  notify(t('已分离音轨和无声画面'))
+  const task = Promise.all([
+    uploadBrowserMedia(audioNode.id, parts.audio, 'audio.m4a', 'audio/mp4'),
+    uploadBrowserMedia(silentNode.id, parts.video, 'mute.mp4', 'video/mp4'),
+  ]).then(() => undefined)
+  trackMergeUpload(task)
+  void task.catch(() => undefined)
 }
 
 /** 选中的视频 / 音频节点作为媒体动作的源：内容得是已落资产库的媒体 */
@@ -1291,21 +1378,36 @@ async function onTranscribeConfirm(opts: { language: string, diarize: boolean, m
   await submitMediaJob(textNode, 'transcribe', source, params, { label: '语音转字幕', model: opts.model, dropOnFail: [textNode.id] })
 }
 
-/** 去停顿（API.md 35.3）：本地免费动作 remove_silence，派生一个同类节点承接产物 */
+/** 去停顿：浏览器 ffmpeg 剪掉长静音，音画同步。 */
 async function onRemoveSilence() {
-  if (!ensureMediaAction('remove_silence'))
-    return
   const picked = selectedMediaSource()
   if (!picked)
     return
-  const { from, source } = picked
+  const { from, src } = picked
+  if (nodeFrozen(from))
+    return
   const kind = from.data.kind === 'audio' ? 'audio' : 'video'
   const sourceLabel = from.data.label || t(kind === 'audio' ? '音频' : '视频')
+  const url = resolveMediaUrl(src)
+  const duration = await probeMediaDuration(url)
+  const result = await withBrowserMediaJob('silence', async () => {
+    const { removeSilenceBlob } = await import('~/utils/canvas-video-merge.ffmpeg')
+    return removeSilenceBlob(url, duration, kind, publishMergeProgress)
+  })
+  if (!result)
+    return
+  const localUrl = URL.createObjectURL(result.blob)
+  const mime = kind === 'audio' ? 'audio/mp4' : 'video/mp4'
+  const filename = kind === 'audio' ? 'desilence.m4a' : 'desilence.mp4'
   const sibling = spawnMediaNode(from, kind, '去停顿', `${sourceLabel}_${t('去停顿')}`, {
-    data: { prompt: String(from.data.prompt || '') },
+    data: browserEditData(localUrl, String(from.data.prompt || ''), 'remove_silence'),
     select: true,
   })
-  await submitMediaJob(sibling, 'remove_silence', source, {}, { label: '去停顿', dropOnFail: [sibling.id] })
+  pushHistory()
+  notify(result.warning === 'no_silence' ? t('没有检测到可去掉的停顿') : t('已去掉停顿'))
+  const task = uploadBrowserMedia(sibling.id, result.blob, filename, mime)
+  trackMergeUpload(task.then(() => undefined))
+  void task.catch(() => undefined)
 }
 
 function readNodeVideoTime(nodeId: string) {

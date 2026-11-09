@@ -57,6 +57,10 @@ describe('mediaActionState', () => {
     expect(MEDIA_BAR_ACTIONS.depth).toBe('depth_extract')
     expect(MEDIA_BAR_ACTIONS['clip-cut']).toBeUndefined()
     expect(MEDIA_BAR_ACTIONS['video-split']).toBeUndefined()
+    expect(MEDIA_BAR_ACTIONS.separate).toBeUndefined()
+    expect(MEDIA_BAR_ACTIONS['remove-silence']).toBeUndefined()
+    expect(MEDIA_BAR_ACTIONS['add-bgm']).toBeUndefined()
+    expect(MEDIA_BAR_ACTIONS['capture-frame']).toBeUndefined()
     expect(MEDIA_BAR_ACTIONS['grid-split']).toBe('grid_split')
     expect(MEDIA_BAR_ACTIONS['smart-extend']).toBe('extend')
     expect(mediaBarItemState(actions, 'depth').available).toBe(false)
@@ -67,9 +71,17 @@ describe('mediaActionState', () => {
     const noFfmpeg: MediaAction[] = [
       { action: 'trim', label: '片段截取', engine: 'local', source: ['video'], outputs: ['same'], available: false, reason: '服务器未安装 ffmpeg', free: true },
       { action: 'split', label: '视频分割', engine: 'local', source: ['video'], outputs: ['same'], available: false, reason: '服务器未安装 ffmpeg', free: true },
+      { action: 'split_av', label: '音视频分离', engine: 'local', source: ['video'], outputs: ['same'], available: false, reason: '服务器未安装 ffmpeg', free: true },
+      { action: 'remove_silence', label: '去停顿', engine: 'local', source: ['video'], outputs: ['same'], available: false, reason: '服务器未安装 ffmpeg', free: true },
+      { action: 'mix_bgm', label: '混入配乐', engine: 'local', source: ['video'], outputs: ['video'], available: false, reason: '服务器未安装 ffmpeg', free: true },
+      { action: 'extract_frame', label: '取帧', engine: 'local', source: ['video'], outputs: ['image'], available: false, reason: '服务器未安装 ffmpeg', free: true },
     ]
     expect(mediaBarItemState(noFfmpeg, 'clip-cut')).toEqual({ available: true, reason: '', known: false })
     expect(mediaBarItemState(noFfmpeg, 'video-split')).toEqual({ available: true, reason: '', known: false })
+    expect(mediaBarItemState(noFfmpeg, 'separate')).toEqual({ available: true, reason: '', known: false })
+    expect(mediaBarItemState(noFfmpeg, 'remove-silence')).toEqual({ available: true, reason: '', known: false })
+    expect(mediaBarItemState(noFfmpeg, 'add-bgm')).toEqual({ available: true, reason: '', known: false })
+    expect(mediaBarItemState(noFfmpeg, 'capture-frame')).toEqual({ available: true, reason: '', known: false })
   })
 
   it('独立接口：清单里没有这条就放行，有就听清单', () => {

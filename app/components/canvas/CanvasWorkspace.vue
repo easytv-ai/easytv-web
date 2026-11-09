@@ -94,8 +94,9 @@ import { gridPresetById, gridPresetPatch, gridPresetsFor } from '~/utils/canvas-
 import { montageOrder, montageReady, type MontageSource } from '~/utils/canvas-montage'
 import { audioKindParams, audioKindTag, audioMoodPrompt, isPreferredComposeBgm } from '~/utils/canvas-audio'
 import { composeClipDuration, composeGuessAspect, composeOrder, composeReady, type ComposeAudioSource, type ComposeOptions, type ComposeSource } from '~/utils/canvas-compose'
-import { isMergeResult, mergeShotIndex, mergeVideoOrder } from '~/utils/canvas-video-merge'
-import { flushMergeUploads } from '~/utils/canvas-merge-state'
+import { isMergeResult, MergeVideoError, mergeShotIndex, mergeVideoOrder } from '~/utils/canvas-video-merge'
+import { canvasMergeRunning, flushMergeUploads, publishMergeProgress, trackMergeUpload } from '~/utils/canvas-merge-state'
+import { probeMediaDuration } from '~/utils/canvas-video-frame'
 import { subtitleSourceNodes } from '~/utils/timeline'
 import { parseStyleExtract, styleExtractInstruction } from '~/utils/canvas-style-extract'
 import { dedupeRefNames, type RefCandidate } from '~/utils/canvas-autolink'
@@ -3903,33 +3904,79 @@ async function finishBgmMix(audioId: string, audioAssetId?: number) {
     return
   const plan = audio.data.bgmMix
   const assetId = Number(audioAssetId || audio.data.assetId || 0)
-  if (!plan.videoAssetId || !assetId) {
+  const audioUrl = resolveMediaUrl(String(audio.data.content || ''))
+  if (!plan.videoAssetId || (!assetId && !audioUrl)) {
     bgmPending.delete(plan.videoNodeId)
     return
   }
-  bgmMixStarted.add(audioId)
   const source = findNode(plan.videoNodeId) as CanvasFlowNode | undefined
   const from = source && isContentNode(source) && source.data.kind === 'video' ? source : audio
-  const mixed = spawnMediaNode(from, 'video', '配乐成片', t('配乐成片'), {
-    at: from.id === audio.id
-      ? undefined
-      : { x: audio.position.x, y: audio.position.y + (Number(audio.height) || 140) + 36 },
-    data: { prompt: from.data.prompt || '' },
-    select: true,
-    link: true,
-  })
+  const videoUrl = resolveMediaUrl(String(from.data.content || ''))
+  if (!videoUrl || !audioUrl) {
+    bgmPending.delete(plan.videoNodeId)
+    notify(t('请先生成或添加一段视频'), 'error')
+    return
+  }
+  if (canvasMergeRunning.value) {
+    notify(t('canvas.cut.busy'))
+    return
+  }
+  bgmMixStarted.add(audioId)
+  canvasMergeRunning.value = true
+  publishMergeProgress({ phase: 'loading', progress: 0, job: 'mix' })
   try {
-    const ok = await submitMediaJob(mixed, 'mix_bgm', { asset_id: plan.videoAssetId }, {
-      audio_asset_id: assetId,
-      volume: 0.2,
-    }, { label: '混入配乐', dropOnFail: [mixed.id] })
-    if (ok)
-      updateNodeData(audioId, { bgmMix: null })
-    else
-      bgmMixStarted.delete(audioId)
+    const duration = await probeMediaDuration(videoUrl)
+    const { mixBgmBlobs } = await import('~/utils/canvas-video-merge.ffmpeg')
+    const blob = await mixBgmBlobs(videoUrl, audioUrl, duration, 0.2, publishMergeProgress)
+    const localUrl = URL.createObjectURL(blob)
+    const mixed = spawnMediaNode(from, 'video', '配乐成片', t('配乐成片'), {
+      at: from.id === audio.id
+        ? undefined
+        : { x: audio.position.x, y: audio.position.y + (Number(audio.height) || 140) + 36 },
+      data: {
+        content: localUrl,
+        prompt: from.data.prompt || '',
+        taskStatus: 'succeeded',
+        taskProgress: 100,
+        taskError: '',
+        params: { videoEditOperation: 'mix_bgm' },
+      },
+      select: true,
+      link: true,
+    })
+    updateNodeData(audioId, { bgmMix: null })
+    pushHistory()
+    notify(t('已混入配乐'))
+    publishMergeProgress(null)
+    const file = new File([blob], 'mix-bgm.mp4', { type: 'video/mp4' })
+    const task = assetApi.upload(file).then((uploaded) => {
+      if (!uploaded?.success || !uploaded.data?.url)
+        throw new Error(uploaded?.message || '')
+      updateNodeData(mixed.id, { content: uploaded.data.url, assetId: uploaded.data.id })
+      pushHistory()
+    }).catch(() => {
+      notify(t('canvas.cut.uploadFail'))
+    })
+    trackMergeUpload(task.then(() => undefined))
+  }
+  catch (error) {
+    bgmMixStarted.delete(audioId)
+    const message = error instanceof MergeVideoError && error.code === 'encode'
+      ? t('canvas.merge.encodeFail')
+      : error instanceof MergeVideoError && error.code === 'load'
+        ? t('canvas.merge.loadFail')
+        : error instanceof MergeVideoError && error.code === 'fetch'
+          ? t('canvas.merge.fetchFail', { status: error.detail ?? '' })
+          : t('canvas.merge.fail')
+    notify(message, 'error')
   }
   finally {
     bgmPending.delete(plan.videoNodeId)
+    canvasMergeRunning.value = false
+    window.setTimeout(() => {
+      if (!canvasMergeRunning.value)
+        publishMergeProgress(null)
+    }, 700)
   }
 }
 
@@ -3945,14 +3992,6 @@ async function addBgmForSelected() {
     notify(t('请先生成或添加一段视频'), 'error')
     return
   }
-  if (!mediaActions.value.length)
-    await loadMediaActions()
-  if (!mediaActions.value.length) {
-    notify(t('提交失败'), 'error')
-    return
-  }
-  if (!ensureMediaAction('mix_bgm'))
-    return
   if (bgmPending.has(node.id)) {
     notify(t('这段视频正在配乐'))
     return

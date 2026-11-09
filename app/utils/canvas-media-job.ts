@@ -39,7 +39,8 @@ export function pickMediaSourceNode<T extends { id: string }>(
 /**
  * 画布工具条按钮 → 媒体工具动作（API.md 23）。
  * 只列需要按 GET /user/media/actions 的 available 决定能不能点的按钮；没列的按钮不受清单影响。
- * 片段裁剪 / 视频分割在浏览器里用 ffmpeg.wasm 完成，故意不映射 trim / split，避免服务器没装 ffmpeg 时点不开。
+ * 片段裁剪 / 视频分割 / 分离音频 / 去停顿 / 配乐 / 取帧在浏览器里用 ffmpeg.wasm 完成，
+ * 故意不映射到服务端动作，避免服务器没装 ffmpeg 时点不开。
  */
 export const MEDIA_BAR_ACTIONS: Record<string, string> = {
   'hd': 'upscale',
@@ -47,12 +48,10 @@ export const MEDIA_BAR_ACTIONS: Record<string, string> = {
   'retake': 'retake_segment',
   'frame-by-frame': 'storyboard',
   'smart-extend': 'extend',
-  'add-bgm': 'mix_bgm',
   'grid-split': 'grid_split',
   'depth-motion': 'motion_capture',
   'remove-subtitles': 'remove_subtitle',
   'box-subtitles': 'remove_subtitle',
-  'separate': 'split_av',
   'extract-voice': 'vocal_separation',
   'extract-bgm': 'bgm_separation',
   'remove-subject': 'subject_remove',
@@ -60,7 +59,6 @@ export const MEDIA_BAR_ACTIONS: Record<string, string> = {
   'replace-subject': 'subject_replace',
   'smart-matting': 'matting',
   'transcribe': 'transcribe',
-  'remove-silence': 'remove_silence',
 }
 
 export type MediaAvailability = {
