@@ -161,7 +161,6 @@ const VIDEO_EDIT_ITEMS = [
   { id: 'frame-crop', label: '画面裁切', icon: 'i-lucide-crop' },
   { id: 'capture-frame', label: '取帧', icon: 'i-lucide-aperture', more: true },
   { id: 'extract-frames', label: '抽帧', icon: 'i-lucide-gallery-vertical-end', more: true },
-  { id: 'frame-by-frame', label: '逐帧拉片', icon: 'i-lucide-gem' },
   { id: 'separate', label: '分离音频', icon: 'i-lucide-audio-lines' },
   { id: 'remove-silence', label: '去停顿', icon: 'i-lucide-scissors-line-dashed' },
   { id: 'remove-subtitles', label: '字幕擦除', icon: 'i-lucide-captions-off' },
@@ -204,7 +203,6 @@ const BROWSER_VIDEO_ITEMS = new Set([
   'extract-frames-6',
   'extract-frames-8',
   'extract-frames-12',
-  'frame-by-frame',
 ])
 
 /** 清单拉到后，未开通的媒体动作从工具条拿掉，避免点了只看到「暂未开放」 */

@@ -87,7 +87,6 @@ describe('mediaActionState', () => {
     expect(mediaBarItemState(noFfmpeg, 'capture-frame')).toEqual({ available: true, reason: '', known: false })
     expect(mediaBarItemState(noFfmpeg, 'frame-crop')).toEqual({ available: true, reason: '', known: false })
     expect(mediaBarItemState(noFfmpeg, 'extract-frames')).toEqual({ available: true, reason: '', known: false })
-    expect(mediaBarItemState(noFfmpeg, 'frame-by-frame')).toEqual({ available: true, reason: '', known: false })
   })
 
   it('独立接口：清单里没有这条就放行，有就听清单', () => {

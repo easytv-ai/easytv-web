@@ -66,7 +66,7 @@ describe('CanvasInspector 提示词输入区', () => {
     expect(css).toMatch(/\.canvas-selbar\s*\{[^}]*pointer-events:\s*auto/)
   })
 
-  it('视频工具条常驻分离音频、去停顿、配乐、取帧、画面裁切、抽帧和拉片', () => {
+  it('视频工具条常驻分离音频、去停顿、配乐、取帧、画面裁切和抽帧', () => {
     const src = readFileSync(resolve('app/components/canvas/CanvasSelBar.vue'), 'utf8')
     expect(src).toContain("id: 'add-bgm'")
     expect(src).toContain("id: 'separate'")
@@ -76,12 +76,11 @@ describe('CanvasInspector 提示词输入区', () => {
     expect(src).toContain("id: 'capture-last'")
     expect(src).toContain("id: 'frame-crop'")
     expect(src).toContain("id: 'extract-frames'")
-    expect(src).toContain("id: 'frame-by-frame'")
+    expect(src).not.toContain("id: 'frame-by-frame'")
     expect(src).toContain("'add-bgm'")
     expect(src).toContain("'separate'")
     expect(src).toContain("'remove-silence'")
     expect(src).toContain("'frame-crop'")
     expect(src).toContain("'extract-frames'")
-    expect(src).toContain("'frame-by-frame'")
   })
 })

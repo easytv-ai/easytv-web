@@ -128,7 +128,7 @@ export type CanvasNodeData = {
     total: number
     duration?: number
   }
-  /** 逐帧拉片（媒体作业 storyboard）：抽帧数与是否生成解读，随画布保存 */
+  /** 逐帧拉片（浏览器抽帧，可选视觉解读）：抽帧数与是否生成解读，随画布保存 */
   frameParams?: {
     sourceId: string
     sourceLabel: string
@@ -248,6 +248,16 @@ export const DEPTH_MOTION_RESOLUTION_ITEMS = ['480P', '720P'] as const
 
 export function isCropNode(data?: Pick<CanvasNodeData, 'tag' | 'cropRect'> | null) {
   return Boolean(data && (data.tag === '裁剪' || data.cropRect))
+}
+
+/**
+ * 播放器 CSS 裁切：旧节点只存了框、片还是原片，要用 cropRect 去裁显示。
+ * 浏览器 ffmpeg 已经按框出片后，再套同一框会二次放大。
+ */
+export function videoPlayerCrop(data?: Pick<CanvasNodeData, 'cropRect' | 'params'> | null) {
+  if (String(data?.params?.videoEditOperation || '') === 'crop')
+    return null
+  return data?.cropRect || null
 }
 
 export function isSilentNode(data?: Pick<CanvasNodeData, 'tag' | 'silent'> | null) {

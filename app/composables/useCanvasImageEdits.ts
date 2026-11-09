@@ -5,7 +5,6 @@
 import { computed, nextTick, reactive, ref, watch, type ComputedRef, type Ref } from 'vue'
 import { useStudioAppConfig } from '~/composables/useStudioAppConfig'
 import assetApi from '~/api/asset'
-import mediaApi from '~/api/media'
 import taskApi from '~/api/task'
 import { hasNativeAudio } from '~/utils/canvas-talking'
 import { buildViralShotPrompt, parseViralBreakdown, pickViralModel, viralAnalysisInstruction, viralDuration, viralMappedEntities, viralModels, viralRatio, viralResolution, type ViralPlan } from '~/utils/canvas-viral'
@@ -56,7 +55,7 @@ import {
   storyboardCols,
   type CanvasFlowNode,
 } from '~/utils/canvas-group'
-import type { Asset, GenerationModel, MediaAction, MediaJob, TaskInput } from '~/types/creative'
+import type { Asset, GenerationModel, MediaAction, TaskInput } from '~/types/creative'
 import type { CanvasNodeData } from '~/utils/canvas-node-kinds'
 
 export function useCanvasImageEdits(opts: { blocked?: () => boolean } & Record<string, any>) {
@@ -157,7 +156,6 @@ export function useCanvasImageEdits(opts: { blocked?: () => boolean } & Record<s
   function nodeFrozen(node: CanvasFlowNode | undefined | null) {
     return isNodeLocked(node, nodes.value)
   }
-  const waitMediaJob = opts.waitMediaJob as (id: number) => Promise<MediaJob | null>
   const smartEditRefs = opts.smartEditRefs as Ref<Array<{ assetId: number, url: string }>>
   const connectedRefThumbs = opts.connectedRefThumbs as (nodeId: string) => Array<{ url: string, kind?: 'image' | 'video' | 'audio', assetId?: number }>
   const mediaActions = opts.mediaActions as Ref<MediaAction[]>
@@ -246,7 +244,7 @@ type VideoReverseMaterial = {
 
 /**
  * 视频反推的原料：浏览器抽关键帧 → 上传成图片素材，顺带带回原片时长与像素尺寸。
- * 浏览器读不到（OSS 视频没有 CORS 头）时返回 null，由 collectVideoReverseInputsServer 兜底。
+ * 读不到像素（跨域）时返回 null，不再走服务端 ffmpeg。
  */
 async function collectVideoReverseInputs(src: string): Promise<VideoReverseMaterial | null> {
   notify(t('正在抽取关键帧…'))
@@ -255,6 +253,7 @@ async function collectVideoReverseInputs(src: string): Promise<VideoReverseMater
     duration = await probeVideoDuration(src)
   }
   catch {
+    notify(t('抽取关键帧失败，请确认视频可跨域读取'), 'error')
     return null
   }
   const times = samplePromptReverseTimes(duration)
@@ -277,64 +276,12 @@ async function collectVideoReverseInputs(src: string): Promise<VideoReverseMater
     }
   }
   catch {
+    notify(t('抽取关键帧失败，请确认视频可跨域读取'), 'error')
     return null
   }
   if (!inputs.length)
     return null
   return { inputs, ranges, duration, width, height }
-}
-
-/**
- * 反推原料的服务端兜底：浏览器抽不到帧时提交 extract_frames（mode=spread，免费本地 ffmpeg）由服务端均匀抽帧，
- * 用产物的 time 与作业写回的资产 duration / width / height 还原时间轴（API.md 23 / 29）。
- */
-async function collectVideoReverseInputsServer(from: CanvasFlowNode & { data: CanvasNodeData }): Promise<VideoReverseMaterial | null> {
-  const source = mediaSourceOf(from)
-  if (!source)
-    return null
-  notify(t('浏览器读不到这段视频，改由服务端抽帧…'))
-  const res = await mediaApi.create({
-    action: 'extract_frames',
-    ...source,
-    params: { mode: 'spread', count: 8 },
-    canvas_id: canvasId() || undefined,
-  })
-  if (!res?.success || !res.data) {
-    notify(res?.message || t('抽取关键帧失败，请确认视频可跨域读取'), 'error')
-    return null
-  }
-  const job = await waitMediaJob(res.data.id)
-  const frames = (job?.outputs || []).filter(item => item.type === 'image' && Number(item.asset_id) > 0)
-  if (!job || job.status !== 2 || !frames.length) {
-    notify(job?.error || t('抽取关键帧失败，请确认视频可跨域读取'), 'error')
-    return null
-  }
-  let duration = 0
-  let width = 0
-  let height = 0
-  const assetId = Number(('asset_id' in source && source.asset_id) || job.source_asset_id)
-  if (assetId > 0) {
-    const asset = await assetApi.get(assetId)
-    if (asset?.success && asset.data) {
-      duration = Number(asset.data.duration) || 0
-      width = Number(asset.data.width) || 0
-      height = Number(asset.data.height) || 0
-    }
-  }
-  const step = duration > 0 ? duration / Math.max(1, frames.length) : 2
-  const times = frames.map((item, i) => {
-    const at = Number(item.time)
-    return Number.isFinite(at) && (at > 0 || i === 0) ? at : i * step
-  })
-  if (!duration)
-    duration = times[times.length - 1]! + step
-  return {
-    inputs: frames.map(item => ({ asset_id: item.asset_id, role: 'image' as const })),
-    ranges: promptReverseFrameRanges(times, duration),
-    duration,
-    width,
-    height,
-  }
 }
 
 /** 视频反推：浏览器抽关键帧 → 上传 → 看图模型输出 Timestamped prompts */
@@ -347,7 +294,7 @@ async function runVideoPromptReverse(
     notify(t('请先生成或添加一段视频'), 'error')
     return
   }
-  const material = await collectVideoReverseInputs(src) || await collectVideoReverseInputsServer(from)
+  const material = await collectVideoReverseInputs(src)
   if (!material)
     return
   await submitDerivedTask(spawnDerivedText(from, 'Timestamped prompts'), '反推提示词', {
@@ -1036,7 +983,7 @@ async function analyzeViral(from: CanvasFlowNode & { data: CanvasNodeData }) {
   viralBusy.value = true
   viralStep.value = 'analyze'
   try {
-    const material = await collectVideoReverseInputs(src) || await collectVideoReverseInputsServer(from)
+    const material = await collectVideoReverseInputs(src)
     if (!material || !findNode(from.id))
       return
     const textNode = spawnDerivedText(from, 'Timestamped prompts')
@@ -1507,32 +1454,8 @@ async function onCaptureVideoFrame(kind: 'current' | 'first' | 'last') {
     })
   }
   catch {
-    // OSS 没对本地开 CORS 时前端截不到帧：回退到服务端 extract_frame
-    await captureFrameViaMedia(from, kind, time)
-  }
-}
-
-/** 取帧的服务端兜底：媒体作业 extract_frame，at = first / last / 秒数 */
-async function captureFrameViaMedia(from: CanvasFlowNode & { data: CanvasNodeData }, kind: 'current' | 'first' | 'last', time: number) {
-  const state = mediaActionState(mediaActions.value, 'extract_frame')
-  if (!state.available) {
     notify(t('截取失败，视频可能无法跨域读取'), 'error')
-    return
   }
-  const source = mediaSourceOf(from)
-  if (!source)
-    return
-  const at = kind === 'first' ? 'first' : kind === 'last' ? 'last' : Math.round(Math.max(0, time) * 100) / 100
-  const tag = kind === 'current' ? '截图' : kind === 'first' ? '首帧' : '尾帧'
-  const label = kind === 'current' ? `${t('截图')} ${formatFrameClock(Math.max(0, time))}` : t(tag)
-  const size = nodeSize(from)
-  const sibling = spawnMediaNode(from, 'image', tag, label, {
-    place: kind === 'current' ? 'up' : kind === 'first' ? 'right' : 'down',
-    w: 320,
-    h: Math.max(120, Math.min(640, Math.round(320 * size.h / Math.max(1, size.w)))),
-    select: true,
-  })
-  await submitMediaJob(sibling, 'extract_frame', source, { at }, { label: '取帧', dropOnFail: [sibling.id] })
 }
 
 function openOutpaintEditor() {
@@ -2059,39 +1982,6 @@ async function captureStripBrowser(src: string, count: number): Promise<StripFra
   return out.length ? out : null
 }
 
-async function captureStripServer(from: CanvasFlowNode & { data: CanvasNodeData }, count: number): Promise<StripFrameAsset[] | null> {
-  const source = mediaSourceOf(from)
-  if (!source)
-    return null
-  const state = mediaActionState(mediaActions.value, 'extract_frames')
-  if (!state.available)
-    return null
-  notify(t('浏览器读不到这段视频，改由服务端抽帧…'))
-  const res = await mediaApi.create({
-    action: 'extract_frames',
-    ...source,
-    params: { mode: 'spread', count },
-    canvas_id: canvasId() || undefined,
-  })
-  if (!res?.success || !res.data) {
-    notify(res?.message || t('抽帧失败'), 'error')
-    return null
-  }
-  const job = await waitMediaJob(res.data.id)
-  const frames = (job?.outputs || []).filter(item => item.type === 'image' && item.url)
-  if (!job || job.status !== 2 || !frames.length) {
-    notify(job?.error || t('抽帧失败，视频可能无法跨域读取'), 'error')
-    return null
-  }
-  return frames.map(item => ({
-    url: item.url,
-    assetId: Number(item.asset_id) || 0,
-    width: Number(item.width) || 0,
-    height: Number(item.height) || 0,
-    time: Number(item.time) || 0,
-  }))
-}
-
 function placeStripFrames(
   anchor: CanvasFlowNode & { data: CanvasNodeData },
   frames: StripFrameAsset[],
@@ -2170,7 +2060,7 @@ async function extractVideoFrames(
     return
   }
   const n = Math.max(1, Math.floor(count) || 6)
-  let frames = await withBrowserMediaJob('frames', async () => {
+  const frames = await withBrowserMediaJob('frames', async () => {
     try {
       return await captureStripBrowser(resolveMediaUrl(src), n)
     }
@@ -2178,8 +2068,6 @@ async function extractVideoFrames(
       return null
     }
   })
-  if (!frames?.length)
-    frames = await captureStripServer(from, n)
   if (!frames?.length) {
     notify(t('抽帧失败，视频可能无法跨域读取'), 'error')
     return

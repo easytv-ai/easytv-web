@@ -3,7 +3,7 @@ import { Handle, Position } from '@vue-flow/core'
 import type { NodeProps } from '@vue-flow/core'
 import type { CanvasFlowData } from '~/utils/canvas-group'
 import type { CanvasNodeData, CanvasNodeKind } from '~/utils/canvas-node-kinds'
-import { canvasNodeIcon } from '~/utils/canvas-node-kinds'
+import { canvasNodeIcon, videoPlayerCrop } from '~/utils/canvas-node-kinds'
 import { isMediaUrl, resolveMediaUrl } from '~/utils/media'
 import CanvasAudioPlayer from '~/components/canvas/CanvasAudioPlayer.vue'
 import CanvasVideoPlayer from '~/components/canvas/CanvasVideoPlayer.vue'
@@ -205,7 +205,7 @@ onUnmounted(() => window.removeEventListener('keydown', onTextPreviewKeydown, tr
         class="share-node__media-wrap nodrag nopan nowheel"
         @pointerdown.stop
       >
-        <CanvasVideoPlayer always-on :src="videoSrc" :crop="node?.cropRect || null" />
+        <CanvasVideoPlayer always-on :src="videoSrc" :crop="videoPlayerCrop(node)" />
       </div>
       <div
         v-else-if="audioSrc"

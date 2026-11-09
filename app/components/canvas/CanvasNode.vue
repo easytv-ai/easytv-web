@@ -11,6 +11,7 @@ import {
   hdNodeTag,
   isAudioTrackNode,
   isCropNode,
+  videoPlayerCrop,
   isFrameCaptureNode,
   isFramePullNode,
   isDepthMotionNode,
@@ -817,7 +818,7 @@ onMounted(() => {
         <CanvasVideoPlayer
           v-else-if="videoSrc"
           :src="videoSrc"
-          :crop="data.cropRect || null"
+          :crop="videoPlayerCrop(data)"
           :muted-forced="isSilent"
           @meta="onVideoMeta"
         />

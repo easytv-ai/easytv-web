@@ -9,6 +9,7 @@ import {
   canvasFitMediaSize,
   canvasMediaSizeClose,
   cloneContentNodeData,
+  videoPlayerCrop,
   CAMERA_MOVE_VIDEO,
   cameraIdsInPrompt,
   cameraMoveMotionPreview,
@@ -251,6 +252,12 @@ describe('半开能力收口', () => {
     const src = readFileSync(new URL('./canvas-node-kinds.ts', import.meta.url), 'utf8')
     expect(src).not.toContain("kind: 'character-designer'")
     expect(src).not.toContain("kind: 'script'")
+  })
+
+  it('ffmpeg 已经裁过的视频不再套 CSS 裁切', () => {
+    const rect = { x: 0.1, y: 0.2, w: 0.5, h: 0.4, width: 320, height: 240 }
+    expect(videoPlayerCrop({ cropRect: rect })).toEqual(rect)
+    expect(videoPlayerCrop({ cropRect: rect, params: { videoEditOperation: 'crop' } })).toBeNull()
   })
 
   it('导演助手拉对话额度', () => {

@@ -5804,7 +5804,6 @@ const {
   pollTask,
   refreshWallet,
   waitTask,
-  waitMediaJob,
   applyMediaNodeSize,
   openAssetPicker,
   canvasId: () => props.canvasId,
