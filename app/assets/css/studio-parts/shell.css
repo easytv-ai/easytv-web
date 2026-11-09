@@ -656,7 +656,8 @@
 
 /* 首页最近项目：标题栏跟本周热门，卡片跟项目页 */
 .recent {
-  margin: 0;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .recent__head {

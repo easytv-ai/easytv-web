@@ -1913,12 +1913,12 @@ html.dark .studio-chip--gold.is-on {
   max-width: var(--st-page-max);
 }
 
-.agent-feed .recent {
-  margin-top: 40px;
-}
-
+.agent-feed .recent,
 .agent-feed .studio-hot {
+  max-width: var(--st-page-max);
   margin-top: 40px;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .agent-feed .studio-hot + .show-toolbar {

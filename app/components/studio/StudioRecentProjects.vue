@@ -72,7 +72,7 @@ onActivated(() => {
 </script>
 
 <template>
-  <section v-if="isLoggedIn" class="recent" :aria-label="t('最近项目')">
+  <section v-if="isLoggedIn" class="show-page__inner recent" :aria-label="t('最近项目')">
     <header class="recent__head">
       <h2>{{ t('最近项目') }}</h2>
       <NuxtLink :to="localePath('/projects')" class="recent__all">
