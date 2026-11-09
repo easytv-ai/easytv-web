@@ -6097,6 +6097,71 @@ html.dark .canvas-brief {
   gap: 8px;
 }
 
+.canvas-brief--media-confirm {
+  gap: 12px;
+}
+
+.canvas-brief--media-confirm .canvas-brief__models {
+  gap: 14px;
+}
+
+.canvas-brief--media-confirm .canvas-brief__quote {
+  margin: 8px 0 4px;
+  color: var(--st-muted);
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+.canvas-brief--media-confirm .canvas-brief__ops {
+  padding-top: 12px;
+  margin-top: 2px;
+}
+
+.canvas-brief__model .studio-select,
+.canvas-brief__model .studio-select.is-compact {
+  width: 100%;
+  max-width: none;
+  min-width: 0;
+  flex: none;
+  align-self: stretch;
+}
+
+.canvas-brief__model select option {
+  background: var(--st-elevated);
+  color: var(--st-text);
+}
+
+html.dark .canvas-brief__model select option {
+  background: var(--st-card);
+}
+
+.canvas-brief__refs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 8px 0 0;
+}
+
+.canvas-brief__refs img {
+  width: 40px;
+  height: 40px;
+  object-fit: cover;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--st-text) 8%, transparent);
+}
+
+.canvas-brief__model input[type='number'] {
+  width: 100%;
+  max-width: 100%;
+  padding: 6px 8px;
+  border: 1px solid color-mix(in srgb, var(--st-text) 14%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--st-text) 6%, transparent);
+  color: var(--st-text);
+  font: inherit;
+  font-size: 13px;
+}
+
 .canvas-brief__model-hint {
   margin: 0;
   color: var(--st-muted);

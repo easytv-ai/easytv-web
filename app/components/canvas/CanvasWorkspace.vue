@@ -1454,6 +1454,92 @@ function frameChatInsert(ids: string[]) {
   nextTick(() => fitView({ padding: 0.16, duration: 280 }))
 }
 
+export type ChatMediaGenerateRequest = {
+  kind: 'image' | 'video' | 'audio'
+  prompt: string
+  model: string
+  ratio?: string
+  seconds?: number
+  resolution?: string
+  label?: string
+  refs?: Array<{ assetId?: number, url: string, name?: string }>
+}
+
+export type ChatMediaGenerateOpts = {
+  onTask?: (taskId: number) => void
+}
+
+export type ChatMediaGenerateReport = {
+  ok: boolean
+  nodeId?: string
+  url?: string
+  error?: string
+}
+
+/** 对话栏自由创作：落一个节点并立刻生成，结果写回画布 */
+async function generateFromChat(req: ChatMediaGenerateRequest, extra?: ChatMediaGenerateOpts): Promise<ChatMediaGenerateReport> {
+  if (props.readonly)
+    return { ok: false, error: t('只读画布不能生成') }
+  const prompt = String(req.prompt || '').trim()
+  const model = String(req.model || '').trim()
+  if (!prompt)
+    return { ok: false, error: t('请先填写提示词') }
+  if (!model)
+    return { ok: false, error: t('请先选择模型') }
+  await ensureGenerationModels()
+  const label = String(req.label || '').trim() || prompt.slice(0, 24)
+  const ratio = String(req.ratio || '').trim() || (req.kind === 'image' ? '1:1' : '16:9')
+  const ids = req.kind === 'audio'
+    ? insertAudioNodes([{ label, prompt }])
+    : req.kind === 'video'
+      ? insertVideoNodes([{ label, prompt, ratio, seconds: req.seconds }])
+      : insertImageNodes([{ label, prompt, ratio }])
+  const node = findNode(ids[0] || '') as CanvasFlowNode | undefined
+  if (!node || !isContentNode(node))
+    return { ok: false, error: t('没有可以生成的节点') }
+  const params: Record<string, unknown> = { ...(node.data.params || {}) }
+  params.ratio = ratio
+  if (req.kind === 'video' && req.seconds)
+    params.duration = req.seconds
+  if (req.resolution)
+    params.resolution = req.resolution
+  const refs = (req.refs || []).filter(item => String(item.url || '').trim())
+  if (refs.length) {
+    node.data.refItems = refs
+    updateNodeData(node.id, { refItems: refs, params })
+  }
+  else {
+    updateNodeData(node.id, { params })
+  }
+  writeCanvasLastModel(req.kind, model)
+  const stopTaskWatch = watch(
+    () => {
+      const live = findNode(node.id)
+      return live && isContentNode(live) ? Number(live.data.taskId) || 0 : 0
+    },
+    (taskId) => {
+      if (taskId > 0)
+        extra?.onTask?.(taskId)
+    },
+    { immediate: true },
+  )
+  try {
+    await onGenerate({ model, params, prompt }, node)
+  }
+  finally {
+    stopTaskWatch()
+  }
+  const live = findNode(node.id)
+  const data = live && isContentNode(live) ? live.data : node.data
+  const status = String(data.taskStatus || '')
+  const url = String(data.content || '')
+  if (status === 'succeeded' && url)
+    return { ok: true, nodeId: node.id, url }
+  if (status === 'cancelled')
+    return { ok: false, nodeId: node.id, error: t('canvas.chat.msg.stopped') }
+  return { ok: false, nodeId: node.id, error: String(data.taskError || '') || t('生成失败') }
+}
+
 /** 从文本落到角色或分镜图时，每张图接一条线；不改已经写好的提示词 */
 function insertImageNodes(items: { label: string, prompt: string, ratio?: string, group?: string, tag?: string }[], fromId?: string) {
   const ready = items.filter(item => item.label.trim() && item.prompt.trim()).slice(0, 28)
@@ -5024,7 +5110,7 @@ function openStyleLibrary(target: '' | 'extend' | 'chat' = '') {
   styleLibOpen.value = true
 }
 
-defineExpose({ getGraph, loadGraph, flushMergeUploads, hasBlobMedia, replaceBlobMedia, addNodeAtCenter, insertTextNode, insertImageNodes, insertAudioNodes, insertVideoNodes, resetBriefPlaced, generateBriefPlaced, estimateBriefPlaced, placeBriefVideos, composeBrief, pickAssetFromChat, addAssetNodeAtCenter, selectionLabels, assistContext, applyAssistChanges, undoAssistChanges, openStyleLibrary, refreshRunQueue, locateNode, commentNodeHint })
+defineExpose({ getGraph, loadGraph, flushMergeUploads, hasBlobMedia, replaceBlobMedia, addNodeAtCenter, insertTextNode, insertImageNodes, insertAudioNodes, insertVideoNodes, resetBriefPlaced, generateBriefPlaced, generateFromChat, estimateBriefPlaced, placeBriefVideos, composeBrief, pickAssetFromChat, addAssetNodeAtCenter, selectionLabels, assistContext, applyAssistChanges, undoAssistChanges, openStyleLibrary, refreshRunQueue, locateNode, commentNodeHint })
 
 function commentNodeHint(nodeId: string) {
   return canvasCommentNodeHint(nodes.value, nodeId, t)

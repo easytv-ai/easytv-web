@@ -879,6 +879,16 @@ function onChatResetBrief() {
   workspace.value?.resetBriefPlaced()
 }
 
+async function onChatGenerateMedia(req: { kind: 'image' | 'video' | 'audio', prompt: string, model: string, ratio?: string, seconds?: number, resolution?: string, label?: string, refs?: Array<{ assetId?: number, url: string, name?: string }> }, opts?: { onTask?: (taskId: number) => void, onDone?: (report: { ok: boolean, nodeId?: string, url?: string, error?: string }) => void }) {
+  try {
+    const result = await workspace.value?.generateFromChat(req, { onTask: opts?.onTask })
+    opts?.onDone?.(result || { ok: false })
+  }
+  catch {
+    opts?.onDone?.({ ok: false })
+  }
+}
+
 async function onChatGenerateBrief(groups: string[], opts?: { models?: { image?: string, audio?: string, video?: string }, onProgress?: (row: { index: number, total: number, label: string, status: 'start' | 'ok' | 'fail' }) => void, onDone?: (report: { ok: number, failed: number, total: number }) => void }) {
   try {
     const result = await workspace.value?.generateBriefPlaced(groups, { onProgress: opts?.onProgress, models: opts?.models })
@@ -1178,6 +1188,7 @@ function onResizeStart(event: PointerEvent) {
             @insert-audios="onChatInsertAudios"
             @reset-brief="onChatResetBrief"
             @generate-brief="onChatGenerateBrief"
+            @generate-media="onChatGenerateMedia"
             @place-videos="onChatPlaceVideos"
             @compose-brief="onChatComposeBrief"
             @pick-asset="onChatPickAsset"

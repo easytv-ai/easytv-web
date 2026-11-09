@@ -3,6 +3,9 @@ import {
   briefAskPicks,
   briefGenerateGroups,
   briefNeedsImage,
+  chatGenerateInstruction,
+  parseChatGenerateAction,
+  stripChatGenerateAction,
   defaultBriefModel,
   briefCharacters,
   briefFrameRatio,
@@ -195,6 +198,20 @@ describe('briefVoices', () => {
       questions: [],
       shots: 6,
     })).toBe('已确认是否合成')
+    expect(briefHistoryText({
+      kind: 'media-confirm',
+      locked: false,
+      mediaType: 'image',
+      prompt: 'a',
+      model: 'cheap',
+    })).toBe('等待确认是否出片')
+    expect(briefHistoryText({
+      kind: 'media-confirm',
+      locked: true,
+      mediaType: 'image',
+      prompt: 'a',
+      model: 'cheap',
+    })).toBe('已确认是否出片')
     expect(briefGenerateGroups(0)).toEqual(['character', 'scene', 'prop', 'shot', 'voice'])
     expect(briefGenerateGroups(2)).toEqual(['character', 'scene', 'prop'])
     expect(briefGenerateGroups(1)).toBeNull()
@@ -213,6 +230,35 @@ describe('defaultBriefModel', () => {
 
   it('上次选择还在清单里就沿用', () => {
     expect(defaultBriefModel([pricey, cheap], 'image', 'pricey-img')).toBe('pricey-img')
+  })
+})
+
+describe('parseChatGenerateAction', () => {
+  it('读对话模型末尾的出片动作，正文里的思考留下', () => {
+    const raw = '先做日系半身像，浅色背景。\n<<<GENERATE{"type":"image","prompt":"anime girl headshot, 16:9","ratio":"16:9"}>>>'
+    expect(parseChatGenerateAction(raw)).toEqual({
+      type: 'image',
+      prompt: 'anime girl headshot, 16:9',
+      ratio: '16:9',
+      seconds: undefined,
+      model: undefined,
+    })
+    expect(stripChatGenerateAction(raw)).toBe('先做日系半身像，浅色背景。')
+    expect(parseChatGenerateAction('普通问答没有出片')).toBeNull()
+    expect(chatGenerateInstruction()).toContain('<<<GENERATE')
+    expect(chatGenerateInstruction()).toContain('确认模型和积分')
+  })
+
+  it('没有 <<< 也能读 GENERATE，视频时长会截到上限', () => {
+    const raw = '先出一段夜景。\nGENERATE{"type":"video","prompt":"night street, rain","seconds":40}'
+    expect(parseChatGenerateAction(raw)).toEqual({
+      type: 'video',
+      prompt: 'night street, rain',
+      ratio: undefined,
+      seconds: 15,
+      model: undefined,
+    })
+    expect(stripChatGenerateAction(raw)).toBe('先出一段夜景。')
   })
 })
 

@@ -13,7 +13,7 @@ import { isVisionTextModel } from '~/utils/image-input'
 import { resolveMediaUrl } from '~/utils/media'
 import { promptTemplates } from '~/utils/canvas-templates'
 import { writeChatEntry, type ChatEntryDraft } from '~/utils/chat-entry'
-import { effectiveUnitPrice, modelPromoDisplay } from '~/utils/model-price'
+import { effectiveUnitPrice, estimateSecondDuration, estimateTaskPoints, modelPromoDisplay } from '~/utils/model-price'
 import { shortModelName } from '~/utils/model-name'
 import { fetchLobeInlineSvg } from '~/utils/lobe-icon'
 import { startHiddenAwarePoll } from '~/utils/hidden-poll'
@@ -39,7 +39,10 @@ import {
   briefGenerateGroups,
   briefModelsOf,
   briefNeedsImage,
+  chatGenerateInstruction,
   defaultBriefModel,
+  parseChatGenerateAction,
+  stripChatGenerateAction,
   readCanvasLastModels,
   writeCanvasLastModel,
   briefVoices,
@@ -62,6 +65,7 @@ import {
   type BriefGenerateCounts,
   type BriefMediaKind,
   type BriefMediaModels,
+  type ChatFreeMediaKind,
   type BriefComposeOpts,
   type BriefComposeReport,
   type BriefGenerateProgress,
@@ -70,8 +74,10 @@ import {
   type BriefQuestion,
   type BriefVideoCard,
   type BriefVoiceCard,
+  type ChatMediaConfirmCard,
 } from '~/utils/canvas-chat-brief'
 import { fillI18n } from '~/utils/i18n-fill'
+import StudioSelect from '~/components/studio/StudioSelect.vue'
 const { canvasNodeItems, load: loadAppConfig } = useStudioAppConfig()
 const { isMember } = useWallet()
 const { gotoPricing } = usePricingModal()
@@ -122,6 +128,7 @@ const emit = defineEmits<{
   insertAudios: [items: { label: string, prompt: string, group?: string, tag?: string }[]]
   resetBrief: []
   generateBrief: [groups: string[], opts?: { models?: BriefMediaModels, onProgress?: (row: BriefGenerateProgress) => void, onDone?: (report: BriefGenerateReport) => void }]
+  generateMedia: [req: { kind: ChatFreeMediaKind, prompt: string, model: string, ratio?: string, seconds?: number, resolution?: string, label?: string, refs?: Array<{ assetId?: number, url: string, name?: string }> }, opts?: { onTask?: (taskId: number) => void, onDone?: (report: { ok: boolean, nodeId?: string, url?: string, error?: string }) => void }]
   placeVideos: [shots?: string[]]
   composeBrief: [opts?: BriefComposeOpts]
   pickAsset: [autoUpload: boolean]
@@ -571,6 +578,16 @@ function autoChatModel(attachments: ChatAttachment[] = []) {
   return priced[0]?.model || textModels.value[0]?.model || chatModel.value
 }
 
+/** 对话必须走文本模型：自由创作里选了图/视频模型时，不能把图片模型拿去跑对话 */
+function dialogueTextModel(attachments: ChatAttachment[] = []) {
+  if (agentAutoModel.value)
+    return autoChatModel(attachments)
+  const hit = models.value.find(item => item.model === chatModel.value)
+  if (hit?.type === 'text' && chatModel.value)
+    return chatModel.value
+  return autoChatModel(attachments)
+}
+
 // ---- 风格：名字和封面留在底栏按钮上，提示词片段发送时拼在最前面 ----
 const styleKey = computed(() => `easytv-chat-style-${props.entry ? 'entry' : (props.canvasId || 'draft')}`)
 const activeStyleName = ref('')
@@ -805,6 +822,33 @@ let runId = 0
 /** 这一轮已经创建出来的任务。停止时用它取消，不能用消息上可能还留着的上一轮 taskId */
 let runTaskId = 0
 let runAgent = false
+const pendingChatRefs = new Map<number, NonNullable<ChatMediaConfirmCard['refs']>>()
+const CHAT_MEDIA_RATIOS = ['1:1', '16:9', '9:16', '4:3', '3:4', '3:2', '2:3', '21:9']
+
+function chatMediaTypeOptions() {
+  return [
+    { value: 'image', label: t('canvas.chat.media.kindImage') },
+    { value: 'video', label: t('canvas.chat.media.kindVideo') },
+    { value: 'audio', label: t('canvas.chat.media.kindAudio') },
+  ]
+}
+
+function chatMediaModelOptions(kind: ChatFreeMediaKind) {
+  const rows = briefCatalog(kind)
+  if (!rows.length)
+    return [{ value: '', label: t('加载中…'), disabled: true }]
+  return rows.map(row => ({
+    value: row.model,
+    label: `${shortModelName(row)} · ${priceHint(row)}`,
+  }))
+}
+
+function chatMediaRatioOptions(current = '') {
+  const extra = current && !CHAT_MEDIA_RATIOS.includes(current)
+    ? [{ value: current, label: current }]
+    : []
+  return [...extra, ...CHAT_MEDIA_RATIOS.map(ratio => ({ value: ratio, label: ratio }))]
+}
 /** 本机临时 id（s…）换成服务端 id 之后，还在排队的保存沿用新 id */
 const localToServer = new Map<string, string>()
 let chatQueue: Promise<void> = Promise.resolve()
@@ -1544,20 +1588,21 @@ function finishReply(msg: ChatMsg, text: string, error = false, insert = !error)
   runTaskId = 0
   msg.pending = false
   msg.error = error
-  msg.text = text
+  const visible = stripChatGenerateAction(text) || text
+  msg.text = visible
   busy.value = false
   persistSession()
   scrollToEnd()
   // 每次发送结束都刷新次数：账在服务端，前端不自己减
   void loadQuota()
-  if (!error && looksLikeComposeReport(text)) {
+  if (!error && looksLikeComposeReport(visible)) {
     msg.text = t('canvas.chat.brief.composeStarted')
     persistSession()
     void fulfillComposeFromChat(msg)
     return
   }
-  if (insert && settings.value.insertReply && text)
-    emit('insertText', text, t('canvas.chat.msg.replyLabel'))
+  if (insert && settings.value.insertReply && visible && msg.card?.kind !== 'media-confirm')
+    emit('insertText', visible, t('canvas.chat.msg.replyLabel'))
 }
 
 /** 发送失败：次数用完走 i18n，其它失败写进气泡（配额由 finishReply 统一刷新） */
@@ -1577,7 +1622,7 @@ async function ask(value: string, reply: ChatMsg, attachments: ChatAttachment[] 
     .map(item => ({ asset_id: item.assetId!, role: item.kind }))
   const res = await taskApi.create({
     type: 'text',
-    model: agentAutoModel.value ? autoChatModel(attachments) : chatModel.value,
+    model: dialogueTextModel(attachments),
     prompt: value,
     inputs: inputs.length ? inputs : undefined,
     canvas_id: props.canvasId || undefined,
@@ -1607,7 +1652,7 @@ async function ask(value: string, reply: ChatMsg, attachments: ChatAttachment[] 
       return
     stopPolling()
     if (task.status === 'succeeded')
-      finishReply(reply, task.result_text || t('canvas.chat.msg.empty'))
+      settleDialogueReply(reply, task.result_text || t('canvas.chat.msg.empty'), id)
     else if (task.status === 'cancelled')
       finishReply(reply, t('canvas.chat.msg.stopped'), false, false)
     else
@@ -1627,12 +1672,18 @@ function activeReply() {
 function markStopped(reply: ChatMsg | null) {
   if (!reply) {
     busy.value = false
+    const last = [...messages.value].reverse().find(row => row.card?.kind === 'media-confirm' && row.card.locked && !row.card.skipped)
+    if (last?.card?.kind === 'media-confirm')
+      last.card.locked = false
+    persistSession()
     return
   }
   if (reply.pending) {
     finishReply(reply, t('canvas.chat.msg.stopped'), false, false)
     return
   }
+  if (reply.card?.kind === 'media-confirm')
+    reply.card.locked = false
   if (reply.planState === 'applying')
     reply.planState = 'ready'
   busy.value = false
@@ -2142,6 +2193,9 @@ watch(models, () => {
     }
     else if (card.kind === 'video') {
       seedBriefModels(card)
+    }
+    else if (card.kind === 'media-confirm') {
+      seedChatMediaCard(card)
     }
   }
 })
@@ -2720,9 +2774,241 @@ async function confirmBriefDoc(item: ChatMsg) {
   scrollToEnd()
 }
 
-/** 短句带上文走普通文本任务。长剧本不走这里 */
+function modelForFreeMedia(kind: ChatFreeMediaKind, wanted = '') {
+  if (wanted && models.value.some(item => item.model === wanted && item.type === kind))
+    return wanted
+  if (!agentAutoModel.value && displayModel.value?.type === kind)
+    return displayModel.value.model
+  const last = { ...readCanvasLastModels(), ...lastModelByType.value }
+  return defaultBriefModel(models.value, kind, last[kind], isMember.value)
+}
+
+function dialogueToolHint() {
+  const picked = !agentAutoModel.value ? displayModel.value : null
+  return chatGenerateInstruction({
+    imageModel: picked?.type === 'image' ? picked.model : '',
+    videoModel: picked?.type === 'video' ? picked.model : '',
+    audioModel: picked?.type === 'audio' ? picked.model : '',
+    ratio: showRatio.value ? genRatio.value : '',
+    seconds: picked?.type === 'video' ? genSeconds.value : undefined,
+    resolution: picked && picked.type !== 'text' ? (genResolution.value || '') : '',
+  })
+}
+
+function chatMediaRefsOf(list: ChatAttachment[] = []) {
+  return list
+    .filter(item => String(item.url || '').trim() && !item.pending)
+    .map(item => ({
+      assetId: item.assetId,
+      url: String(item.url || '').trim(),
+      name: item.name,
+    }))
+}
+
+function seedChatMediaCard(card: ChatMediaConfirmCard) {
+  const model = modelForFreeMedia(card.mediaType, card.model)
+  if (model && model !== card.model)
+    card.model = model
+  card.points = quoteChatMediaPoints(card)
+  return card
+}
+
+function quoteChatMediaPoints(card: ChatMediaConfirmCard) {
+  const row = models.value.find(item => item.model === card.model && item.type === card.mediaType)
+  if (!row?.priced)
+    return 0
+  const unit = String(row.unit || '')
+  const duration = unit === 'second' ? estimateSecondDuration(card.seconds || genSeconds.value || 5) : 0
+  return estimateTaskPoints(effectiveUnitPrice(row, isMember.value), unit, 1, duration)
+}
+
+function mediaKindLabel(kind: ChatFreeMediaKind) {
+  if (kind === 'video')
+    return t('canvas.chat.media.kindVideo')
+  if (kind === 'audio')
+    return t('canvas.chat.media.kindAudio')
+  return t('canvas.chat.media.kindImage')
+}
+
+function settleDialogueReply(reply: ChatMsg, raw: string, id: number) {
+  const action = parseChatGenerateAction(raw)
+  const visible = stripChatGenerateAction(raw) || raw
+  const refs = pendingChatRefs.get(reply.id) || []
+  pendingChatRefs.delete(reply.id)
+  if (!action) {
+    finishReply(reply, visible)
+    return
+  }
+  const card: ChatMediaConfirmCard = seedChatMediaCard({
+    kind: 'media-confirm',
+    locked: false,
+    mediaType: action.type,
+    prompt: action.prompt,
+    model: modelForFreeMedia(action.type, action.model),
+    ratio: action.ratio || (showRatio.value ? genRatio.value : (action.type === 'image' ? '1:1' : '16:9')),
+    seconds: action.type === 'video' ? (action.seconds || genSeconds.value || 5) : undefined,
+    resolution: genResolution.value || undefined,
+    refs: refs.length ? refs : undefined,
+  })
+  reply.pending = false
+  reply.error = false
+  reply.text = visible
+  reply.card = card
+  busy.value = false
+  persistSession()
+  scrollToEnd()
+  void loadQuota()
+  if (!runAlive(id))
+    return
+}
+
+function skipOpenMediaConfirms() {
+  for (const row of messages.value) {
+    const card = row.card
+    if (card?.kind !== 'media-confirm' || card.locked)
+      continue
+    card.locked = true
+    card.skipped = true
+  }
+}
+
+function onChatMediaTypePick(card: ChatMediaConfirmCard, value: string | number) {
+  const type = String(value || '').trim()
+  if (type !== 'image' && type !== 'video' && type !== 'audio')
+    return
+  card.mediaType = type
+  card.model = modelForFreeMedia(type)
+  card.ratio = card.ratio || (type === 'image' ? '1:1' : '16:9')
+  card.seconds = type === 'video' ? (card.seconds || genSeconds.value || 5) : undefined
+  seedChatMediaCard(card)
+  persistSession()
+}
+
+function onChatMediaModelPick(card: ChatMediaConfirmCard, value: string | number) {
+  const id = String(value || '').trim()
+  card.model = id
+  if (id) {
+    writeCanvasLastModel(card.mediaType, id)
+    lastModelByType.value = { ...readCanvasLastModels(), [card.mediaType]: id }
+  }
+  seedChatMediaCard(card)
+  persistSession()
+}
+
+function onChatMediaRatioPick(card: ChatMediaConfirmCard, value: string | number) {
+  card.ratio = String(value || '').trim() || undefined
+  seedChatMediaCard(card)
+  persistSession()
+}
+
+function onChatMediaField(card: ChatMediaConfirmCard, key: 'prompt' | 'seconds', event: Event) {
+  const raw = String((event.target as HTMLInputElement).value || '')
+  if (key === 'prompt')
+    card.prompt = raw
+  else {
+    const n = Math.round(Number(raw))
+    card.seconds = Number.isFinite(n) && n > 0 ? Math.min(15, Math.max(1, n)) : 5
+  }
+  seedChatMediaCard(card)
+  persistSession()
+}
+
+function skipChatMedia(item: ChatMsg) {
+  const card = item.card
+  if (!card || card.kind !== 'media-confirm' || card.locked || busy.value)
+    return
+  card.locked = true
+  card.skipped = true
+  persistSession()
+  messages.value.push({ id: ++seq, role: 'assistant', text: t('canvas.chat.media.skipped') })
+  persistSession()
+  scrollToEnd()
+}
+
+async function confirmChatMedia(item: ChatMsg) {
+  const card = item.card
+  if (!card || card.kind !== 'media-confirm' || card.locked || busy.value)
+    return
+  const prompt = String(card.prompt || '').trim()
+  if (!prompt) {
+    notify(t('canvas.chat.media.needPrompt'), 'error')
+    return
+  }
+  seedChatMediaCard(card)
+  if (!card.model) {
+    notify(t('canvas.chat.media.needModel'), 'error')
+    return
+  }
+  item.error = false
+  card.locked = true
+  persistSession()
+  runFreeMedia(card, item, nextRun())
+}
+
+function mediaRunningText(kind: ChatFreeMediaKind) {
+  if (kind === 'video')
+    return t('canvas.chat.media.runningVideo')
+  if (kind === 'audio')
+    return t('canvas.chat.media.runningAudio')
+  return t('canvas.chat.media.runningImage')
+}
+
+function mediaPlacedText(kind: ChatFreeMediaKind) {
+  if (kind === 'video')
+    return t('canvas.chat.media.placedVideo')
+  if (kind === 'audio')
+    return t('canvas.chat.media.placedAudio')
+  return t('canvas.chat.media.placedImage')
+}
+
+function runFreeMedia(card: ChatMediaConfirmCard, reply: ChatMsg, id: number) {
+  const kind = card.mediaType
+  const prompt = String(card.prompt || '').trim()
+  const model = modelForFreeMedia(kind, card.model)
+  if (!model) {
+    card.locked = false
+    failReply(reply, t('canvas.chat.media.needModel'))
+    return
+  }
+  runAgent = false
+  busy.value = true
+  stopping.value = false
+  const thinking = stripChatGenerateAction(String(reply.text || '')).trim()
+  reply.text = thinking ? `${thinking}\n\n${mediaRunningText(kind)}` : mediaRunningText(kind)
+  persistSession()
+  const body = (styleRequestPrefix() + prompt).trim()
+  emit('generateMedia', {
+    kind,
+    prompt: body,
+    model,
+    ratio: card.ratio || (kind === 'image' ? '1:1' : '16:9'),
+    seconds: kind === 'video' ? (card.seconds || genSeconds.value || 5) : undefined,
+    resolution: card.resolution || genResolution.value || undefined,
+    label: thinking.slice(0, 24) || prompt.slice(0, 24),
+    refs: card.refs,
+  }, {
+    onTask: (taskId) => {
+      if (runAlive(id))
+        runTaskId = taskId
+    },
+    onDone: (report) => {
+      if (!runAlive(id))
+        return
+      if (!report.ok) {
+        card.locked = false
+        failReply(reply, report.error || t('生成失败'))
+        return
+      }
+      reply.thumb = report.url
+      finishReply(reply, thinking ? `${thinking}\n\n${mediaPlacedText(kind)}` : mediaPlacedText(kind), false, false)
+    },
+  })
+}
+
+/** 短句带上文走普通文本任务。长剧本不走这里。出片由对话模型在回复里给出 GENERATE 动作后再执行 */
 function dispatchChat(value: string, reply: ChatMsg, attachments: ChatAttachment[] = [], id = runId) {
-  const hinted = styleRequestPrefix() + value + generationHint()
+  pendingChatRefs.set(reply.id, chatMediaRefsOf(attachments))
+  const hinted = styleRequestPrefix() + value + dialogueToolHint()
   runAgent = false
   busy.value = true
   stopping.value = false
@@ -2774,6 +3060,7 @@ function send(text?: string) {
     notify(t('canvas.chat.msg.quota'))
     return
   }
+  skipOpenMediaConfirms()
   const attachText = attachmentSummary(attachments.value)
   const value = (attachText ? `${attachText}\n` : '') + raw
   messages.value.push({ id: ++seq, role: 'user', text: value })
@@ -3274,7 +3561,7 @@ function promoOf(item: GenerationModel) {
               {{ t('canvas.chat.msg.thinking') }}
             </template>
             <template v-else>
-              <div v-if="item.thumb && item.role === 'user'" class="canvas-chat__pick">
+              <div v-if="item.thumb && !item.pending" class="canvas-chat__pick">
                 <img :src="resolveMediaUrl(item.thumb)" alt="">
                 <span>{{ withoutStylePrefix(item.text) }}</span>
               </div>
@@ -3483,6 +3770,93 @@ function promoOf(item: GenerationModel) {
               >
                 {{ t('canvas.chat.brief.next') }}
               </button>
+            </div>
+            <div v-else-if="item.card?.kind === 'media-confirm'" class="canvas-brief canvas-brief--media-confirm">
+              <p class="canvas-brief__ask">{{ t('canvas.chat.media.confirmTitle') }}</p>
+              <p v-if="!item.card.locked" class="canvas-brief__model-hint">{{ t('canvas.chat.media.confirmHint') }}</p>
+              <div v-if="item.card.refs?.length" class="canvas-brief__refs">
+                <img
+                  v-for="(ref, ri) in item.card.refs"
+                  :key="`${ref.url}-${ri}`"
+                  :src="resolveMediaUrl(ref.url)"
+                  :alt="ref.name || ''"
+                >
+              </div>
+              <template v-if="item.card.locked">
+                <p class="canvas-brief__pick">{{ mediaKindLabel(item.card.mediaType) }} · {{ item.card.model }}</p>
+                <p v-if="item.card.skipped" class="canvas-brief__note">{{ t('canvas.chat.media.skipped') }}</p>
+                <p v-else-if="item.card.points" class="canvas-brief__note">{{ t('canvas.chat.brief.countPoints', { n: item.card.points }) }}</p>
+              </template>
+              <div v-else class="canvas-brief__models">
+                <label class="canvas-brief__model">
+                  <span>{{ t('canvas.chat.media.type') }}</span>
+                  <StudioSelect
+                    :model-value="item.card.mediaType"
+                    :options="chatMediaTypeOptions()"
+                    :sr-label="t('canvas.chat.media.type')"
+                    :disabled="busy"
+                    size="compact"
+                    @update:model-value="onChatMediaTypePick(item.card, $event)"
+                  />
+                </label>
+                <label class="canvas-brief__model">
+                  <span>{{ item.card.mediaType === 'video' ? t('canvas.chat.brief.pickVideoModel') : item.card.mediaType === 'audio' ? t('canvas.chat.brief.pickAudioModel') : t('canvas.chat.brief.pickImageModel') }}</span>
+                  <StudioSelect
+                    :model-value="item.card.model || ''"
+                    :options="chatMediaModelOptions(item.card.mediaType)"
+                    :sr-label="item.card.mediaType === 'video' ? t('canvas.chat.brief.pickVideoModel') : item.card.mediaType === 'audio' ? t('canvas.chat.brief.pickAudioModel') : t('canvas.chat.brief.pickImageModel')"
+                    :disabled="busy || !briefCatalog(item.card.mediaType).length"
+                    size="compact"
+                    @update:model-value="onChatMediaModelPick(item.card, $event)"
+                  />
+                </label>
+                <label v-if="item.card.mediaType !== 'audio'" class="canvas-brief__model">
+                  <span>{{ t('canvas.chat.media.ratio') }}</span>
+                  <StudioSelect
+                    :model-value="item.card.ratio || ''"
+                    :options="chatMediaRatioOptions(item.card.ratio)"
+                    :sr-label="t('canvas.chat.media.ratio')"
+                    :disabled="busy"
+                    size="compact"
+                    @update:model-value="onChatMediaRatioPick(item.card, $event)"
+                  />
+                </label>
+                <label v-if="item.card.mediaType === 'video'" class="canvas-brief__model">
+                  <span>{{ t('canvas.chat.media.seconds') }}</span>
+                  <input
+                    type="number"
+                    min="1"
+                    max="15"
+                    :value="item.card.seconds || 5"
+                    :disabled="busy"
+                    @change="onChatMediaField(item.card, 'seconds', $event)"
+                  >
+                </label>
+                <label class="canvas-brief__model">
+                  <span>{{ t('canvas.chat.media.prompt') }}</span>
+                  <textarea
+                    class="canvas-brief__note-box"
+                    rows="3"
+                    :value="item.card.prompt"
+                    :disabled="busy"
+                    @input="onChatMediaField(item.card, 'prompt', $event)"
+                  />
+                </label>
+                <p v-if="item.card.points" class="canvas-brief__quote">{{ t('canvas.chat.brief.countPoints', { n: item.card.points }) }}</p>
+                <div class="canvas-brief__ops">
+                  <button type="button" class="canvas-brief__skip" :disabled="busy" @click="skipChatMedia(item)">
+                    {{ t('canvas.chat.media.skip') }}
+                  </button>
+                  <button
+                    type="button"
+                    class="canvas-crew__go"
+                    :disabled="busy || !item.card.model || !item.card.prompt.trim()"
+                    @click="confirmChatMedia(item)"
+                  >
+                    {{ t('canvas.chat.media.generate') }}
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
           <div v-if="!item.pending && (item.card as any)?.kind !== 'invite'" class="canvas-chat__msg-actions">

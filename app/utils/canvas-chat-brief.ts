@@ -103,7 +103,22 @@ export type BriefVideoCard = {
   models?: BriefMediaModels
 }
 
-export type BriefCard = BriefAskCard | BriefDocCard | BriefVoiceCard | BriefGenerateCard | BriefVideoCard
+/** 对话模型构思之后、真正出片之前的确认卡 */
+export type ChatMediaConfirmCard = {
+  kind: 'media-confirm'
+  locked: boolean
+  mediaType: ChatFreeMediaKind
+  prompt: string
+  model: string
+  ratio?: string
+  seconds?: number
+  resolution?: string
+  points?: number
+  skipped?: boolean
+  refs?: Array<{ assetId?: number, url: string, name?: string }>
+}
+
+export type BriefCard = BriefAskCard | BriefDocCard | BriefVoiceCard | BriefGenerateCard | BriefVideoCard | ChatMediaConfirmCard
 
 export type BriefMediaGroup = 'character' | 'scene' | 'prop' | 'shot' | 'voice' | 'video'
 
@@ -284,6 +299,175 @@ export function shouldOpenBrief(text: string) {
   if (/剧本|故事|人物|主角|第一集|体量|金手指|场次/.test(raw) && raw.length >= 12)
     return true
   return raw.length >= 180
+}
+
+export type ChatFreeMediaKind = 'image' | 'video' | 'audio'
+
+/** 对话里点名要出一条媒体，而不是写剧本 / 改提示词 */
+export function chatWantsStillImage(text: string) {
+  const raw = String(text || '').trim()
+  if (!raw)
+    return false
+  if (/视频|成片|分镜|剧本|配音|音色|配乐|BGM|提示词/.test(raw))
+    return false
+  return /(生成|画|出|做).{0,12}(图|头像|海报|封面|立绘|设定图|女头|男头)|一[张幅].{0,8}(图|头像|海报|封面|立绘)|帮我画/.test(raw)
+}
+
+export function chatWantsVideo(text: string) {
+  const raw = String(text || '').trim()
+  if (!raw || /剧本|分镜|合成/.test(raw))
+    return false
+  return /(生成|做|出).{0,12}视频|一段.{0,8}视频/.test(raw)
+}
+
+export function chatWantsAudio(text: string) {
+  const raw = String(text || '').trim()
+  if (!raw)
+    return false
+  return /(生成|做|出).{0,8}(配音|音色|配乐|BGM|音频)/.test(raw)
+}
+
+/**
+ * 自由创作选了图/视频/音频模型时，发送即出片。
+ * Agent / 文本模型只在用户明显要单张图、一条视频或一段音频时才出片。
+ */
+export function chatFreeMediaKind(text: string, selected?: string | null): ChatFreeMediaKind | null {
+  const type = String(selected || '').trim()
+  if (type === 'image' || type === 'video' || type === 'audio')
+    return type
+  if (chatWantsVideo(text))
+    return 'video'
+  if (chatWantsAudio(text))
+    return 'audio'
+  if (chatWantsStillImage(text))
+    return 'image'
+  return null
+}
+
+export type ChatGenerateAction = {
+  type: ChatFreeMediaKind
+  prompt: string
+  ratio?: string
+  seconds?: number
+  model?: string
+}
+
+const GENERATE_MARK = /(?:<<<\s*)?GENERATE\s*\{/i
+const CHAT_MEDIA_MAX_SECONDS = 15
+
+function generateMarkIndex(raw: string) {
+  const hit = String(raw || '').search(GENERATE_MARK)
+  return hit < 0 ? -1 : hit
+}
+
+function extractBalancedObject(raw: string, from: number) {
+  const start = raw.indexOf('{', from)
+  if (start < 0)
+    return ''
+  let depth = 0
+  let quote = ''
+  for (let i = start; i < raw.length; i++) {
+    const ch = raw[i]!
+    if (quote) {
+      if (ch === '\\') {
+        i++
+        continue
+      }
+      if (ch === quote)
+        quote = ''
+      continue
+    }
+    if (ch === '"' || ch === '\'') {
+      quote = ch
+      continue
+    }
+    if (ch === '{')
+      depth++
+    else if (ch === '}')
+      depth--
+    if (depth === 0)
+      return raw.slice(start, i + 1)
+  }
+  return ''
+}
+
+/** 对话模型决定出片时写在回复末尾的动作；没有这一行就只展示文本 */
+export function parseChatGenerateAction(text: string): ChatGenerateAction | null {
+  const raw = String(text || '')
+  const mark = generateMarkIndex(raw)
+  if (mark < 0)
+    return null
+  const json = extractBalancedObject(raw, mark)
+  if (!json)
+    return null
+  try {
+    const obj = JSON.parse(json) as Record<string, unknown>
+    const type = String(obj.type || '').trim()
+    if (type !== 'image' && type !== 'video' && type !== 'audio')
+      return null
+    const prompt = String(obj.prompt || '').trim()
+    if (!prompt)
+      return null
+    const seconds = Math.round(Number(obj.seconds))
+    return {
+      type,
+      prompt,
+      ratio: String(obj.ratio || '').trim() || undefined,
+      seconds: type === 'video' && Number.isFinite(seconds) && seconds > 0
+        ? Math.min(CHAT_MEDIA_MAX_SECONDS, Math.max(1, seconds))
+        : undefined,
+      model: String(obj.model || '').trim() || undefined,
+    }
+  }
+  catch {
+    return null
+  }
+}
+
+export function stripChatGenerateAction(text: string) {
+  const raw = String(text || '')
+  const mark = generateMarkIndex(raw)
+  if (mark < 0)
+    return raw.trim()
+  const json = extractBalancedObject(raw, mark)
+  let end = json ? raw.indexOf(json, mark) + json.length : -1
+  if (end >= 0 && raw.slice(end, end + 3) === '>>>')
+    end += 3
+  if (end < 0) {
+    const close = raw.indexOf('>>>', mark)
+    end = close < 0 ? raw.length : close + 3
+  }
+  return `${raw.slice(0, mark)}${raw.slice(end)}`.replace(/\n{3,}/g, '\n\n').trim()
+}
+
+/** 发给对话模型的出片约定（不进用户气泡） */
+export function chatGenerateInstruction(opts?: {
+  imageModel?: string
+  videoModel?: string
+  audioModel?: string
+  ratio?: string
+  seconds?: number
+  resolution?: string
+}) {
+  const lines = [
+    '你在 EasyTV 画布的对话助手里。用户要出图、出视频或出音频时，由你构思提示词；平台会按你给的提示词真正生成。不要说当前对话不能生成图片或视频，也不要让用户去复制提示词自己出图。',
+    '普通问答、改文案、看剧本只写回复，不要输出 GENERATE。只有用户明确要求现在生成时，先用中文写几句想法（构图、风格、画幅），再在回复末尾单独一行输出：',
+    '<<<GENERATE{"type":"image","prompt":"完整出图提示词","ratio":"16:9"}>>>',
+    'type 只能是 image、video 或 audio。用户没说视频时不要用 video，没说配音/配乐时不要用 audio。prompt 必须是可直接交给生成模型的完整提示词。不要填写 model，平台会让用户确认模型和积分后再出片。不要把 GENERATE 写进正文，也不要声称已经生成完成。',
+  ]
+  if (opts?.imageModel)
+    lines.push(`出图使用模型 ${opts.imageModel}。`)
+  if (opts?.videoModel)
+    lines.push(`出视频使用模型 ${opts.videoModel}。`)
+  if (opts?.audioModel)
+    lines.push(`出音频使用模型 ${opts.audioModel}。`)
+  if (opts?.ratio)
+    lines.push(`默认比例 ${opts.ratio}。`)
+  if (opts?.seconds)
+    lines.push(`默认时长 ${opts.seconds} 秒。`)
+  if (opts?.resolution)
+    lines.push(`默认分辨率 ${opts.resolution}。`)
+  return `\n[${lines.join('')}]`
 }
 
 export function briefAskPrompt(script: string) {
@@ -734,6 +918,8 @@ const BRIEF_HISTORY: Record<string, string> = {
   'canvas.chat.brief.history.composeWait': '等待确认是否合成',
   'canvas.chat.brief.history.composeDone': '已确认是否合成',
   'canvas.chat.brief.history.board': '分镜',
+  'canvas.chat.media.historyWait': '等待确认是否出片',
+  'canvas.chat.media.historyDone': '已确认是否出片',
 }
 
 export function briefHistoryKey(card: BriefCard) {
@@ -751,6 +937,8 @@ export function briefHistoryKey(card: BriefCard) {
     return card.locked ? 'canvas.chat.brief.history.videoDone' : 'canvas.chat.brief.history.videoWait'
   if (card.kind === 'compose')
     return card.locked ? 'canvas.chat.brief.history.composeDone' : 'canvas.chat.brief.history.composeWait'
+  if (card.kind === 'media-confirm')
+    return card.locked ? 'canvas.chat.media.historyDone' : 'canvas.chat.media.historyWait'
   return 'canvas.chat.brief.history.board'
 }
 
