@@ -11,8 +11,8 @@ export type MergeVideoProgress = {
   progress: number
   index?: number
   total?: number
-  /** 同一套进度条：拼接、裁剪、分割、分离、去停顿、配乐文案不同 */
-  job?: 'merge' | 'trim' | 'split' | 'split-av' | 'silence' | 'mix'
+  /** 同一套进度条：拼接、裁剪、分割、分离、去停顿、配乐、画面裁切、抽帧文案不同 */
+  job?: 'merge' | 'trim' | 'split' | 'split-av' | 'silence' | 'mix' | 'crop' | 'frames'
 }
 
 export type MergeVideoClip = {
@@ -235,6 +235,33 @@ export function muteVideoCopyArgs(input: string, output: string) {
 
 export function muteVideoReencodeArgs(input: string, output: string) {
   return ['-i', input, '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '20', '-an', '-movflags', '+faststart', output]
+}
+
+export type VideoCropRect = { x: number, y: number, w: number, h: number }
+
+/** 归一化裁切框夹到 0~1，宽高至少留 2%。 */
+export function clampCropRect(rect: VideoCropRect): VideoCropRect {
+  const x = Math.min(0.98, Math.max(0, Number(rect.x) || 0))
+  const y = Math.min(0.98, Math.max(0, Number(rect.y) || 0))
+  const w = Math.min(1 - x, Math.max(0.02, Number(rect.w) || 0))
+  const h = Math.min(1 - y, Math.max(0.02, Number(rect.h) || 0))
+  return { x, y, w, h }
+}
+
+/** 偶数宽高的 crop 滤镜，h264 420 不接受奇数。 */
+export function videoCropFilter(rect: VideoCropRect) {
+  const box = clampCropRect(rect)
+  return `crop=trunc(iw*${box.w.toFixed(6)}/2)*2:trunc(ih*${box.h.toFixed(6)}/2)*2:trunc(iw*${box.x.toFixed(6)}/2)*2:trunc(ih*${box.y.toFixed(6)}/2)*2`
+}
+
+export function videoCropArgs(input: string, output: string, filter: string, withAudio: boolean) {
+  const args = ['-i', input, '-vf', filter, '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '20']
+  if (withAudio)
+    args.push('-c:a', 'aac', '-b:a', '192k')
+  else
+    args.push('-an')
+  args.push('-movflags', '+faststart', output)
+  return args
 }
 
 export const MIX_BGM_VOLUME_DEFAULT = 0.2

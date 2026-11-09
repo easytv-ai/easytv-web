@@ -15,7 +15,7 @@ const props = withDefaults(defineProps<{
 
 const emit = defineEmits<{
   'update:params': [value: NonNullable<CanvasNodeData['frameParams']>]
-  /** 提交媒体作业 storyboard：params={count, analyze} */
+  /** 浏览器抽帧；开启解读时走现有视觉模型 */
   submit: [payload: { count: number, analyze: boolean }]
 }>()
 

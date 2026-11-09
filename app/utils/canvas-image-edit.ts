@@ -84,6 +84,17 @@ const REVERSE_LANG: Record<string, string> = {
 }
 
 /** 反推提示词的指令：中文界面（含繁体）出中文，其他语言按界面语言出 */
+/** 逐帧拉片解读：按图序写每一帧在干什么。视觉模型一次最多带前 4 张。 */
+export function framePullInstruction(locale?: string, count = 4) {
+  const n = Math.max(1, Math.min(4, Math.floor(count) || 4))
+  const base = `你在做逐帧拉片。下面按时间顺序给出同一段视频抽出的 ${n} 张画面。请按图序写每一帧：主体、动作、场景、镜头/景别。用编号列表，每条一行，不要前言后记。`
+  const code = (locale || '').toLowerCase()
+  if (code === 'zh-tw')
+    return `${base}用繁体中文。`
+  const lang = REVERSE_LANG[code.split('-')[0] || '']
+  return lang ? `${base}Write in ${lang}.` : base
+}
+
 export function promptReverseInstruction(locale?: string) {
   const base = '仔细观察这张图片，写一段能直接用于 AI 图片生成、尽量还原这张图的提示词：依次写主体与外观细节、动作姿态、场景环境、构图景别与机位、光线、色调和画面风格。只输出提示词本身，不要标题、解释、编号或引号。'
   const code = (locale || '').toLowerCase()

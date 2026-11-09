@@ -61,6 +61,9 @@ describe('mediaActionState', () => {
     expect(MEDIA_BAR_ACTIONS['remove-silence']).toBeUndefined()
     expect(MEDIA_BAR_ACTIONS['add-bgm']).toBeUndefined()
     expect(MEDIA_BAR_ACTIONS['capture-frame']).toBeUndefined()
+    expect(MEDIA_BAR_ACTIONS['frame-crop']).toBeUndefined()
+    expect(MEDIA_BAR_ACTIONS['extract-frames']).toBeUndefined()
+    expect(MEDIA_BAR_ACTIONS['frame-by-frame']).toBeUndefined()
     expect(MEDIA_BAR_ACTIONS['grid-split']).toBe('grid_split')
     expect(MEDIA_BAR_ACTIONS['smart-extend']).toBe('extend')
     expect(mediaBarItemState(actions, 'depth').available).toBe(false)
@@ -82,6 +85,9 @@ describe('mediaActionState', () => {
     expect(mediaBarItemState(noFfmpeg, 'remove-silence')).toEqual({ available: true, reason: '', known: false })
     expect(mediaBarItemState(noFfmpeg, 'add-bgm')).toEqual({ available: true, reason: '', known: false })
     expect(mediaBarItemState(noFfmpeg, 'capture-frame')).toEqual({ available: true, reason: '', known: false })
+    expect(mediaBarItemState(noFfmpeg, 'frame-crop')).toEqual({ available: true, reason: '', known: false })
+    expect(mediaBarItemState(noFfmpeg, 'extract-frames')).toEqual({ available: true, reason: '', known: false })
+    expect(mediaBarItemState(noFfmpeg, 'frame-by-frame')).toEqual({ available: true, reason: '', known: false })
   })
 
   it('独立接口：清单里没有这条就放行，有就听清单', () => {

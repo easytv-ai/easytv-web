@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { imageOpCss, imageOpsSwapped, isSameOriginMediaUrl, outpaintFrameSize, outpaintPrompt, parseUpscaleAction, promptReverseInstruction, promptReverseVideoInstruction, upscaleClarity, upscalePrompt, upscaleRatio, upscaleTierSize } from './canvas-image-edit'
+import { framePullInstruction, imageOpCss, imageOpsSwapped, isSameOriginMediaUrl, outpaintFrameSize, outpaintPrompt, parseUpscaleAction, promptReverseInstruction, promptReverseVideoInstruction, upscaleClarity, upscalePrompt, upscaleRatio, upscaleTierSize } from './canvas-image-edit'
 
 describe('isSameOriginMediaUrl', () => {
   const origin = 'https://www.easytv.ai'
@@ -56,6 +56,15 @@ describe('outpaintFrameSize', () => {
 describe('outpaintPrompt', () => {
   it('带上所选比例', () => {
     expect(outpaintPrompt('16:9')).toContain('16:9')
+  })
+})
+
+describe('framePullInstruction', () => {
+  it('按图序解读，繁体和其他语言带输出语种', () => {
+    expect(framePullInstruction('zh', 6)).toMatch(/逐帧拉片/)
+    expect(framePullInstruction('zh', 6)).toMatch(/4 张/)
+    expect(framePullInstruction('zh-TW')).toMatch(/繁体中文/)
+    expect(framePullInstruction('en')).toMatch(/Write in English/)
   })
 })
 

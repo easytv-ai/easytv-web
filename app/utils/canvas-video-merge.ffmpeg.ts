@@ -30,7 +30,10 @@ import {
   SILENCE_MAX_SEGMENTS,
   trimCopyArgs,
   trimVideoArgs,
+  videoCropArgs,
+  videoCropFilter,
   type MergeVideoProgress,
+  type VideoCropRect,
 } from '~/utils/canvas-video-merge'
 
 type FfmpegHandle = {
@@ -574,6 +577,37 @@ export async function mixBgmBlobs(
   }
   finally {
     await Promise.all([videoIn, audioIn, output].map(file => ffmpeg.deleteFile(file).catch(() => undefined)))
+  }
+}
+
+/** 按归一化框裁画面，优先保留音轨。 */
+export async function cropVideoBlob(
+  url: string,
+  rect: VideoCropRect,
+  onProgress?: (progress: MergeVideoProgress) => void,
+) {
+  if (!import.meta.client)
+    throw new MergeVideoError('browser')
+  const report = (progress: MergeVideoProgress) => onProgress?.({ ...progress, job: 'crop' })
+  const ffmpeg = await loadFfmpeg(report)
+  const input = 'crop-in.mp4'
+  const output = 'crop-out.mp4'
+  const filter = videoCropFilter(rect)
+  try {
+    report({ phase: 'reading', progress: 12 })
+    await writeSource(ffmpeg, url, input)
+    report({ phase: 'encoding', progress: 40 })
+    let code = await ffmpeg.exec(videoCropArgs(input, output, filter, true))
+    if (code !== 0) {
+      await ffmpeg.deleteFile(output).catch(() => undefined)
+      code = await ffmpeg.exec(videoCropArgs(input, output, filter, false))
+    }
+    if (code !== 0)
+      throw new MergeVideoError('encode')
+    return await outputBlob(ffmpeg, output)
+  }
+  finally {
+    await Promise.all([input, output].map(file => ffmpeg.deleteFile(file).catch(() => undefined)))
   }
 }
 

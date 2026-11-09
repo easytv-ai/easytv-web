@@ -30,6 +30,9 @@ import {
   MIX_BGM_VOLUME_DEFAULT,
   silenceDetectArgs,
   isWholeClipSilence,
+  clampCropRect,
+  videoCropFilter,
+  videoCropArgs,
 } from './canvas-video-merge'
 
 describe('mergeVideoOrder', () => {
@@ -260,5 +263,16 @@ describe('去停顿区间', () => {
     expect(isWholeClipSilence([{ start: 0, end: 8 }], 8)).toBe(true)
     expect(isWholeClipSilence([{ start: 1.25, end: 2.75 }], 8)).toBe(false)
     expect(isWholeClipSilence([{ start: 0, end: 8 }, { start: 9, end: 10 }], 10)).toBe(false)
+  })
+})
+
+describe('画面裁切滤镜', () => {
+  it('归一化框夹到画面内，滤镜按偶数像素裁', () => {
+    expect(clampCropRect({ x: -1, y: 0.2, w: 2, h: 0.5 })).toEqual({ x: 0, y: 0.2, w: 1, h: 0.5 })
+    const filter = videoCropFilter({ x: 0.1, y: 0.2, w: 0.5, h: 0.4 })
+    expect(filter).toContain('trunc(iw*0.500000/2)*2')
+    expect(filter).toContain('trunc(ih*0.400000/2)*2')
+    expect(videoCropArgs('in.mp4', 'out.mp4', filter, true)).toContain('-vf')
+    expect(videoCropArgs('in.mp4', 'out.mp4', filter, false)).toContain('-an')
   })
 })

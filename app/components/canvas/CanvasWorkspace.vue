@@ -3857,6 +3857,7 @@ function onSelAction(name: string) {
     captureFrame: () => { void onCaptureVideoFrame('current') },
     captureFirst: () => { void onCaptureVideoFrame('first') },
     captureLast: () => { void onCaptureVideoFrame('last') },
+    extractFrames: count => { void onExtractFrames(count) },
     runSubject: name => { void runSubjectAction(name) },
     runImageEdit: name => { void runImageEdit(name) },
     saveWorkflow: () => { void saveWorkflow() },
@@ -4525,7 +4526,7 @@ async function runSubjectAction(name: 'remove-subject' | 'edit-subject' | 'repla
   await submitMediaJob(sibling, action, source, params, { label: tag, dropOnFail: [sibling.id] })
 }
 
-/** 拉片节点点「开始拉片」→ 媒体作业 storyboard */
+/** 拉片节点点「开始拉片」→ 浏览器抽帧，可选视觉模型解读 */
 const canvasFrameSubmit = useState<{ seq: number, nodeId: string, count: number, analyze: boolean } | null>('canvas-frame-submit', () => null)
 watch(canvasFrameSubmit, (payload) => {
   if (!payload)
@@ -4535,8 +4536,7 @@ watch(canvasFrameSubmit, (payload) => {
 })
 
 async function onFrameSubmit(nodeId: string, payload: { count: number, analyze: boolean }) {
-  // 逐帧拉片是媒体动作（真提交且扣点），跟练期间挡在提交之前
-  if (practiceBlocked() || idLocked(nodeId))
+  if (idLocked(nodeId) || (payload.analyze && practiceBlocked()))
     return
   const node = findNode(nodeId) as CanvasFlowNode | undefined
   if (!node || !isContentNode(node) || !isFramePullNode(node.data) || canvasLocked.value)
@@ -4545,15 +4545,7 @@ async function onFrameSubmit(nodeId: string, payload: { count: number, analyze: 
     notify(t('该节点正在生成中'))
     return
   }
-  if (!ensureMediaAction('storyboard'))
-    return
-  const source = mediaSourceOf(mediaSourceNode(node, node.data.frameParams?.sourceId))
-  if (!source)
-    return
-  updateNodeData(node.id, {
-    frameParams: { sourceId: '', sourceLabel: '', ...node.data.frameParams, count: payload.count, analyze: payload.analyze },
-  })
-  await submitMediaJob(node, 'storyboard', source, { count: payload.count, analyze: payload.analyze }, { label: '逐帧拉片' })
+  await runFramePullSubmit(nodeId, payload)
 }
 
 /** 节点上的取消按钮：模型动作 / 生成任务都走 POST /user/task/:id/cancel，状态由轮询带回来 */
@@ -5762,6 +5754,8 @@ const {
   onTranscribeConfirm,
   onRemoveSilence,
   onCaptureVideoFrame,
+  onExtractFrames,
+  runFramePullSubmit,
   openOutpaintEditor,
   onOutpaintSubmit,
   openFlipEditor,
@@ -5822,6 +5816,8 @@ const {
   spawnDepthNode,
   runSubjectAction,
   relabelGroups,
+  groupNodeList: ids => laterFns.groupNodeList(ids),
+  updateNode,
   editSrc,
   montageOpen,
   montageSources,
