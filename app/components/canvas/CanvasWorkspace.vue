@@ -66,7 +66,7 @@ import { emptyMarkPick, expandMarkTokens, insertMarkToken, markHitInstruction, n
 import { renderMarkdown } from '~/utils/markdown'
 import { fillI18n } from '~/utils/i18n-fill'
 import { sanitizeGraphForSave } from '~/utils/canvas-graph-save'
-import { briefNodeTitle, briefPickShotRefs, briefTitleHead, SHOT_REF_HINT, type BriefComposeOpts, type BriefGenerateOpts, type BriefGenerateReport } from '~/utils/canvas-chat-brief'
+import { briefNodeTitle, briefPickShotRefs, briefTitleHead, defaultBriefModel, readCanvasLastModels, writeCanvasLastModel, SHOT_REF_HINT, type BriefComposeOpts, type BriefGenerateOpts, type BriefGenerateReport, type BriefMediaModels } from '~/utils/canvas-chat-brief'
 import { useToast } from '#imports'
 import type { Asset, AssetType, CanvasGraph, GeneratePayload, GenerationModel, GenerationTask, MediaJob, Style } from '~/types/creative'
 import taskApi from '~/api/task'
@@ -1328,14 +1328,27 @@ function preferredVideoModel() {
     || ''
 }
 
-function briefModelOf(node: CanvasFlowNode) {
+function preferredBriefModel(kind: 'image' | 'audio' | 'video', overrides?: BriefMediaModels) {
+  const picked = String(overrides?.[kind] || '').trim()
+  if (picked)
+    return resolveCatalogModel(picked, generationModels.value, { type: kind, preferPriced: true }) || picked
+  const last = String(readCanvasLastModels()[kind] || '').trim()
+  const fallback = kind === 'audio'
+    ? preferredAudioModel()
+    : kind === 'video'
+      ? preferredVideoModel()
+      : preferredImageModel(generationModels.value)
+  return defaultBriefModel(generationModels.value, kind, last, isMember.value) || fallback
+}
+
+function briefModelOf(node: CanvasFlowNode, overrides?: BriefMediaModels) {
   if (!isContentNode(node))
     return ''
   if (node.data.kind === 'audio')
-    return preferredAudioModel()
+    return preferredBriefModel('audio', overrides)
   if (node.data.kind === 'video')
-    return preferredVideoModel()
-  return preferredImageModel(generationModels.value)
+    return preferredBriefModel('video', overrides)
+  return preferredBriefModel('image', overrides)
 }
 
 async function ensureGenerationModels() {
@@ -1348,11 +1361,11 @@ async function ensureGenerationModels() {
   }
 }
 
-function estimateBriefPlaced(groups?: string[]) {
+function estimateBriefPlaced(groups?: string[], models?: BriefMediaModels) {
   const targets = briefNodesToGenerate(groups)
   let points = 0
   for (const node of targets) {
-    const model = briefModelOf(node)
+    const model = briefModelOf(node, models)
     if (!model)
       continue
     points += estimateSpend(model, isContentNode(node) ? node.data.params : undefined, 1)
@@ -1384,9 +1397,9 @@ async function generateBriefPlacedNow(groups?: string[], opts?: BriefGenerateOpt
     notify(t('没有可以生成的节点'))
     return report
   }
-  const quote = estimateBriefPlaced(groups)
-  if (targets.some(node => isContentNode(node) && !briefModelOf(node))) {
-    notify(t('请在节点面板里选择模型后点击生成'), 'error')
+  const quote = estimateBriefPlaced(groups, opts?.models)
+  if (targets.some(node => isContentNode(node) && !briefModelOf(node, opts?.models))) {
+    notify(t('请在对话里选择生成用的模型'), 'error')
     report.failed = targets.length
     return report
   }
@@ -1400,12 +1413,14 @@ async function generateBriefPlacedNow(groups?: string[], opts?: BriefGenerateOpt
       index++
       const label = isContentNode(node) ? String(node.data.label || node.data.tag || node.id) : node.id
       opts?.onProgress?.({ index, total: targets.length, label, status: 'start' })
-      const model = briefModelOf(node)
+      const model = briefModelOf(node, opts?.models)
       if (!model || !isContentNode(node)) {
         report.failed++
         opts?.onProgress?.({ index, total: targets.length, label, status: 'fail' })
         continue
       }
+      if (node.data.kind === 'image' || node.data.kind === 'audio' || node.data.kind === 'video')
+        writeCanvasLastModel(node.data.kind, model)
       await onGenerate({
         model,
         params: { ...(node.data.params || {}) },

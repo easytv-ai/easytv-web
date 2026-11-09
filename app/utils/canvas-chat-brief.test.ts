@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest'
 import {
   briefAskPicks,
   briefGenerateGroups,
+  briefNeedsImage,
+  defaultBriefModel,
   briefCharacters,
   briefFrameRatio,
   briefHistoryText,
@@ -196,6 +198,21 @@ describe('briefVoices', () => {
     expect(briefGenerateGroups(0)).toEqual(['character', 'scene', 'prop', 'shot', 'voice'])
     expect(briefGenerateGroups(2)).toEqual(['character', 'scene', 'prop'])
     expect(briefGenerateGroups(1)).toBeNull()
+    expect(briefNeedsImage({ characters: 1, scenes: 0, props: 0, shots: 0 })).toBe(true)
+    expect(briefNeedsImage({ characters: 0, scenes: 0, props: 0, shots: 0 })).toBe(false)
+  })
+})
+
+describe('defaultBriefModel', () => {
+  const cheap = { model: 'cheap-img', type: 'image', priced: true, points_per_unit: 2 }
+  const pricey = { model: 'pricey-img', type: 'image', priced: true, points_per_unit: 80 }
+
+  it('没有上次选择时用最便宜的已定价模型', () => {
+    expect(defaultBriefModel([pricey, cheap], 'image')).toBe('cheap-img')
+  })
+
+  it('上次选择还在清单里就沿用', () => {
+    expect(defaultBriefModel([pricey, cheap], 'image', 'pricey-img')).toBe('pricey-img')
   })
 })
 

@@ -6068,6 +6068,40 @@ html.dark .canvas-brief {
   line-height: 1.6;
 }
 
+.canvas-brief__models {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.canvas-brief__model-hint {
+  margin: 0;
+  color: var(--st-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.canvas-brief__model {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  font-size: 12px;
+  color: var(--st-muted);
+}
+
+.canvas-brief__model select {
+  width: 100%;
+  max-width: 100%;
+  padding: 6px 8px;
+  border: 1px solid color-mix(in srgb, var(--st-text) 14%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--st-text) 6%, transparent);
+  color: var(--st-text);
+  font: inherit;
+  font-size: 13px;
+}
+
 .canvas-brief__auto {
   display: flex;
   align-items: center;

@@ -78,6 +78,10 @@ export type BriefGenerateCounts = {
   points?: number
 }
 
+/** 批量出图 / 配音 / 出视频时用户选的模型，避免清单第一条贵模型直接跑 */
+export type BriefMediaKind = 'image' | 'audio' | 'video'
+export type BriefMediaModels = Partial<Record<BriefMediaKind, string>>
+
 export type BriefGenerateCard = {
   kind: 'generate'
   locked: boolean
@@ -86,6 +90,7 @@ export type BriefGenerateCard = {
   counts: BriefGenerateCounts
   step?: number
   auto?: boolean
+  models?: BriefMediaModels
 }
 
 export type BriefVideoCard = {
@@ -95,6 +100,7 @@ export type BriefVideoCard = {
   questions: BriefQuestion[]
   shots: number
   step?: number
+  models?: BriefMediaModels
 }
 
 export type BriefCard = BriefAskCard | BriefDocCard | BriefVoiceCard | BriefGenerateCard | BriefVideoCard
@@ -116,6 +122,7 @@ export type BriefGenerateReport = {
 
 export type BriefGenerateOpts = {
   onProgress?: (row: BriefGenerateProgress) => void
+  models?: BriefMediaModels
 }
 
 export type BriefComposeReport = {
@@ -193,6 +200,77 @@ export function briefGenerateGroups(chosen: number): BriefMediaGroup[] | null {
   if (chosen === 2)
     return ['character', 'scene', 'prop']
   return null
+}
+
+export function briefNeedsImage(counts: Pick<BriefGenerateCounts, 'characters' | 'scenes' | 'props' | 'shots'>) {
+  return Boolean(counts.characters || counts.scenes || counts.props || counts.shots)
+}
+
+/** 画布节点上次选的模型（与检查器 localStorage 同一把钥匙） */
+export const CANVAS_LAST_MODEL_KEY = 'easytv-canvas-last-model'
+
+export function readCanvasLastModels(): Record<string, string> {
+  if (typeof localStorage === 'undefined')
+    return {}
+  try {
+    const raw = JSON.parse(localStorage.getItem(CANVAS_LAST_MODEL_KEY) || '{}') as Record<string, string>
+    return raw && typeof raw === 'object' ? raw : {}
+  }
+  catch {
+    return {}
+  }
+}
+
+export function writeCanvasLastModel(type: string, id: string) {
+  const model = String(id || '').trim()
+  if (!type || !model || typeof localStorage === 'undefined')
+    return
+  try {
+    const next = { ...readCanvasLastModels(), [type]: model }
+    localStorage.setItem(CANVAS_LAST_MODEL_KEY, JSON.stringify(next))
+  }
+  catch {
+    // 忽略配额 / 隐私模式
+  }
+}
+
+type BriefPricedModel = {
+  model: string
+  type: string
+  priced?: boolean
+  unit?: string
+  points_per_unit?: number
+  member_points_per_unit?: number
+  effective_points_per_unit?: number
+  effective_member_points_per_unit?: number
+}
+
+function briefUnitPrice(item: BriefPricedModel, isMember: boolean) {
+  const n = (value: unknown) => {
+    const x = Number(value)
+    return Number.isFinite(x) && x > 0 ? x : 0
+  }
+  const eff = isMember ? n(item.effective_member_points_per_unit) : n(item.effective_points_per_unit)
+  if (eff)
+    return eff
+  const member = n(item.member_points_per_unit)
+  return isMember && member ? member : n(item.points_per_unit)
+}
+
+export function briefModelsOf(list: BriefPricedModel[], type: BriefMediaKind) {
+  const priced = list.filter(item => item.type === type && item.priced)
+  return priced.length ? priced : list.filter(item => item.type === type)
+}
+
+/** 批量生成默认模型：有上次选择就用上次的，否则用最便宜的已定价模型 */
+export function defaultBriefModel(list: BriefPricedModel[], type: BriefMediaKind, lastId = '', isMember = false) {
+  const items = briefModelsOf(list, type)
+  if (!items.length)
+    return ''
+  const last = String(lastId || '').trim()
+  if (last && items.some(item => item.model === last))
+    return last
+  return items.slice().sort((a, b) => briefUnitPrice(a, isMember) - briefUnitPrice(b, isMember))[0]!.model
 }
 
 export function briefTitle(script: string) {

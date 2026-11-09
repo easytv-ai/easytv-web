@@ -879,9 +879,9 @@ function onChatResetBrief() {
   workspace.value?.resetBriefPlaced()
 }
 
-async function onChatGenerateBrief(groups: string[], opts?: { onProgress?: (row: { index: number, total: number, label: string, status: 'start' | 'ok' | 'fail' }) => void, onDone?: (report: { ok: number, failed: number, total: number }) => void }) {
+async function onChatGenerateBrief(groups: string[], opts?: { models?: { image?: string, audio?: string, video?: string }, onProgress?: (row: { index: number, total: number, label: string, status: 'start' | 'ok' | 'fail' }) => void, onDone?: (report: { ok: number, failed: number, total: number }) => void }) {
   try {
-    const result = await workspace.value?.generateBriefPlaced(groups, { onProgress: opts?.onProgress })
+    const result = await workspace.value?.generateBriefPlaced(groups, { onProgress: opts?.onProgress, models: opts?.models })
     opts?.onDone?.(result || { ok: 0, failed: 0, total: 0 })
   }
   catch {
@@ -901,8 +901,8 @@ function onChatComposeBrief(opts?: { preview?: boolean, aspect?: string, onStart
   void workspace.value.composeBrief(opts)
 }
 
-function briefQuote(groups?: string[]) {
-  return workspace.value?.estimateBriefPlaced(groups) || { count: 0, points: 0 }
+function briefQuote(groups?: string[], models?: { image?: string, audio?: string, video?: string }) {
+  return workspace.value?.estimateBriefPlaced(groups, models) || { count: 0, points: 0 }
 }
 
 function onChatPickAsset(autoUpload: boolean) {

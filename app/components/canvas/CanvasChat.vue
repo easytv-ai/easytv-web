@@ -37,6 +37,11 @@ import {
   briefSpecChips,
   briefTitle,
   briefGenerateGroups,
+  briefModelsOf,
+  briefNeedsImage,
+  defaultBriefModel,
+  readCanvasLastModels,
+  writeCanvasLastModel,
   briefVoices,
   briefWantsBoard,
   briefWantsFilm,
@@ -55,6 +60,8 @@ import {
   type BriefDocCard,
   type BriefGenerateCard,
   type BriefGenerateCounts,
+  type BriefMediaKind,
+  type BriefMediaModels,
   type BriefComposeOpts,
   type BriefComposeReport,
   type BriefGenerateProgress,
@@ -98,7 +105,7 @@ const props = withDefaults(defineProps<{
   selection?: string[]
   /** Agent 页只放这一块输入：外观与发送前的选择和画布相同，点发送后把草稿交给画布再发 */
   entry?: boolean
-  briefQuote?: (groups?: string[]) => { count: number, points: number }
+  briefQuote?: (groups?: string[], models?: BriefMediaModels) => { count: number, points: number }
 }>(), {
   assist: null,
   selection: () => [],
@@ -114,7 +121,7 @@ const emit = defineEmits<{
   /** 对白音色：每条声线一个音频节点，接到最近的分镜文本上 */
   insertAudios: [items: { label: string, prompt: string, group?: string, tag?: string }[]]
   resetBrief: []
-  generateBrief: [groups: string[], opts?: { onProgress?: (row: BriefGenerateProgress) => void, onDone?: (report: BriefGenerateReport) => void }]
+  generateBrief: [groups: string[], opts?: { models?: BriefMediaModels, onProgress?: (row: BriefGenerateProgress) => void, onDone?: (report: BriefGenerateReport) => void }]
   placeVideos: [shots?: string[]]
   composeBrief: [opts?: BriefComposeOpts]
   pickAsset: [autoUpload: boolean]
@@ -1967,6 +1974,8 @@ function selectAskOption(card: BriefCard, index: number) {
   if (!ask || ask.locked || busy.value || !question.options.length)
     return
   question.chosen = index
+  if (card.kind === 'generate')
+    refreshGenerateQuote(card)
 }
 
 function currentBriefPath(): BriefPath {
@@ -2029,7 +2038,7 @@ function submitBriefAsk(item: ChatMsg) {
   void confirmBriefAsk(item)
 }
 
-function briefGenerateCounts(): BriefGenerateCounts {
+function briefGenerateCounts(models?: BriefMediaModels, groups?: string[]): BriefGenerateCounts {
   const anchors = [...messages.value].reverse().find(row => row.card?.kind === 'anchors')
   const board = [...messages.value].reverse().find(row => row.card?.kind === 'board')
   const voice = [...messages.value].reverse().find(row => row.card?.kind === 'voice')
@@ -2040,10 +2049,82 @@ function briefGenerateCounts(): BriefGenerateCounts {
     shots: board?.card?.kind === 'board' ? (board.card.shots?.length || 0) : 0,
     voices: voice?.card?.kind === 'voice' && voice.card.placed ? voice.card.voices.length : 0,
   }
-  const quote = props.briefQuote?.()
+  const quote = props.briefQuote?.(groups, models)
   if (quote?.points)
     counts.points = quote.points
   return counts
+}
+
+const lastModelByType = useState<Record<string, string>>('canvas-last-model', () => ({}))
+const briefPickedModels = ref<BriefMediaModels>({})
+
+function briefCatalog(type: BriefMediaKind) {
+  return briefModelsOf(models.value, type) as GenerationModel[]
+}
+
+function seedBriefModels(card: BriefGenerateCard | BriefVideoCard): BriefMediaModels {
+  const last = { ...readCanvasLastModels(), ...lastModelByType.value }
+  const next: BriefMediaModels = { ...(card.models || {}) }
+  if (card.kind === 'generate') {
+    if (briefNeedsImage(card.counts) && !next.image)
+      next.image = defaultBriefModel(models.value, 'image', last.image, isMember.value)
+    if (card.counts.voices && !next.audio)
+      next.audio = defaultBriefModel(models.value, 'audio', last.audio, isMember.value)
+    if (briefWantsFilm(currentBriefPath()) && card.counts.shots && !next.video)
+      next.video = defaultBriefModel(models.value, 'video', last.video, isMember.value)
+  }
+  else if (card.kind === 'video' && !next.video) {
+    next.video = defaultBriefModel(models.value, 'video', last.video, isMember.value)
+  }
+  card.models = next
+  briefPickedModels.value = { ...briefPickedModels.value, ...next }
+  return next
+}
+
+function quoteGroupsOf(card: BriefGenerateCard) {
+  const chosen = card.questions[0]?.chosen
+  if (chosen == null)
+    return undefined
+  return briefGenerateGroups(chosen) || undefined
+}
+
+function refreshGenerateQuote(card: BriefGenerateCard) {
+  const counts = briefGenerateCounts(card.models, quoteGroupsOf(card))
+  card.counts.points = counts.points
+  const live = card.questions[0]
+  const seed = defaultGenerateQuestions(card.counts)[0]
+  if (live && seed) {
+    live.ask = seed.ask
+    live.options = seed.options
+  }
+}
+
+watch(models, () => {
+  for (const row of messages.value) {
+    const card = row.card
+    if (!card || card.locked)
+      continue
+    if (card.kind === 'generate') {
+      seedBriefModels(card)
+      refreshGenerateQuote(card)
+    }
+    else if (card.kind === 'video') {
+      seedBriefModels(card)
+    }
+  }
+})
+
+function onBriefModelPick(card: BriefGenerateCard | BriefVideoCard, kind: BriefMediaKind, event: Event) {
+  const id = String((event.target as HTMLSelectElement).value || '').trim()
+  card.models = { ...(card.models || {}), [kind]: id }
+  briefPickedModels.value = { ...briefPickedModels.value, [kind]: id }
+  if (id) {
+    writeCanvasLastModel(kind, id)
+    lastModelByType.value = { ...readCanvasLastModels(), [kind]: id }
+  }
+  if (card.kind === 'generate')
+    refreshGenerateQuote(card)
+  persistSession()
 }
 
 function shotCount() {
@@ -2097,7 +2178,7 @@ function writeBriefProgress(id: number, text: string) {
   scrollToEnd()
 }
 
-function runBriefGenerate(groups: string[]) {
+function runBriefGenerate(groups: string[], mediaModels?: BriefMediaModels) {
   return new Promise<BriefGenerateReport>((resolve) => {
     const row: ChatMsg = {
       id: ++seq,
@@ -2108,6 +2189,7 @@ function runBriefGenerate(groups: string[]) {
     persistSession()
     scrollToEnd()
     emit('generateBrief', groups, {
+      models: mediaModels,
       onProgress: (item) => {
         writeBriefProgress(row.id, t('canvas.chat.brief.generatingItem', { i: item.index, n: item.total, name: item.label }))
       },
@@ -2127,20 +2209,21 @@ function runBriefGenerate(groups: string[]) {
   })
 }
 
-async function afterStillsReady(title: string, report: BriefGenerateReport, groups: string[]) {
+async function afterStillsReady(title: string, report: BriefGenerateReport, groups: string[], mediaModels?: BriefMediaModels) {
   if (!briefWantsFilm(currentBriefPath()) || shotCount() < 1 || !groups.includes('shot') || report.ok < 1)
     return
+  const models = mediaModels || briefPickedModels.value
   if (briefAuto.value) {
-    await runBriefVideos(title)
+    await runBriefVideos(title, undefined, models)
     return
   }
-  pushVideoCard(title)
+  pushVideoCard(title, models)
 }
 
-async function runBriefVideos(title: string, shots?: string[]) {
+async function runBriefVideos(title: string, shots?: string[], mediaModels?: BriefMediaModels) {
   emit('placeVideos', shots)
   persistSession()
-  const report = await runBriefGenerate(['video'])
+  const report = await runBriefGenerate(['video'], mediaModels)
   if (report.ok >= 2) {
   if (briefAuto.value) {
     await runBriefCompose()
@@ -2213,28 +2296,40 @@ function pushGenerateCard(title: string) {
     void (async () => {
       busy.value = true
       const groups = ['character', 'scene', 'prop', 'shot', 'voice']
-      const report = await runBriefGenerate(groups)
-      await afterStillsReady(title, report, groups)
+      const models = seedBriefModels({
+        kind: 'generate',
+        locked: true,
+        title,
+        questions: [],
+        counts,
+        models: {},
+      })
+      const report = await runBriefGenerate(groups, models)
+      await afterStillsReady(title, report, groups, models)
       busy.value = false
     })()
     return
   }
+  const card: BriefGenerateCard = {
+    kind: 'generate',
+    locked: false,
+    title,
+    questions: defaultGenerateQuestions(counts),
+    counts,
+    auto: briefAuto.value,
+    models: {},
+  }
+  seedBriefModels(card)
+  refreshGenerateQuote(card)
   messages.value.push({
     id: ++seq,
     role: 'assistant',
     text: t('canvas.chat.brief.generateNext'),
-    card: {
-      kind: 'generate',
-      locked: false,
-      title,
-      questions: defaultGenerateQuestions(counts),
-      counts,
-      auto: briefAuto.value,
-    },
+    card,
   })
 }
 
-function pushVideoCard(title: string) {
+function pushVideoCard(title: string, mediaModels?: BriefMediaModels) {
   if (props.entry || !briefWantsFilm(currentBriefPath()))
     return
   const shots = shotCount()
@@ -2242,17 +2337,20 @@ function pushVideoCard(title: string) {
     return
   if (messages.value.some(row => row.card?.kind === 'video' && !row.card.locked))
     return
+  const card: BriefVideoCard = {
+    kind: 'video',
+    locked: false,
+    title,
+    questions: defaultVideoQuestions(shots),
+    shots,
+    models: { ...(mediaModels || briefPickedModels.value) },
+  }
+  seedBriefModels(card)
   messages.value.push({
     id: ++seq,
     role: 'assistant',
     text: t('canvas.chat.brief.videoNext'),
-    card: {
-      kind: 'video',
-      locked: false,
-      title,
-      questions: defaultVideoQuestions(shots),
-      shots,
-    },
+    card,
   })
 }
 
@@ -2285,22 +2383,37 @@ async function confirmBriefGenerate(item: ChatMsg) {
   if (!question || question.chosen == null)
     return
   const pick = askChosenText(question)
-  card.locked = true
-  card.auto = briefAuto.value
-  messages.value.push({ id: ++seq, role: 'user', text: pick })
   let groups = briefGenerateGroups(question.chosen)
   if (!groups && question.chosen >= question.options.length && /生成/.test(question.note || ''))
     groups = ['character', 'scene', 'prop', 'shot', 'voice']
-  persistSession()
-  scrollToEnd()
   if (!groups?.length) {
+    card.locked = true
+    messages.value.push({ id: ++seq, role: 'user', text: pick })
+    persistSession()
+    scrollToEnd()
     messages.value.push({ id: ++seq, role: 'assistant', text: t('canvas.chat.brief.generateSkipped') })
     persistSession()
     return
   }
+  seedBriefModels(card)
+  const wantsImage = groups.some(group => group !== 'voice' && group !== 'video')
+  if (wantsImage && !card.models?.image) {
+    notify(t('canvas.chat.brief.needImageModel'), 'error')
+    return
+  }
+  if (groups.includes('voice') && card.counts.voices && !card.models?.audio) {
+    notify(t('canvas.chat.brief.needAudioModel'), 'error')
+    return
+  }
+  card.locked = true
+  card.auto = briefAuto.value
+  briefPickedModels.value = { ...briefPickedModels.value, ...(card.models || {}) }
+  messages.value.push({ id: ++seq, role: 'user', text: pick })
+  persistSession()
+  scrollToEnd()
   busy.value = true
-  const report = await runBriefGenerate(groups)
-  await afterStillsReady(card.title, report, groups)
+  const report = await runBriefGenerate(groups, card.models)
+  await afterStillsReady(card.title, report, groups, card.models)
   busy.value = false
 }
 
@@ -2312,20 +2425,30 @@ async function confirmBriefVideo(item: ChatMsg) {
   if (!question || question.chosen == null)
     return
   const pick = askChosenText(question)
-  card.locked = true
-  messages.value.push({ id: ++seq, role: 'user', text: pick })
   const nos = parseVoiceNames(question.note || '').flatMap(item => item.match(/\d+/g) || [])
   const some = question.chosen === 2 || (question.chosen >= question.options.length && nos.length > 0)
   const run = question.chosen === 0 || some || (question.chosen >= question.options.length && /生成|视频/.test(question.note || ''))
-  persistSession()
-  scrollToEnd()
   if (!run) {
+    card.locked = true
+    messages.value.push({ id: ++seq, role: 'user', text: pick })
+    persistSession()
+    scrollToEnd()
     messages.value.push({ id: ++seq, role: 'assistant', text: t('canvas.chat.brief.videoSkipped') })
     persistSession()
     return
   }
+  seedBriefModels(card)
+  if (!card.models?.video) {
+    notify(t('canvas.chat.brief.needVideoModel'), 'error')
+    return
+  }
+  card.locked = true
+  briefPickedModels.value = { ...briefPickedModels.value, ...(card.models || {}) }
+  messages.value.push({ id: ++seq, role: 'user', text: pick })
+  persistSession()
+  scrollToEnd()
   busy.value = true
-  await runBriefVideos(card.title, some ? nos : undefined)
+  await runBriefVideos(card.title, some ? nos : undefined, card.models)
   busy.value = false
 }
 
@@ -3162,6 +3285,64 @@ function promoOf(item: GenerationModel) {
                 <li v-if="item.card.counts.voices">{{ t('canvas.chat.brief.countVoices', { n: item.card.counts.voices }) }}</li>
                 <li v-if="item.card.counts.points">{{ t('canvas.chat.brief.countPoints', { n: item.card.counts.points }) }}</li>
               </ul>
+              <div v-if="item.card.kind === 'generate' && !item.card.locked" class="canvas-brief__models">
+                <p class="canvas-brief__model-hint">{{ t('canvas.chat.brief.pickModelHint') }}</p>
+                <label v-if="briefNeedsImage(item.card.counts)" class="canvas-brief__model">
+                  <span>{{ t('canvas.chat.brief.pickImageModel') }}</span>
+                  <select
+                    :value="item.card.models?.image || ''"
+                    :disabled="busy || !briefCatalog('image').length"
+                    @change="onBriefModelPick(item.card, 'image', $event)"
+                  >
+                    <option v-if="!briefCatalog('image').length" value="">{{ t('加载中…') }}</option>
+                    <option v-for="row in briefCatalog('image')" :key="row.model" :value="row.model">
+                      {{ shortModelName(row) }} · {{ priceHint(row) }}
+                    </option>
+                  </select>
+                </label>
+                <label v-if="item.card.counts.voices" class="canvas-brief__model">
+                  <span>{{ t('canvas.chat.brief.pickAudioModel') }}</span>
+                  <select
+                    :value="item.card.models?.audio || ''"
+                    :disabled="busy || !briefCatalog('audio').length"
+                    @change="onBriefModelPick(item.card, 'audio', $event)"
+                  >
+                    <option v-if="!briefCatalog('audio').length" value="">{{ t('加载中…') }}</option>
+                    <option v-for="row in briefCatalog('audio')" :key="row.model" :value="row.model">
+                      {{ shortModelName(row) }} · {{ priceHint(row) }}
+                    </option>
+                  </select>
+                </label>
+                <label v-if="item.card.models?.video || (briefWantsFilm(currentBriefPath()) && item.card.counts.shots)" class="canvas-brief__model">
+                  <span>{{ t('canvas.chat.brief.pickVideoModel') }}</span>
+                  <select
+                    :value="item.card.models?.video || ''"
+                    :disabled="busy || !briefCatalog('video').length"
+                    @change="onBriefModelPick(item.card, 'video', $event)"
+                  >
+                    <option v-if="!briefCatalog('video').length" value="">{{ t('加载中…') }}</option>
+                    <option v-for="row in briefCatalog('video')" :key="row.model" :value="row.model">
+                      {{ shortModelName(row) }} · {{ priceHint(row) }}
+                    </option>
+                  </select>
+                </label>
+              </div>
+              <div v-if="item.card.kind === 'video' && !item.card.locked" class="canvas-brief__models">
+                <p class="canvas-brief__model-hint">{{ t('canvas.chat.brief.pickVideoHint') }}</p>
+                <label class="canvas-brief__model">
+                  <span>{{ t('canvas.chat.brief.pickVideoModel') }}</span>
+                  <select
+                    :value="item.card.models?.video || ''"
+                    :disabled="busy || !briefCatalog('video').length"
+                    @change="onBriefModelPick(item.card, 'video', $event)"
+                  >
+                    <option v-if="!briefCatalog('video').length" value="">{{ t('加载中…') }}</option>
+                    <option v-for="row in briefCatalog('video')" :key="row.model" :value="row.model">
+                      {{ shortModelName(row) }} · {{ priceHint(row) }}
+                    </option>
+                  </select>
+                </label>
+              </div>
               <details v-if="item.card.kind === 'generate' && briefPromptLinesOf(item).length" class="canvas-brief__prompts">
                 <summary>{{ t('canvas.chat.brief.viewPrompts') }}</summary>
                 <ul>

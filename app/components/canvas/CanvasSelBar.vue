@@ -150,6 +150,7 @@ const VIDEO_ITEMS = [
   { id: 'hd', label: '视频高清', icon: 'i-lucide-scan-search' },
   { id: 'add-bgm', label: 'canvas.audio.sel', icon: 'i-lucide-music' },
   { id: 'depth', label: '深度提取', icon: 'i-lucide-layers-2' },
+  { id: 'depth-motion', label: '深度动作捕捉', icon: 'i-lucide-person-standing' },
   { id: 'retake', label: '片段重拍', icon: 'i-lucide-clapperboard' },
   { id: 'smart-extend', label: '智能续写', icon: 'i-lucide-git-branch-plus' },
 ] as const
@@ -162,8 +163,15 @@ const VIDEO_EDIT_ITEMS = [
   { id: 'capture-frame', label: '取帧', icon: 'i-lucide-aperture', more: true },
   { id: 'extract-frames', label: '抽帧', icon: 'i-lucide-gallery-vertical-end', more: true },
   { id: 'separate', label: '分离音频', icon: 'i-lucide-audio-lines' },
+  { id: 'extract-voice', label: '人声提取', icon: 'i-lucide-mic' },
+  { id: 'extract-bgm', label: '背景音提取', icon: 'i-lucide-music-2' },
   { id: 'remove-silence', label: '去停顿', icon: 'i-lucide-scissors-line-dashed' },
   { id: 'remove-subtitles', label: '字幕擦除', icon: 'i-lucide-captions-off' },
+  { id: 'box-subtitles', label: '框选去字幕', icon: 'i-lucide-square-dashed' },
+  { id: 'smart-matting', label: '智能抠像', icon: 'i-lucide-user-round' },
+  { id: 'remove-subject', label: '主体消除', icon: 'i-lucide-eraser' },
+  { id: 'edit-subject', label: '主体修改', icon: 'i-lucide-pencil' },
+  { id: 'replace-subject', label: '主体替换', icon: 'i-lucide-replace' },
   { id: 'prompt-reverse', label: '反推提示词', icon: 'i-lucide-sparkles' },
   { id: 'transcribe', label: '语音转字幕', icon: 'i-lucide-captions' },
 ] as const
