@@ -3135,7 +3135,11 @@ function promoOf(item: GenerationModel) {
               </ClientOnly>
               <div v-else-if="item.error" class="canvas-chat__plain">{{ item.text }}</div>
             </template>
-            <div v-if="item.card?.kind === 'ask' || item.card?.kind === 'voice' || item.card?.kind === 'generate' || item.card?.kind === 'video' || item.card?.kind === 'compose'" class="canvas-brief">
+            <div
+              v-if="item.card?.kind === 'ask' || item.card?.kind === 'voice' || item.card?.kind === 'generate' || item.card?.kind === 'video' || item.card?.kind === 'compose'"
+              class="canvas-brief"
+              :class="`canvas-brief--${item.card.kind}`"
+            >
               <div class="canvas-brief__ask-head">
                 <p class="canvas-brief__ask">{{ currentAsk(item.card).ask }}</p>
                 <span v-if="item.card.questions.length > 1" class="canvas-brief__page">
@@ -3187,7 +3191,10 @@ function promoOf(item: GenerationModel) {
                     :key="ci"
                     type="button"
                     class="canvas-brief__choice"
-                    :class="{ 'is-on': currentAsk(item.card).chosen === ci }"
+                    :class="{
+                      'is-on': currentAsk(item.card).chosen === ci,
+                      'is-other': ci === currentAsk(item.card).options.length,
+                    }"
                     :disabled="busy"
                     @click="selectAskOption(item.card, ci)"
                   >
@@ -3244,11 +3251,16 @@ function promoOf(item: GenerationModel) {
                 </li>
               </ul>
               <pre v-if="item.card.body" class="canvas-brief__doc">{{ item.card.body }}</pre>
-              <p v-if="item.card.placed && item.card.characters?.length" class="canvas-brief__note">{{ t('canvas.chat.brief.placedCharacters') }}</p>
-              <p v-if="item.card.placed && item.card.scenes?.length" class="canvas-brief__note">{{ t('canvas.chat.brief.placedScenes') }}</p>
-              <p v-if="item.card.placed && item.card.props?.length" class="canvas-brief__note">{{ t('canvas.chat.brief.placedProps') }}</p>
-              <p v-if="item.card.placed && item.card.shots?.length" class="canvas-brief__note">{{ t('canvas.chat.brief.placedShots') }}</p>
-              <p v-if="item.card.placed && item.card.body" class="canvas-brief__note">{{ t('canvas.chat.brief.placed') }}</p>
+              <div
+                v-if="item.card.placed && (item.card.characters?.length || item.card.scenes?.length || item.card.props?.length || item.card.shots?.length || item.card.body)"
+                class="canvas-brief__notes"
+              >
+                <p v-if="item.card.characters?.length" class="canvas-brief__note">{{ t('canvas.chat.brief.placedCharacters') }}</p>
+                <p v-if="item.card.scenes?.length" class="canvas-brief__note">{{ t('canvas.chat.brief.placedScenes') }}</p>
+                <p v-if="item.card.props?.length" class="canvas-brief__note">{{ t('canvas.chat.brief.placedProps') }}</p>
+                <p v-if="item.card.shots?.length" class="canvas-brief__note">{{ t('canvas.chat.brief.placedShots') }}</p>
+                <p v-if="item.card.body" class="canvas-brief__note">{{ t('canvas.chat.brief.placed') }}</p>
+              </div>
               <button
                 v-if="!item.card.locked && item.card.kind !== 'board'"
                 type="button"

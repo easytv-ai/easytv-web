@@ -5515,10 +5515,12 @@ html.dark .canvas-chat.is-entry .canvas-chat__input:focus-within {
   padding: 0;
 }
 
-.canvas-chat__msg.is-crew {
+.canvas-chat__msg.is-crew,
+.canvas-chat__msg.assistant.is-crew {
   width: 100%;
   padding: 0;
   background: transparent;
+  border-radius: 0;
 }
 
 .canvas-chat__pick {
@@ -5603,10 +5605,10 @@ html.dark .canvas-chat.is-entry .canvas-chat__input:focus-within {
 }
 
 .canvas-crew__lead {
-  margin: 0;
+  margin: 0 0 2px;
   color: var(--st-text-soft);
   font-size: 13px;
-  line-height: 1.65;
+  line-height: 1.7;
 }
 
 .canvas-crew__label {
@@ -5833,8 +5835,18 @@ audio.canvas-crew__clip {
 .canvas-brief {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
   margin-top: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--st-border);
+  border-radius: 14px;
+  background: var(--st-elevated);
+  box-shadow: 0 1px 2px rgba(24, 24, 27, 0.04);
+}
+
+html.dark .canvas-brief {
+  background: var(--st-card);
+  box-shadow: none;
 }
 
 .canvas-brief__tag,
@@ -5843,6 +5855,19 @@ audio.canvas-crew__clip {
   margin: 0;
   color: var(--st-muted);
   font-size: 12px;
+  line-height: 1.45;
+}
+
+.canvas-brief__notes {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-top: 8px;
+  border-top: 1px solid var(--st-border);
+}
+
+.canvas-brief__cast + .canvas-brief__cast {
+  margin-top: -2px;
 }
 
 .canvas-brief__q p {
@@ -5850,26 +5875,42 @@ audio.canvas-crew__clip {
 }
 
 .canvas-brief__pick {
-  margin-top: 4px;
+  margin: 0;
+  padding: 8px 12px;
+  border-left: 2px solid var(--st-plan);
+  border-radius: 0 8px 8px 0;
+  background: var(--st-plan-soft);
+  color: var(--st-text);
+  font-size: 12.5px;
+  line-height: 1.55;
 }
 
 .canvas-brief__ask-head {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 8px;
+  gap: 10px;
 }
 
 .canvas-brief__ask {
   margin: 0;
-  font-size: 13px;
-  line-height: 1.6;
+  color: var(--st-text);
+  font-size: 13.5px;
+  font-weight: 650;
+  line-height: 1.55;
 }
 
 .canvas-brief__page {
   flex-shrink: 0;
+  margin-top: 1px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--st-hover);
   color: var(--st-muted);
-  font-size: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.6;
 }
 
 .canvas-brief__choices {
@@ -5881,48 +5922,70 @@ audio.canvas-crew__clip {
 .canvas-brief__choice {
   display: flex;
   width: 100%;
-  min-height: 40px;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 12px;
-  border: 1px solid transparent;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--st-text) 8%, transparent);
+  min-height: 0;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--st-border);
+  border-radius: 12px;
+  background: transparent;
   color: var(--st-text);
   font: inherit;
-  font-size: 13px;
-  line-height: 1.45;
+  font-size: 12.5px;
+  line-height: 1.55;
   text-align: left;
   cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+}
+
+.canvas-brief__choice span {
+  min-width: 0;
+  flex: 1;
+  overflow-wrap: anywhere;
 }
 
 .canvas-brief__choice i {
   display: inline-flex;
   width: 20px;
   height: 20px;
+  margin-top: 1px;
   flex-shrink: 0;
   align-items: center;
   justify-content: center;
-  border-radius: 999px;
-  background: var(--st-elevated);
+  border-radius: 6px;
+  background: var(--st-hover);
   color: var(--st-muted);
   font-style: normal;
-  font-size: 12px;
-  font-weight: 600;
+  font-size: 11px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
 }
 
 .canvas-brief__choice:hover:not(:disabled):not(.is-on) {
-  background: color-mix(in srgb, var(--st-text) 14%, transparent);
+  border-color: color-mix(in srgb, var(--st-text) 18%, var(--st-border));
+  background: var(--st-hover);
 }
 
 .canvas-brief__choice.is-on {
-  background: color-mix(in srgb, var(--st-text) 18%, transparent);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--st-text) 28%, transparent);
+  border-color: color-mix(in srgb, var(--st-plan) 55%, var(--st-border));
+  background: var(--st-plan-soft);
+  box-shadow: none;
 }
 
 .canvas-brief__choice.is-on i {
-  background: var(--st-on);
-  color: var(--st-on-text);
+  background: var(--st-plan);
+  color: var(--st-plan-text);
+}
+
+.canvas-brief__choice.is-other {
+  border-style: dashed;
+  color: var(--st-text-soft);
+}
+
+.canvas-brief__choice.is-other.is-on {
+  border-style: solid;
+  color: var(--st-text);
 }
 
 .canvas-brief__choice:disabled {
@@ -5936,7 +5999,7 @@ audio.canvas-crew__clip {
   padding: 8px 10px;
   border: 1px solid var(--st-border);
   border-radius: 10px;
-  background: transparent;
+  background: var(--st-hover);
   color: var(--st-text);
   font: inherit;
   font-size: 13px;
@@ -5944,32 +6007,48 @@ audio.canvas-crew__clip {
   resize: vertical;
 }
 
+.canvas-brief__note-box:focus {
+  outline: none;
+  border-color: color-mix(in srgb, var(--st-plan) 45%, var(--st-border));
+  background: var(--st-elevated);
+}
+
 .canvas-brief__ops {
   display: flex;
   align-items: center;
   justify-content: flex-end;
   gap: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--st-border);
 }
 
 .canvas-brief__skip {
-  height: 36px;
+  height: 32px;
   padding: 0 12px;
-  border: 0;
-  border-radius: 999px;
+  border: 1px solid var(--st-border);
+  border-radius: 8px;
   background: transparent;
   color: var(--st-muted);
   font: inherit;
-  font-size: 13px;
+  font-size: 12.5px;
   cursor: pointer;
 }
 
 .canvas-brief__skip:hover:not(:disabled) {
+  background: var(--st-hover);
   color: var(--st-text);
 }
 
 .canvas-brief__skip:disabled {
   opacity: 0.45;
   cursor: default;
+}
+
+.canvas-brief__ops .canvas-crew__go {
+  height: 32px;
+  padding: 0 14px;
+  border-radius: 8px;
+  font-size: 12.5px;
 }
 
 .canvas-brief__chips {
@@ -6023,7 +6102,7 @@ audio.canvas-crew__clip {
   padding: 0;
   list-style: none;
   font-size: 13px;
-  line-height: 1.6;
+  line-height: 1.5;
 }
 
 .canvas-brief__cast strong {
