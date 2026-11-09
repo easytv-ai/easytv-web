@@ -163,6 +163,7 @@ onBeforeUnmount(() => {
         v-if="open"
         ref="listRef"
         class="studio-select__menu is-portal"
+        :class="{ 'is-compact': size === 'compact' }"
         role="listbox"
         :aria-label="srLabel"
         :style="menuBox"

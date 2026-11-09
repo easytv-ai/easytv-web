@@ -39,6 +39,7 @@ import {
   briefGenerateGroups,
   briefModelsOf,
   briefNeedsImage,
+  briefRunGroups,
   chatGenerateInstruction,
   defaultBriefModel,
   parseChatGenerateAction,
@@ -833,14 +834,25 @@ function chatMediaTypeOptions() {
   ]
 }
 
-function chatMediaModelOptions(kind: ChatFreeMediaKind) {
+function briefModelOptions(kind: BriefMediaKind, optional = false) {
   const rows = briefCatalog(kind)
-  if (!rows.length)
-    return [{ value: '', label: t('加载中…'), disabled: true }]
-  return rows.map(row => ({
+  const listed = rows.map(row => ({
     value: row.model,
     label: `${shortModelName(row)} · ${priceHint(row)}`,
   }))
+  const skip = { value: '', label: t('canvas.chat.brief.skipAudioModel') }
+  if (!rows.length) {
+    if (optional)
+      return modelsLoading.value
+        ? [skip, { value: '__loading', label: t('加载中…'), disabled: true }]
+        : [skip]
+    return [{ value: '', label: t('加载中…'), disabled: true }]
+  }
+  return optional ? [skip, ...listed] : listed
+}
+
+function chatMediaModelOptions(kind: ChatFreeMediaKind) {
+  return briefModelOptions(kind)
 }
 
 function chatMediaRatioOptions(current = '') {
@@ -2200,8 +2212,8 @@ watch(models, () => {
   }
 })
 
-function onBriefModelPick(card: BriefGenerateCard | BriefVideoCard, kind: BriefMediaKind, event: Event) {
-  const id = String((event.target as HTMLSelectElement).value || '').trim()
+function onBriefModelPick(card: BriefGenerateCard | BriefVideoCard, kind: BriefMediaKind, value: string | number) {
+  const id = String(value || '').trim()
   card.models = { ...(card.models || {}), [kind]: id }
   briefPickedModels.value = { ...briefPickedModels.value, [kind]: id }
   if (id) {
@@ -2381,7 +2393,6 @@ function pushGenerateCard(title: string) {
   if (briefAuto.value) {
     void (async () => {
       busy.value = true
-      const groups = ['character', 'scene', 'prop', 'shot', 'voice']
       const models = seedBriefModels({
         kind: 'generate',
         locked: true,
@@ -2390,6 +2401,7 @@ function pushGenerateCard(title: string) {
         counts,
         models: {},
       })
+      const groups = briefRunGroups(['character', 'scene', 'prop', 'shot', 'voice'], models)
       const report = await runBriefGenerate(groups, models)
       await afterStillsReady(title, report, groups, models)
       busy.value = false
@@ -2482,13 +2494,10 @@ async function confirmBriefGenerate(item: ChatMsg) {
     return
   }
   seedBriefModels(card)
+  groups = briefRunGroups(groups, card.models)
   const wantsImage = groups.some(group => group !== 'voice' && group !== 'video')
   if (wantsImage && !card.models?.image) {
     notify(t('canvas.chat.brief.needImageModel'), 'error')
-    return
-  }
-  if (groups.includes('voice') && card.counts.voices && !card.models?.audio) {
-    notify(t('canvas.chat.brief.needAudioModel'), 'error')
     return
   }
   card.locked = true
@@ -3608,58 +3617,50 @@ function promoOf(item: GenerationModel) {
                 <p class="canvas-brief__model-hint">{{ t('canvas.chat.brief.pickModelHint') }}</p>
                 <label v-if="briefNeedsImage(item.card.counts)" class="canvas-brief__model">
                   <span>{{ t('canvas.chat.brief.pickImageModel') }}</span>
-                  <select
-                    :value="item.card.models?.image || ''"
+                  <StudioSelect
+                    :model-value="item.card.models?.image || ''"
+                    :options="briefModelOptions('image')"
+                    :sr-label="t('canvas.chat.brief.pickImageModel')"
                     :disabled="busy || !briefCatalog('image').length"
-                    @change="onBriefModelPick(item.card, 'image', $event)"
-                  >
-                    <option v-if="!briefCatalog('image').length" value="">{{ t('加载中…') }}</option>
-                    <option v-for="row in briefCatalog('image')" :key="row.model" :value="row.model">
-                      {{ shortModelName(row) }} · {{ priceHint(row) }}
-                    </option>
-                  </select>
+                    size="compact"
+                    @update:model-value="onBriefModelPick(item.card, 'image', $event)"
+                  />
                 </label>
                 <label v-if="item.card.counts.voices" class="canvas-brief__model">
                   <span>{{ t('canvas.chat.brief.pickAudioModel') }}</span>
-                  <select
-                    :value="item.card.models?.audio || ''"
-                    :disabled="busy || !briefCatalog('audio').length"
-                    @change="onBriefModelPick(item.card, 'audio', $event)"
-                  >
-                    <option v-if="!briefCatalog('audio').length" value="">{{ t('加载中…') }}</option>
-                    <option v-for="row in briefCatalog('audio')" :key="row.model" :value="row.model">
-                      {{ shortModelName(row) }} · {{ priceHint(row) }}
-                    </option>
-                  </select>
+                  <StudioSelect
+                    :model-value="item.card.models?.audio || ''"
+                    :options="briefModelOptions('audio', true)"
+                    :sr-label="t('canvas.chat.brief.pickAudioModel')"
+                    :disabled="busy"
+                    size="compact"
+                    @update:model-value="onBriefModelPick(item.card, 'audio', $event)"
+                  />
                 </label>
                 <label v-if="item.card.models?.video || (briefWantsFilm(currentBriefPath()) && item.card.counts.shots)" class="canvas-brief__model">
                   <span>{{ t('canvas.chat.brief.pickVideoModel') }}</span>
-                  <select
-                    :value="item.card.models?.video || ''"
+                  <StudioSelect
+                    :model-value="item.card.models?.video || ''"
+                    :options="briefModelOptions('video')"
+                    :sr-label="t('canvas.chat.brief.pickVideoModel')"
                     :disabled="busy || !briefCatalog('video').length"
-                    @change="onBriefModelPick(item.card, 'video', $event)"
-                  >
-                    <option v-if="!briefCatalog('video').length" value="">{{ t('加载中…') }}</option>
-                    <option v-for="row in briefCatalog('video')" :key="row.model" :value="row.model">
-                      {{ shortModelName(row) }} · {{ priceHint(row) }}
-                    </option>
-                  </select>
+                    size="compact"
+                    @update:model-value="onBriefModelPick(item.card, 'video', $event)"
+                  />
                 </label>
               </div>
               <div v-if="item.card.kind === 'video' && !item.card.locked" class="canvas-brief__models">
                 <p class="canvas-brief__model-hint">{{ t('canvas.chat.brief.pickVideoHint') }}</p>
                 <label class="canvas-brief__model">
                   <span>{{ t('canvas.chat.brief.pickVideoModel') }}</span>
-                  <select
-                    :value="item.card.models?.video || ''"
+                  <StudioSelect
+                    :model-value="item.card.models?.video || ''"
+                    :options="briefModelOptions('video')"
+                    :sr-label="t('canvas.chat.brief.pickVideoModel')"
                     :disabled="busy || !briefCatalog('video').length"
-                    @change="onBriefModelPick(item.card, 'video', $event)"
-                  >
-                    <option v-if="!briefCatalog('video').length" value="">{{ t('加载中…') }}</option>
-                    <option v-for="row in briefCatalog('video')" :key="row.model" :value="row.model">
-                      {{ shortModelName(row) }} · {{ priceHint(row) }}
-                    </option>
-                  </select>
+                    size="compact"
+                    @update:model-value="onBriefModelPick(item.card, 'video', $event)"
+                  />
                 </label>
               </div>
               <details v-if="item.card.kind === 'generate' && briefPromptLinesOf(item).length" class="canvas-brief__prompts">

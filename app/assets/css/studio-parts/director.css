@@ -3850,7 +3850,7 @@ html.dark .canvas-wf__tabs button.is-on {
 
 .canvas-matrix__row input[type='checkbox'] {
   margin-top: 3px;
-  accent-color: var(--st-accent, #0ea5e9);
+  accent-color: var(--st-on);
 }
 
 .canvas-matrix__row-top {

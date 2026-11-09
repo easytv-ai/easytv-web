@@ -6126,15 +6126,6 @@ html.dark .canvas-brief {
   align-self: stretch;
 }
 
-.canvas-brief__model select option {
-  background: var(--st-elevated);
-  color: var(--st-text);
-}
-
-html.dark .canvas-brief__model select option {
-  background: var(--st-card);
-}
-
 .canvas-brief__refs {
   display: flex;
   flex-wrap: wrap;
@@ -6178,18 +6169,6 @@ html.dark .canvas-brief__model select option {
   color: var(--st-muted);
 }
 
-.canvas-brief__model select {
-  width: 100%;
-  max-width: 100%;
-  padding: 6px 8px;
-  border: 1px solid color-mix(in srgb, var(--st-text) 14%, transparent);
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--st-text) 6%, transparent);
-  color: var(--st-text);
-  font: inherit;
-  font-size: 13px;
-}
-
 .canvas-brief__auto {
   display: flex;
   align-items: center;
@@ -6202,6 +6181,7 @@ html.dark .canvas-brief__model select option {
 
 .canvas-brief__auto input {
   margin: 0;
+  accent-color: var(--st-on);
 }
 
 .canvas-brief__prompts {

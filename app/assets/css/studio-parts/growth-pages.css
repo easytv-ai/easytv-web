@@ -2856,10 +2856,17 @@ html.dark .canvas-promo__chip {
   font-size: 13px;
 }
 
-.studio-select.is-compact .studio-select__option {
+.studio-select.is-compact .studio-select__option,
+.studio-select__menu.is-compact .studio-select__option {
   min-height: 32px;
   padding: 6px 10px;
   font-size: 13px;
+}
+
+.studio-select__menu.is-compact .studio-select__option span {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: unset;
 }
 
 .studio-select.is-up .studio-select__menu {

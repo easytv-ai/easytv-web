@@ -3,6 +3,7 @@ import {
   briefAskPicks,
   briefGenerateGroups,
   briefNeedsImage,
+  briefRunGroups,
   chatGenerateInstruction,
   parseChatGenerateAction,
   stripChatGenerateAction,
@@ -217,6 +218,9 @@ describe('briefVoices', () => {
     expect(briefGenerateGroups(1)).toBeNull()
     expect(briefNeedsImage({ characters: 1, scenes: 0, props: 0, shots: 0 })).toBe(true)
     expect(briefNeedsImage({ characters: 0, scenes: 0, props: 0, shots: 0 })).toBe(false)
+    expect(briefRunGroups(['character', 'voice'], { audio: 'tts-1' })).toEqual(['character', 'voice'])
+    expect(briefRunGroups(['character', 'voice'], {})).toEqual(['character'])
+    expect(briefRunGroups(['character', 'voice'])).toEqual(['character'])
   })
 })
 

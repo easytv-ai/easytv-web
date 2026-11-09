@@ -217,6 +217,13 @@ export function briefGenerateGroups(chosen: number): BriefMediaGroup[] | null {
   return null
 }
 
+/** 没选配音模型时从批量生成里拿掉音色，避免空模型把整批拦住 */
+export function briefRunGroups(groups: BriefMediaGroup[], models?: BriefMediaModels): BriefMediaGroup[] {
+  if (String(models?.audio || '').trim())
+    return groups
+  return groups.filter(group => group !== 'voice')
+}
+
 export function briefNeedsImage(counts: Pick<BriefGenerateCounts, 'characters' | 'scenes' | 'props' | 'shots'>) {
   return Boolean(counts.characters || counts.scenes || counts.props || counts.shots)
 }
