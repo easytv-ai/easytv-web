@@ -458,7 +458,7 @@ onBeforeUnmount(() => {
         <p>{{ t('把常用提示词、角色设定和创作方法，变成随时可用的能力。') }}</p>
       </div>
       <button type="button" class="plan-btn plan-btn--solid skill-lib__create" @click="openCreate">
-        <UIcon name="i-lucide-plus" class="size-4" />
+        <UIcon name="i-lucide-plus" class="size-3.5" />
         {{ t('新建 Skill') }}
       </button>
     </header>

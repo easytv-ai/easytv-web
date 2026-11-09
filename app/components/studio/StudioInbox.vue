@@ -100,11 +100,9 @@ function onMarkRead(n: Notification) {
 }
 
 function onItemClick(n: Notification) {
-  if (n.link) {
-    go(n)
-    return
-  }
-  toggleExpand(`n-${n.id}`)
+  onMarkRead(n)
+  if (!n.link)
+    toggleExpand(`n-${n.id}`)
 }
 
 async function onMarkAllRead() {
@@ -284,23 +282,24 @@ onUnmounted(() => {
                     <div class="notice-item__head">
                       <strong>{{ n.title }}</strong>
                       <span class="notice-item__when">
-                        <button
-                          v-if="!n.read_at"
-                          type="button"
-                          class="notice-item__read"
-                          :aria-label="t('inbox.markOne')"
-                          @click.stop="onMarkRead(n)"
-                        >
-                          <UIcon name="i-lucide-check" class="size-3.5" />
-                        </button>
                         <time>{{ fmtTime(n.created_at) }}</time>
                       </span>
                     </div>
                     <p v-if="n.content" class="notice-item__body">{{ n.content }}</p>
-                    <button v-if="n.link" type="button" class="notice-item__link" @click.stop="go(n)">
-                      {{ t('前往查看') }}
-                      <UIcon name="i-lucide-chevron-right" class="size-3.5" />
-                    </button>
+                    <div v-if="!n.read_at || n.link" class="notice-item__ops">
+                      <button
+                        v-if="!n.read_at"
+                        type="button"
+                        class="notice-item__mark"
+                        @click.stop="onMarkRead(n)"
+                      >
+                        {{ t('inbox.markOne') }}
+                      </button>
+                      <button v-if="n.link" type="button" class="notice-item__link" @click.stop="go(n)">
+                        {{ t('前往查看') }}
+                        <UIcon name="i-lucide-chevron-right" class="size-3.5" />
+                      </button>
+                    </div>
                   </div>
                 </li>
               </ul>
