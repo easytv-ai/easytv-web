@@ -3659,11 +3659,11 @@ html.dark .canvas-wf__tabs button.is-on {
   border-radius: 12px;
 }
 
-.canvas-wf ul:not(.canvas-matrix__list):not(.canvas-matrix__preview-list) > li {
+.canvas-wf ul:not(.canvas-matrix__list):not(.canvas-matrix__preview-list):not(.canvas-queue__list) > li {
   background: var(--st-hover);
 }
 
-.canvas-wf ul:not(.canvas-matrix__list):not(.canvas-matrix__preview-list) > li:hover {
+.canvas-wf ul:not(.canvas-matrix__list):not(.canvas-matrix__preview-list):not(.canvas-queue__list) > li:hover {
   background: color-mix(in srgb, var(--st-hover) 70%, var(--st-border));
 }
 
@@ -3991,23 +3991,36 @@ html.dark .canvas-wf__tabs button.is-on {
 /* ===== 运行队列面板（外壳沿用 .canvas-wf，只补队列特有的几块） ===== */
 
 .canvas-queue {
-  width: min(92vw, 520px);
+  width: min(92vw, 480px);
+}
+
+.canvas-queue .canvas-wf__head {
+  padding: 20px 16px 10px 20px;
+}
+
+.canvas-queue .canvas-wf__body {
+  gap: 14px;
+  padding: 4px 16px 12px 20px;
+}
+
+.canvas-queue .canvas-wf__foot {
+  padding: 12px 16px 16px 20px;
 }
 
 /* 面板标题上的进行中数量：跟工具轨入口的角标同一件事，开着面板也看得见 */
 .canvas-queue__count {
   display: inline-flex;
-  min-width: 16px;
-  height: 16px;
+  min-width: 18px;
+  height: 18px;
   align-items: center;
   justify-content: center;
   margin-left: 6px;
-  padding: 0 5px;
+  padding: 0 6px;
   border-radius: 999px;
-  background: var(--st-accent, #6366f1);
-  color: #fff;
-  font-size: 10px;
-  font-weight: 600;
+  background: var(--st-plan);
+  color: var(--st-plan-text);
+  font-size: 11px;
+  font-weight: 700;
   line-height: 1;
   vertical-align: middle;
 }
@@ -4026,9 +4039,13 @@ html.dark .canvas-wf__tabs button.is-on {
 .canvas-queue__section {
   display: flex;
   min-height: 0;
-  flex: 1 1 auto;
+  flex: 0 0 auto;
   flex-direction: column;
-  gap: 4px;
+  gap: 8px;
+}
+
+.canvas-queue__section + .canvas-queue__section {
+  padding-top: 4px;
 }
 
 .canvas-queue__label {
@@ -4036,20 +4053,68 @@ html.dark .canvas-wf__tabs button.is-on {
   align-items: center;
   gap: 6px;
   margin: 0 0 0 2px;
-  color: var(--st-muted);
-  font-size: 11px;
-  letter-spacing: 0.04em;
+  color: var(--st-text-soft);
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: 0;
 }
 
 .canvas-queue__label em {
-  color: var(--st-text-soft);
+  display: inline-flex;
+  min-width: 16px;
+  height: 16px;
+  align-items: center;
+  justify-content: center;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--st-hover);
+  color: var(--st-muted);
+  font-size: 10px;
   font-style: normal;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
 }
 
 /* 列表随弹窗一起滚，不再各自锁死高度 */
 .canvas-queue__list {
-  flex: 1 1 auto;
+  display: flex;
+  flex: 0 0 auto;
   min-height: 0;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.canvas-queue__item {
+  position: relative;
+  display: flex;
+  overflow: hidden;
+  align-items: stretch;
+  border: 1px solid var(--st-border);
+  border-radius: 12px;
+  background: var(--st-elevated);
+}
+
+html.dark .canvas-queue__item {
+  background: var(--st-card);
+}
+
+.canvas-queue__item:hover {
+  border-color: color-mix(in srgb, var(--st-text) 16%, var(--st-border));
+}
+
+.canvas-queue__item.is-running,
+.canvas-queue__item.is-pending {
+  border-color: color-mix(in srgb, var(--st-plan) 42%, var(--st-border));
+  background: var(--st-plan-soft);
+}
+
+.canvas-queue__item.is-failed {
+  border-color: color-mix(in srgb, #ef4444 32%, var(--st-border));
+  background: rgba(239, 68, 68, 0.06);
+}
+
+.canvas-queue__item.is-orphan {
+  opacity: 0.78;
 }
 
 .canvas-queue__row {
@@ -4057,8 +4122,8 @@ html.dark .canvas-wf__tabs button.is-on {
   min-width: 0;
   flex: 1;
   align-items: flex-start;
-  gap: 8px;
-  padding: 6px;
+  gap: 10px;
+  padding: 10px 8px 10px 12px;
   border: 0;
   background: transparent;
   color: var(--st-text);
@@ -4069,19 +4134,54 @@ html.dark .canvas-wf__tabs button.is-on {
 /* 节点已删 / 没挂节点：条目禁用（原因写在行里） */
 .canvas-queue__row:disabled {
   cursor: default;
-  opacity: 0.62;
 }
 
 .canvas-queue__icon {
   display: inline-flex;
-  width: 22px;
-  height: 22px;
+  width: 28px;
+  height: 28px;
   flex-shrink: 0;
   align-items: center;
   justify-content: center;
-  border-radius: 7px;
+  border-radius: 8px;
   background: var(--st-hover);
   color: var(--st-muted);
+}
+
+.canvas-queue__icon.is-image {
+  background: rgba(37, 99, 235, 0.12);
+  color: #2563eb;
+}
+
+.canvas-queue__icon.is-video {
+  background: rgba(139, 92, 246, 0.12);
+  color: #7c3aed;
+}
+
+.canvas-queue__icon.is-text {
+  background: rgba(100, 116, 139, 0.14);
+  color: #475569;
+}
+
+.canvas-queue__icon.is-audio {
+  background: rgba(16, 185, 129, 0.14);
+  color: #059669;
+}
+
+html.dark .canvas-queue__icon.is-image {
+  color: #93c5fd;
+}
+
+html.dark .canvas-queue__icon.is-video {
+  color: #c4b5fd;
+}
+
+html.dark .canvas-queue__icon.is-text {
+  color: #cbd5e1;
+}
+
+html.dark .canvas-queue__icon.is-audio {
+  color: #6ee7b7;
 }
 
 .canvas-queue__meta {
@@ -4089,22 +4189,22 @@ html.dark .canvas-wf__tabs button.is-on {
   min-width: 0;
   flex: 1;
   flex-direction: column;
-  gap: 2px;
+  gap: 3px;
 }
 
 .canvas-queue__head {
   display: flex;
   min-width: 0;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
 }
 
 .canvas-queue__head em {
   overflow: hidden;
   color: var(--st-text);
-  font-size: 12px;
+  font-size: 13px;
   font-style: normal;
-  font-weight: 500;
+  font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -4114,7 +4214,7 @@ html.dark .canvas-wf__tabs button.is-on {
   align-items: center;
   gap: 4px;
   flex-shrink: 0;
-  padding: 1px 8px;
+  padding: 2px 8px;
   border-radius: 999px;
   background: var(--st-hover);
   color: var(--st-muted);
@@ -4125,8 +4225,8 @@ html.dark .canvas-wf__tabs button.is-on {
 /* 状态配色沿用任务中心的徽章 */
 .canvas-queue__status.is-running,
 .canvas-queue__status.is-pending {
-  background: rgba(59, 130, 246, 0.14);
-  color: #3b82f6;
+  background: rgba(37, 99, 235, 0.14);
+  color: #2563eb;
 }
 
 .canvas-queue__status.is-succeeded {
@@ -4137,6 +4237,11 @@ html.dark .canvas-wf__tabs button.is-on {
 .canvas-queue__status.is-failed {
   background: rgba(239, 68, 68, 0.12);
   color: #ef4444;
+}
+
+html.dark .canvas-queue__status.is-running,
+html.dark .canvas-queue__status.is-pending {
+  color: #93c5fd;
 }
 
 .canvas-queue__line {
@@ -4176,32 +4281,69 @@ html.dark .canvas-wf__tabs button.is-on {
   margin-top: 2px;
 }
 
-/* 取消 / 重试：常显（半透明），行上悬停时实心 —— 队列里的主动作不该藏起来 */
+.canvas-queue__bar {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 2px;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--st-plan) 16%, transparent);
+}
+
+.canvas-queue__bar > i {
+  display: block;
+  width: var(--pct, 0%);
+  height: 100%;
+  background: var(--st-plan);
+  transition: width 0.28s ease;
+}
+
+.canvas-queue__bar.is-indet > i {
+  width: 34%;
+  animation: canvas-queue-indet 1.15s ease-in-out infinite;
+}
+
+@keyframes canvas-queue-indet {
+  0% {
+    transform: translateX(-120%);
+  }
+  100% {
+    transform: translateX(340%);
+  }
+}
+
+/* 取消 / 重试：常显，行上悬停时更实 */
 .canvas-queue__acts {
   display: flex;
   flex-shrink: 0;
-  align-items: center;
+  align-items: flex-start;
   gap: 2px;
-  padding-right: 2px;
-  opacity: 0.55;
-}
-
-.canvas-wf li:hover .canvas-queue__acts {
-  opacity: 1;
+  padding: 8px 8px 0 0;
 }
 
 .canvas-queue__acts button {
   display: inline-flex;
-  padding: 4px;
+  width: 28px;
+  height: 28px;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
   border: 0;
-  border-radius: 6px;
+  border-radius: 8px;
   background: transparent;
   color: var(--st-muted);
   cursor: pointer;
 }
 
-.canvas-queue__acts button:hover {
+.canvas-queue__acts button:hover:not(:disabled) {
+  background: var(--st-hover);
   color: var(--st-text);
+}
+
+.canvas-queue__acts button.is-cancel:hover:not(:disabled) {
+  background: rgba(239, 68, 68, 0.1);
+  color: #dc2626;
 }
 
 .canvas-queue__acts button:disabled {
@@ -4267,16 +4409,19 @@ html.dark .canvas-wf__tabs button.is-on {
 
 .canvas-queue__more {
   width: 100%;
-  padding: 10px 12px;
-  border: 1px solid var(--st-border);
+  height: 36px;
+  padding: 0 14px;
+  border: 0;
   border-radius: 10px;
-  background: transparent;
-  color: var(--st-muted);
+  background: var(--st-hover);
+  color: var(--st-text-soft);
   font-size: 13px;
+  font-weight: 550;
   cursor: pointer;
 }
 
 .canvas-queue__more:hover {
+  background: color-mix(in srgb, var(--st-text) 8%, var(--st-hover));
   color: var(--st-text);
 }
 

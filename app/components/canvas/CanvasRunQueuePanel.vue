@@ -197,7 +197,12 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown, true))
       <section v-if="activeRows.length" class="canvas-queue__section">
         <p class="canvas-queue__label">{{ t('进行中') }}<em>{{ activeRows.length }}</em></p>
         <ul class="canvas-queue__list">
-          <li v-for="row in activeRows" :key="row.task.id">
+          <li
+            v-for="row in activeRows"
+            :key="row.task.id"
+            class="canvas-queue__item"
+            :class="[`is-${row.task.status}`, { 'is-orphan': !row.canLocate }]"
+          >
             <button
               type="button"
               class="canvas-queue__row"
@@ -205,7 +210,7 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown, true))
               :title="row.canLocate ? t('定位到节点') : row.reason"
               @click="emit('locate', row.task)"
             >
-              <span class="canvas-queue__icon"><UIcon :name="row.icon" class="size-3.5" /></span>
+              <span class="canvas-queue__icon" :class="`is-${row.task.type}`"><UIcon :name="row.icon" class="size-3.5" /></span>
               <span class="canvas-queue__meta">
                 <span class="canvas-queue__head">
                   <b class="canvas-queue__status" :class="`is-${row.task.status}`">
@@ -228,6 +233,7 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown, true))
               <button
                 v-if="row.action === 'cancel'"
                 type="button"
+                class="is-cancel"
                 :disabled="row.busy"
                 :aria-label="t('取消任务')"
                 :title="t('取消任务')"
@@ -236,6 +242,11 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown, true))
                 <UIcon name="i-lucide-x" class="size-3.5" />
               </button>
             </span>
+            <span
+              class="canvas-queue__bar"
+              :class="{ 'is-indet': !row.progress }"
+              :style="row.progress ? { '--pct': `${row.progress}%` } : undefined"
+            ><i /></span>
           </li>
         </ul>
       </section>
@@ -243,7 +254,12 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown, true))
       <section v-if="doneRows.length" class="canvas-queue__section">
         <p class="canvas-queue__label">{{ t('刚结束') }}<em>{{ doneRows.length }}</em></p>
         <ul class="canvas-queue__list">
-          <li v-for="row in doneRows" :key="row.task.id">
+          <li
+            v-for="row in doneRows"
+            :key="row.task.id"
+            class="canvas-queue__item"
+            :class="[`is-${row.task.status}`, { 'is-orphan': !row.canLocate }]"
+          >
             <button
               type="button"
               class="canvas-queue__row"
@@ -251,7 +267,7 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown, true))
               :title="row.canLocate ? t('定位到节点') : row.reason"
               @click="emit('locate', row.task)"
             >
-              <span class="canvas-queue__icon"><UIcon :name="row.icon" class="size-3.5" /></span>
+              <span class="canvas-queue__icon" :class="`is-${row.task.type}`"><UIcon :name="row.icon" class="size-3.5" /></span>
               <span class="canvas-queue__meta">
                 <span class="canvas-queue__head">
                   <b class="canvas-queue__status" :class="`is-${row.task.status}`">{{ t(row.statusKey) }}</b>
