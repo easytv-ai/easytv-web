@@ -7,6 +7,7 @@ import {
   CANVAS_STAGE_SIZE,
   canvasCommentNodeHint,
   canvasFitMediaSize,
+  canvasRatioSize,
   canvasMediaSizeClose,
   cloneContentNodeData,
   videoPlayerCrop,
@@ -36,6 +37,13 @@ describe('canvasFitMediaSize', () => {
 
   it('9:16 不超过高度上限', () => {
     expect(canvasFitMediaSize(1080, 1920)).toEqual({ w: 320, h: 569 })
+  })
+
+  it('对话落图按画幅占位，和生成后的卡片同尺寸', () => {
+    expect(canvasRatioSize('9:16')).toEqual({ w: 320, h: 569 })
+    expect(canvasRatioSize('16:9')).toEqual({ w: 320, h: 180 })
+    expect(canvasRatioSize('1:1')).toEqual({ w: 320, h: 320 })
+    expect(canvasRatioSize()).toEqual({ w: CANVAS_STAGE_SIZE.image.w, h: CANVAS_STAGE_SIZE.image.h })
   })
 
   it('极宽图抬最短边，避免扁成一条', () => {

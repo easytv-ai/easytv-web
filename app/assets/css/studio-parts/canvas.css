@@ -5092,6 +5092,29 @@ html.dark .cnode__preview .github-markdown-body .hljs-literal {
   right: 0;
 }
 
+/* 窄对话栏：弹层仍挂在按钮上；--chat-pop-x 把超出输入框的部分收回来 */
+.canvas-chat:not(.is-entry) .canvas-chat__dock,
+.canvas-chat:not(.is-entry) .canvas-chat__input,
+.canvas-chat:not(.is-entry) .canvas-chat__input-bar,
+.canvas-chat:not(.is-entry) .canvas-chat__tools {
+  overflow: visible;
+}
+
+.canvas-chat:not(.is-entry) .canvas-chat__pop-wrap > .canvas-chat__pop--bottom,
+.canvas-chat:not(.is-entry) .canvas-chat__pop-wrap > .canvas-chat__pop--wide {
+  left: var(--chat-pop-x, 0px);
+  right: auto;
+  min-width: 0;
+}
+
+.canvas-chat:not(.is-entry) .canvas-chat__pop-wrap > .canvas-chat__pop--bottom:not(.canvas-chat__pop--wide) {
+  width: 260px;
+}
+
+.canvas-chat:not(.is-entry) .canvas-chat__pop-wrap > .canvas-chat__pop--wide {
+  width: 280px;
+}
+
 .canvas-chat.is-entry .canvas-chat__pop-wrap > .canvas-chat__pop--bottom {
   top: calc(100% + 8px);
   bottom: auto;

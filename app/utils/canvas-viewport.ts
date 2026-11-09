@@ -91,6 +91,120 @@ export function canvasNextInsertOrigin(
   return { x: bounds.x + bounds.w + gap, y: bounds.y }
 }
 
+export type CanvasInsertCell = {
+  index: number
+  w: number
+  h: number
+  group?: string
+}
+
+const INSERT_GROUP_ORDER = ['character', 'scene', 'prop', 'shot', 'voice', 'video']
+
+/** 角色/场景两列，道具最多三列，竖构图的分镜不要单列无限往下叠 */
+export function canvasInsertGroupCols(group: string, count: number) {
+  if (count <= 1)
+    return 1
+  if (group === 'shot' || group === 'video')
+    return count <= 4 ? 2 : 3
+  if (group === 'prop')
+    return Math.min(3, count)
+  if (group === 'character' || group === 'scene')
+    return 2
+  return count <= 4 ? 2 : 3
+}
+
+function packInsertGrid(
+  cells: CanvasInsertCell[],
+  cols: number,
+  gapX: number,
+  gapY: number,
+) {
+  const rows = Math.ceil(cells.length / Math.max(1, cols))
+  const placed = cells.map((cell, index) => ({
+    ...cell,
+    col: index % cols,
+    row: Math.floor(index / cols),
+  }))
+  const colW = Array.from({ length: cols }, (_, col) =>
+    Math.max(0, ...placed.filter(item => item.col === col).map(item => item.w)))
+  const rowH = Array.from({ length: rows }, (_, row) =>
+    Math.max(0, ...placed.filter(item => item.row === row).map(item => item.h)))
+  const xs: number[] = []
+  let x = 0
+  for (let col = 0; col < cols; col++) {
+    xs[col] = x
+    x += (colW[col] || 0) + gapX
+  }
+  const ys: number[] = []
+  let y = 0
+  for (let row = 0; row < rows; row++) {
+    ys[row] = y
+    y += (rowH[row] || 0) + gapY
+  }
+  return placed.map(item => ({
+    index: item.index,
+    x: xs[item.col] ?? 0,
+    y: ys[item.row] ?? 0,
+    w: item.w,
+    h: item.h,
+  }))
+}
+
+/**
+ * 对话落一批节点：按 group 分栏，栏内宫格。9:16 分镜用真实高度占位，避免生成后互相挡住。
+ */
+export function canvasInsertPositions(
+  cells: CanvasInsertCell[],
+  origin: { x: number, y: number },
+  gapX = ORGANIZE_GAP_X,
+  gapY = ORGANIZE_GAP_Y,
+  groupGap = INSERT_GROUP_GAP,
+): Array<{ index: number, x: number, y: number }> {
+  if (!cells.length)
+    return []
+  const buckets = new Map<string, CanvasInsertCell[]>()
+  for (const cell of cells) {
+    const key = INSERT_GROUP_ORDER.includes(cell.group || '') ? (cell.group || '') : '_'
+    const list = buckets.get(key) || []
+    list.push(cell)
+    buckets.set(key, list)
+  }
+  const keys = [
+    ...INSERT_GROUP_ORDER.filter(key => buckets.has(key)),
+    ...(buckets.has('_') ? ['_'] : []),
+  ]
+  const next: Array<{ index: number, x: number, y: number }> = []
+  let x = origin.x
+  for (const key of keys) {
+    const list = buckets.get(key) || []
+    const packed = packInsertGrid(list, canvasInsertGroupCols(key === '_' ? '' : key, list.length), gapX, gapY)
+    let width = 0
+    for (const item of packed) {
+      next.push({ index: item.index, x: x + item.x, y: origin.y + item.y })
+      width = Math.max(width, item.x + item.w)
+    }
+    x += width + groupGap
+  }
+  return next
+}
+
+/** 在源节点右侧找一块竖直方向不撞现有卡片的空位（分镜视频不要压住同一行的下一镜） */
+export function canvasSlotRightOf(
+  source: CanvasRect,
+  others: CanvasRect[],
+  gap = ORGANIZE_GAP_X,
+) {
+  let x = source.x + source.w + gap
+  const y0 = source.y
+  const y1 = source.y + source.h
+  for (const box of others) {
+    if (box.y + box.h <= y0 || box.y >= y1)
+      continue
+    x = Math.max(x, box.x + box.w + gap)
+  }
+  return { x, y: source.y }
+}
+
 /** 整理画布：卡片之间的空隙。要比默认 320×220 的卡片小一截，否则会叠在一起。 */
 export const ORGANIZE_GAP_X = 80
 export const ORGANIZE_GAP_Y = 64

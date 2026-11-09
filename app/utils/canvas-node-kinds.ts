@@ -671,6 +671,14 @@ export function canvasFitMediaSize(width: number, height: number) {
   }
 }
 
+/** 对话落图还没出像素时，按画幅先占位，避免 9:16 仍按 320×220 排导致生成后互相挡住 */
+export function canvasRatioSize(ratio?: string) {
+  const m = String(ratio || '').trim().match(/^(\d+(?:\.\d+)?)\s*:\s*(\d+(?:\.\d+)?)$/)
+  if (!m)
+    return { w: CANVAS_STAGE_SIZE.image.w, h: CANVAS_STAGE_SIZE.image.h }
+  return canvasFitMediaSize(Number(m[1]), Number(m[2]))
+}
+
 export function canvasMediaSizeClose(a: { w: number, h: number }, b: { w: number, h: number }) {
   return Math.abs(a.w - b.w) < 2 && Math.abs(a.h - b.h) < 2
 }

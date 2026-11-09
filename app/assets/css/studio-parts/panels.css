@@ -2224,7 +2224,7 @@ html.dark .canvas-inspector__chip.is-on:hover {
   min-width: 168px;
 }
 
-/* 技能 / 模型面板：加宽，纵向 flex，列表内滚，头尾常驻 */
+/* 技能 / 模型面板：加宽，纵向 flex，列表内滚，头尾常驻；横向不许出滚动条 */
 .canvas-chat__pop--wide {
   display: flex;
   min-width: 0;
@@ -2233,6 +2233,8 @@ html.dark .canvas-inspector__chip.is-on:hover {
   width: min(340px, calc(100% - 16px));
   max-height: 400px;
   padding: 12px;
+  overflow-x: hidden;
+  overflow-y: hidden;
 }
 
 .canvas-chat__params {
@@ -2465,12 +2467,12 @@ html.dark .canvas-inspector__chip.is-on:hover {
   }
 }
 
-/* 分类 chips 行（技能分类 / 模型类型 tab 共用） */
+/* 分类 chips 行（技能分类等，条目多时横滑） */
 .canvas-chat__chips {
   display: flex;
   min-width: 0;
   width: 100%;
-  flex-shrink: 1;
+  flex-shrink: 0;
   gap: 4px;
   margin-bottom: 8px;
   overflow-x: auto;
@@ -2482,14 +2484,23 @@ html.dark .canvas-inspector__chip.is-on:hover {
 }
 
 .canvas-chat__chips button {
-  flex-shrink: 0;
-  padding: 4px 10px;
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: auto;
+  height: 28px;
+  min-width: max-content;
+  padding: 0 10px;
+  overflow: hidden;
   border: 1px solid var(--st-border);
   border-radius: 999px;
   background: transparent;
   color: var(--st-muted);
   font: inherit;
   font-size: 12px;
+  font-weight: 500;
+  line-height: 1;
   white-space: nowrap;
   cursor: pointer;
 }
@@ -2506,14 +2517,64 @@ html.dark .canvas-inspector__chip.is-on:hover {
   font-weight: 600;
 }
 
+/* 模型类型：固定三项，用分段控件，避免和工具栏 36px 圆按钮、chips 横滑叠在一起 */
+.canvas-chat__model-tabs {
+  display: flex;
+  flex-shrink: 0;
+  gap: 2px;
+  margin-bottom: 8px;
+  padding: 3px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--st-hover);
+}
+
+.canvas-chat__model-tabs button,
+.canvas-chat.is-entry .canvas-chat__input-bar .canvas-chat__model-tabs button {
+  display: inline-flex;
+  flex: 1 1 0;
+  align-items: center;
+  justify-content: center;
+  width: auto;
+  min-width: 0;
+  height: 28px;
+  padding: 0 8px;
+  overflow: hidden;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--st-muted);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+
+.canvas-chat__model-tabs button:hover {
+  color: var(--st-text);
+}
+
+.canvas-chat__model-tabs button.is-on,
+.canvas-chat.is-entry .canvas-chat__input-bar .canvas-chat__model-tabs button.is-on {
+  z-index: 1;
+  background: var(--st-on);
+  color: var(--st-on-text);
+  font-weight: 600;
+}
+
 .canvas-chat__skill-list,
 .canvas-chat__model-list,
 .canvas-chat__tpl-list {
   display: flex;
+  min-width: 0;
   min-height: 0;
   flex: 1 1 auto;
   flex-direction: column;
   gap: 2px;
+  overflow-x: hidden;
   overflow-y: auto;
 }
 
@@ -2729,10 +2790,12 @@ html.dark .canvas-inspector__chip.is-on:hover {
 .canvas-chat__model-row {
   display: flex;
   flex-shrink: 0;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 8px;
   width: 100%;
+  max-width: 100%;
+  min-width: 0;
   padding: 7px 8px;
   border: 0;
   border-radius: 10px;
@@ -2748,6 +2811,11 @@ html.dark .canvas-inspector__chip.is-on:hover {
   background: var(--st-hover);
 }
 
+.canvas-chat__model-row > .size-4 {
+  flex-shrink: 0;
+  margin-top: 3px;
+}
+
 .canvas-chat__model-row > span:not(.canvas-chat__model-logo) {
   display: flex;
   min-width: 0;
@@ -2758,11 +2826,13 @@ html.dark .canvas-inspector__chip.is-on:hover {
 }
 
 .canvas-chat__model-row strong {
-  overflow: hidden;
+  max-width: 100%;
   font-size: 12px;
   font-weight: 600;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  line-height: 1.35;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .canvas-chat__style-grid {
@@ -3073,20 +3143,20 @@ html.dark .canvas-inspector__chip.is-on:hover {
 }
 
 .canvas-chat__model-price {
-  display: inline-flex !important;
-  flex-shrink: 0;
-  flex-wrap: nowrap;
+  display: flex !important;
+  flex-wrap: wrap;
   align-items: center;
   gap: 4px;
+  max-width: 100%;
   color: var(--st-muted);
   font-size: 11px;
   font-weight: 500;
-  line-height: 1.2;
-  white-space: nowrap;
+  line-height: 1.35;
+  white-space: normal;
 }
 
 .canvas-chat__model-price.canvas-promo {
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
 }
 
 .canvas-chat__msg.is-pending {

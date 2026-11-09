@@ -1448,6 +1448,12 @@ async function generateBriefPlacedNow(groups?: string[], opts?: BriefGenerateOpt
   return report
 }
 
+function frameChatInsert(ids: string[]) {
+  if (ids.length < 3 || practiceLocked.value)
+    return
+  nextTick(() => fitView({ padding: 0.16, duration: 280 }))
+}
+
 /** 从文本落到角色或分镜图时，每张图接一条线；不改已经写好的提示词 */
 function insertImageNodes(items: { label: string, prompt: string, ratio?: string, group?: string, tag?: string }[], fromId?: string) {
   const ready = items.filter(item => item.label.trim() && item.prompt.trim()).slice(0, 28)
@@ -1460,6 +1466,7 @@ function insertImageNodes(items: { label: string, prompt: string, ratio?: string
   }
   if (ready.some(item => item.group === 'shot'))
     linkBriefShotAnchors()
+  frameChatInsert(ids)
   return ids
 }
 
@@ -1478,6 +1485,7 @@ function insertAudioNodes(items: { label: string, prompt: string, group?: string
       linkNodes({ source, target: id, sourceHandle: 'out', targetHandle: 'in' }, { force: false })
     })
   }
+  frameChatInsert(ids)
   return ids
 }
 
@@ -1490,6 +1498,7 @@ function insertVideoNodes(items: { label: string, prompt: string, ratio?: string
       linkNodes({ source: fromId, target: id, sourceHandle: 'out', targetHandle: 'in' }, { force: false })
     })
   }
+  frameChatInsert(ids)
   return ids
 }
 
@@ -1528,6 +1537,7 @@ function placeBriefVideos(only?: string[]) {
       group: 'video',
     }], node.id))
   }
+  frameChatInsert(ids)
   return ids
 }
 

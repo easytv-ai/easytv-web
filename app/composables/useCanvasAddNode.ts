@@ -1,11 +1,19 @@
 import { nextTick, type Ref } from 'vue'
 import { isContentNode, nodeSize, nodesBounds, type CanvasFlowNode } from '~/utils/canvas-group'
-import { canvasNextInsertOrigin } from '~/utils/canvas-viewport'
+import {
+  canvasInsertPositions,
+  canvasNextInsertOrigin,
+  canvasSlotRightOf,
+  INSERT_GROUP_GAP,
+  ORGANIZE_GAP_X,
+  ORGANIZE_GAP_Y,
+} from '~/utils/canvas-viewport'
 import {
   CANVAS_NODE_ITEMS,
   canvasFitMediaSize,
   canvasMediaSizeClose,
   canvasNodeTitle,
+  canvasRatioSize,
   canvasStageSize,
   type CanvasEmptyStart,
   type CanvasNodeData,
@@ -155,38 +163,61 @@ export function useCanvasAddNode(opts: {
     return id
   }
 
-  /** 角色或分镜图。有 fromId 时从该文本右侧单列排开，方便连线 */
+  function contentBoxes(exceptId?: string) {
+    return opts.nodes.value
+      .filter(node => isContentNode(node) && node.id !== exceptId)
+      .map((node) => {
+        const box = nodeSize(node)
+        return { x: node.position.x, y: node.position.y, w: box.w, h: box.h }
+      })
+  }
+
+  /** 角色 / 场景 / 道具 / 分镜按栏排开，并用画幅预留高度，避免生成后挤成一坨 */
   function insertImageNodes(items: { label: string, prompt: string, ratio?: string, group?: string, tag?: string }[], fromId?: string) {
     const list = items.filter(item => item.label.trim() && item.prompt.trim()).slice(0, 28)
     if (!list.length)
       return []
-    const stage = canvasStageSize('image') || { w: 320, h: 220 }
     const from = fromId ? opts.findNode(fromId) : undefined
     const fromBox = from ? nodeSize(from) : null
-    const gap = 24
     const origin = from && fromBox
-      ? { x: from.position.x + fromBox.w + gap, y: from.position.y }
+      ? canvasSlotRightOf(
+          { x: from.position.x, y: from.position.y, w: fromBox.w, h: fromBox.h },
+          contentBoxes(from.id),
+          INSERT_GROUP_GAP,
+        )
       : nextInsertOrigin()
-    const cols = from ? 1 : Math.min(3, list.length)
+    const slots = canvasInsertPositions(
+      list.map((item, index) => ({
+        index,
+        group: item.group,
+        ...canvasRatioSize(frameRatioOf(item.ratio)),
+      })),
+      origin,
+    )
     const ids: string[] = []
-    list.forEach((item, index) => {
-      const col = index % cols
-      const row = Math.floor(index / cols)
+    for (const slot of slots) {
+      const item = list[slot.index]
+      if (!item)
+        continue
+      const ratio = frameRatioOf(item.ratio)
       const id = addNode(
         'image',
-        origin.x + col * (stage.w + gap),
-        origin.y + row * (stage.h + gap),
+        slot.x,
+        slot.y,
         null,
         {
           label: item.label.trim(),
           prompt: item.prompt.trim(),
           tag: (item.tag || item.label).trim(),
-          params: { ratio: frameRatioOf(item.ratio) },
+          params: { ratio },
         },
       )
-      if (id)
-        ids.push(id)
-    })
+      if (!id)
+        continue
+      const size = canvasRatioSize(ratio)
+      applyMediaNodeSize(id, size.w, size.h)
+      ids.push(id)
+    }
     return ids
   }
 
@@ -198,16 +229,15 @@ export function useCanvasAddNode(opts: {
     const stage = canvasStageSize('audio') || { w: 280, h: 118 }
     const from = fromId ? opts.findNode(fromId) : undefined
     const fromBox = from ? nodeSize(from) : null
-    const gap = 24
     const origin = from && fromBox
-      ? { x: from.position.x, y: from.position.y + fromBox.h + gap }
+      ? { x: from.position.x, y: from.position.y + fromBox.h + ORGANIZE_GAP_Y }
       : nextInsertOrigin()
     const ids: string[] = []
     list.forEach((item, index) => {
       const id = addNode(
         'audio',
         origin.x,
-        origin.y + index * (stage.h + gap),
+        origin.y + index * (stage.h + ORGANIZE_GAP_Y),
         null,
         {
           label: item.label.trim(),
@@ -222,37 +252,59 @@ export function useCanvasAddNode(opts: {
     return ids
   }
 
-  /** 逐镜视频。有 fromId 时从该静帧右侧排开，方便图生视频连线 */
+  /** 逐镜视频。有 fromId 时放到该静帧右侧空位，避免压住同一行的下一镜 */
   function insertVideoNodes(items: { label: string, prompt: string, ratio?: string, seconds?: number, group?: string }[], fromId?: string) {
     const list = items.filter(item => item.label.trim() && item.prompt.trim()).slice(0, 16)
     if (!list.length)
       return []
-    const stage = canvasStageSize('video') || { w: 320, h: 220 }
     const from = fromId ? opts.findNode(fromId) : undefined
     const fromBox = from ? nodeSize(from) : null
-    const gap = 24
     const origin = from && fromBox
-      ? { x: from.position.x + fromBox.w + gap, y: from.position.y }
+      ? canvasSlotRightOf(
+          { x: from.position.x, y: from.position.y, w: fromBox.w, h: fromBox.h },
+          contentBoxes(from.id),
+          ORGANIZE_GAP_X,
+        )
       : nextInsertOrigin()
+    const slots = from
+      ? list.map((_, index) => {
+          const size = canvasRatioSize(frameRatioOf(list[index]?.ratio))
+          return { index, x: origin.x, y: origin.y + index * (size.h + ORGANIZE_GAP_Y) }
+        })
+      : canvasInsertPositions(
+          list.map((item, index) => ({
+            index,
+            group: item.group || 'video',
+            ...canvasRatioSize(frameRatioOf(item.ratio)),
+          })),
+          origin,
+        )
     const ids: string[] = []
-    list.forEach((item, index) => {
+    for (const slot of slots) {
+      const item = list[slot.index]
+      if (!item)
+        continue
+      const ratio = frameRatioOf(item.ratio)
       const seconds = Math.min(20, Math.max(1, Math.round(Number(item.seconds) || 4)))
       const id = addNode(
         'video',
-        origin.x,
-        origin.y + index * (stage.h + gap),
+        slot.x,
+        slot.y,
         null,
         {
           label: item.label.trim(),
           prompt: item.prompt.trim(),
           tag: item.label.trim(),
           videoMode: 'i2v',
-          params: { ratio: frameRatioOf(item.ratio), duration: seconds },
+          params: { ratio, duration: seconds },
         },
       )
-      if (id)
-        ids.push(id)
-    })
+      if (!id)
+        continue
+      const size = canvasRatioSize(ratio)
+      applyMediaNodeSize(id, size.w, size.h)
+      ids.push(id)
+    }
     return ids
   }
 

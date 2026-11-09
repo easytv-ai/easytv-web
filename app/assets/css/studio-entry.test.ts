@@ -118,9 +118,29 @@ describe('创作台样式入口', () => {
     expect(css).toMatch(/\.canvas-chat__tool \{\s*flex-shrink: 0;/)
   })
 
+  it('画布窄栏里模型弹层贴输入框，不被裁切', () => {
+    const css = readFileSync(resolve(cssDir, 'studio-parts/canvas.css'), 'utf8')
+    expect(css).toContain('left: var(--chat-pop-x, 0px)')
+    expect(css).toMatch(/\.canvas-chat:not\(\.is-entry\) \.canvas-chat__pop-wrap > \.canvas-chat__pop--wide \{\s*width: 280px;/)
+  })
+
   it('技能弹层分类条能在窄栏里横滑而不撑破', () => {
     const css = readFileSync(resolve(cssDir, 'studio-parts/panels.css'), 'utf8')
     expect(css).toMatch(/\.canvas-chat__chips \{\s*display: flex;\s*min-width: 0;/)
     expect(css).toMatch(/\.canvas-chat__pop--wide \{\s*display: flex;\s*min-width: 0;/)
+  })
+
+  it('模型类型用分段控件，三项均分且不叠字', () => {
+    const css = readFileSync(resolve(cssDir, 'studio-parts/panels.css'), 'utf8')
+    expect(css).toContain('.canvas-chat__model-tabs')
+    expect(css).toMatch(/\.canvas-chat__model-tabs \{\s*display: flex;[\s\S]*?overflow: hidden;/)
+    expect(css).toMatch(/\.canvas-chat__model-tabs button,\s*\.canvas-chat\.is-entry[\s\S]*?flex: 1 1 0;/)
+  })
+
+  it('模型列表面板横向不出滚动条，名称可换行', () => {
+    const css = readFileSync(resolve(cssDir, 'studio-parts/panels.css'), 'utf8')
+    expect(css).toMatch(/\.canvas-chat__pop--wide \{[\s\S]*?overflow-x: hidden;/)
+    expect(css).toMatch(/\.canvas-chat__model-list,[\s\S]*?overflow-x: hidden;/)
+    expect(css).toMatch(/\.canvas-chat__model-row strong \{[\s\S]*?white-space: normal;/)
   })
 })

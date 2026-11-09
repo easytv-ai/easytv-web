@@ -1312,6 +1312,29 @@ onUnmounted(() => {
 type Popover = 'history' | 'add' | 'skill' | 'model' | 'template' | 'params'
 const popover = ref<Popover | null>(null)
 const settingsOpen = ref(false)
+const rootEl = ref<HTMLElement | null>(null)
+
+function placeChatPop() {
+  if (props.entry)
+    return
+  const wrap = rootEl.value?.querySelector('.canvas-chat__input .canvas-chat__pop-wrap:has(.canvas-chat__pop)') as HTMLElement | null
+  const pop = wrap?.querySelector(':scope > .canvas-chat__pop') as HTMLElement | null
+  const box = wrap?.closest('.canvas-chat__input') as HTMLElement | null
+  if (!wrap || !pop || !box) {
+    wrap?.style.removeProperty('--chat-pop-x')
+    return
+  }
+  wrap.style.setProperty('--chat-pop-x', '0px')
+  const popRect = pop.getBoundingClientRect()
+  const boxRect = box.getBoundingClientRect()
+  const pad = 8
+  let left = 0
+  if (popRect.right > boxRect.right - pad)
+    left -= popRect.right - (boxRect.right - pad)
+  if (popRect.left + left < boxRect.left + pad)
+    left += (boxRect.left + pad) - (popRect.left + left)
+  wrap.style.setProperty('--chat-pop-x', `${Math.round(left)}px`)
+}
 
 function togglePopover(name: Popover) {
   const next = popover.value === name ? null : name
@@ -1351,13 +1374,22 @@ function onSettingsKeydown(event: KeyboardEvent) {
   }
 }
 
+watch(popover, async (name) => {
+  if (props.entry || !name || name === 'history')
+    return
+  await nextTick()
+  requestAnimationFrame(placeChatPop)
+})
+
 onMounted(() => {
   document.addEventListener('click', onDocumentClick)
   window.addEventListener('keydown', onSettingsKeydown, true)
+  window.addEventListener('resize', placeChatPop)
 })
 onUnmounted(() => {
   document.removeEventListener('click', onDocumentClick)
   window.removeEventListener('keydown', onSettingsKeydown, true)
+  window.removeEventListener('resize', placeChatPop)
 })
 
 // 打招呼语要等挂载后才用昵称：服务端渲染时拿不到登录态，会先出「创作者」再被客户端换掉，
@@ -3157,7 +3189,7 @@ function promoOf(item: GenerationModel) {
 </script>
 
 <template>
-  <aside class="canvas-chat" :class="{ 'is-entry': entry }" @chat-assets="addAssetAttachments">
+  <aside ref="rootEl" class="canvas-chat" :class="{ 'is-entry': entry }" @chat-assets="addAssetAttachments">
     <header v-if="!entry" class="canvas-chat__bar">
       <div class="canvas-chat__tabs">
         <div class="canvas-chat__tab-list">
@@ -3693,11 +3725,13 @@ function promoOf(item: GenerationModel) {
                   </button>
                 </span>
               </div>
-              <div v-if="modelGroups.length" class="canvas-chat__chips">
+              <div v-if="modelGroups.length" class="canvas-chat__model-tabs" role="tablist">
                 <button
                   v-for="group in modelGroups"
                   :key="group.type"
                   type="button"
+                  role="tab"
+                  :aria-selected="modelTab === group.type"
                   :class="{ 'is-on': modelTab === group.type }"
                   @click="modelTab = group.type; void warmModelIcons(group.type)"
                 >

@@ -3,10 +3,13 @@ import {
   canvasCenterFlowPoint,
   canvasClampMenu,
   canvasClampZoomPct,
+  canvasInsertGroupCols,
+  canvasInsertPositions,
   canvasMinimapBox,
   canvasNextInsertOrigin,
   canvasOrganizeOverlaps,
   canvasOrganizePositions,
+  canvasSlotRightOf,
   canvasViewRect,
   INSERT_GROUP_GAP,
   ORGANIZE_FALLBACK_W,
@@ -24,6 +27,57 @@ describe('canvasNextInsertOrigin', () => {
       x: 100 + 252 + INSERT_GROUP_GAP,
       y: 80,
     })
+  })
+})
+
+describe('canvasInsertPositions', () => {
+  it('角色和分镜分栏，不竖着单列叠在一起', () => {
+    const cells = [
+      { index: 0, w: 320, h: 240, group: 'character' },
+      { index: 1, w: 320, h: 240, group: 'character' },
+      { index: 2, w: 320, h: 569, group: 'shot' },
+      { index: 3, w: 320, h: 569, group: 'shot' },
+    ]
+    const next = canvasInsertPositions(cells, { x: 100, y: 40 })
+    const shot = next.filter(item => item.index >= 2)
+    expect(next[0]).toEqual({ index: 0, x: 100, y: 40 })
+    expect(next[1]?.x).toBe(100 + 320 + ORGANIZE_GAP_X)
+    expect(shot[0]?.x).toBeGreaterThan(next[1]!.x)
+    expect(shot[1]?.x).toBe(shot[0]!.x + 320 + ORGANIZE_GAP_X)
+    expect(shot[1]?.y).toBe(shot[0]?.y)
+  })
+
+  it('9:16 分镜按真实高度留缝，不会叠住', () => {
+    const cells = Array.from({ length: 4 }, (_, index) => ({
+      index,
+      w: 320,
+      h: 569,
+      group: 'shot',
+    }))
+    const next = canvasInsertPositions(cells, { x: 0, y: 0 })
+    const boxes = next.map(item => ({
+      id: String(item.index),
+      x: item.x,
+      y: item.y,
+      w: 320,
+      h: 569,
+    }))
+    expect(canvasInsertGroupCols('shot', 4)).toBe(2)
+    expect(next[2]?.y).toBe(569 + ORGANIZE_GAP_Y)
+    expect(canvasOrganizeOverlaps(
+      boxes.map(item => ({ id: item.id, width: item.w, height: item.h })),
+      next.map(item => ({ id: String(item.index), x: item.x, y: item.y })),
+    )).toBe(false)
+  })
+})
+
+describe('canvasSlotRightOf', () => {
+  it('同一行已有卡片时，视频落到整行右侧', () => {
+    expect(canvasSlotRightOf(
+      { x: 0, y: 0, w: 320, h: 569 },
+      [{ x: 400, y: 0, w: 320, h: 569 }],
+      ORGANIZE_GAP_X,
+    )).toEqual({ x: 400 + 320 + ORGANIZE_GAP_X, y: 0 })
   })
 })
 
