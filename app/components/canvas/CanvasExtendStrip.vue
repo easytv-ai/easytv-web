@@ -434,7 +434,7 @@ onBeforeUnmount(() => {
 
 const shortcutLines = computed(() => {
   const lines = isSplit.value
-    ? [t('点击空白添加分割点'), t('拖动分割线，← → 移动当前分割点，按住 Shift 每次 1 秒'), t('点 × 或 Delete 删除分割点')]
+    ? [t('canvas.split.hintAdd'), t('canvas.split.hintMove'), t('canvas.split.hintRemove')]
     : [t('← → 移动，按住 Shift 每次 1 秒')]
   if (!isSplit.value) {
     lines.push(t('Alt + ← → 调整终点'))
@@ -503,7 +503,7 @@ function onSubmit() {
         ref="stripRef"
         class="canvas-extend-strip__film"
         :style="filmStyle"
-        :title="isSplit ? t('点击空白添加分割点，每段会生成一个视频节点') : undefined"
+        :title="isSplit ? t('canvas.split.trackTitle') : undefined"
         @pointerdown="onHandleDown('move', $event)"
       >
         <div class="canvas-extend-strip__frames">
@@ -529,7 +529,7 @@ function onSubmit() {
               <button
                 v-if="cuts.length > 1 && index === activeCut"
                 type="button"
-                :aria-label="t('删除分割点')"
+                :aria-label="t('canvas.split.removeCut')"
                 @pointerdown.stop
                 @click.stop="removeCut(index)"
               >×</button>

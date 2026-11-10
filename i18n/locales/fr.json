@@ -3670,6 +3670,32 @@
         "stopping": "Stopping…",
         "disclaimer": "AI can make mistakes. Content is for reference only; please verify important information."
       },
+      "media": {
+        "runningImage": "Génération de l’image et placement sur le canevas…",
+        "runningVideo": "Génération de la vidéo et placement sur le canevas…",
+        "runningAudio": "Génération de l’audio et placement sur le canevas…",
+        "placedImage": "Image générée et placée sur le canevas.",
+        "placedVideo": "Vidéo générée et placée sur le canevas.",
+        "placedAudio": "Audio généré et placé sur le canevas.",
+        "needModel": "Choisissez d’abord un modèle tarifé pour ce type",
+        "needPrompt": "Saisissez d’abord un prompt de génération",
+        "confirmTitle": "Rien n’est généré avant votre confirmation",
+        "confirmHint": "Choisissez le modèle et le format, vérifiez les points, puis générez. Le modèle de chat ne fait que préparer l’idée et ne débite rien directement.",
+        "generate": "Générer",
+        "skip": "Ne pas générer cette fois",
+        "skipped": "Rien n’est généré cette fois. Vous pourrez lancer depuis le nœud.",
+        "type": "Type",
+        "kindImage": "Image",
+        "kindVideo": "Vidéo",
+        "kindAudio": "Audio",
+        "prompt": "Prompt",
+        "ratio": "Format",
+        "seconds": "Durée (secondes)",
+        "historyWait": "En attente de confirmation de génération",
+        "historyDone": "Génération confirmée",
+        "readonly": "Impossible de générer sur un canevas en lecture seule",
+        "pickModel": "Choisissez d’abord un modèle"
+      },
       "plan": {
         "loadFail": "Failed to load the suggested changes",
         "noChanges": "Rien à modifier pour cette fois.",
@@ -3795,6 +3821,15 @@
         "optGenerateStills": "Portraits, décors et accessoires seulement",
         "optGenerateLater": "Je générerai plus tard depuis les nœuds",
         "generateNext": "Les nœuds sont sur le canevas. Confirmez avant de lancer images et voix.",
+        "pickModelHint": "Choisissez d’abord les modèles d’image et de voix. La voix est facultative. Les points dépendent des modèles choisis ; par défaut, le dernier utilisé, sinon le modèle tarifé le moins cher.",
+        "pickVideoHint": "Les vidéos utiliseront le modèle choisi ici. Les prix varient beaucoup d’un modèle à l’autre.",
+        "pickImageModel": "Modèle d’image",
+        "pickAudioModel": "Modèle de voix",
+        "skipAudioModel": "Sans voix pour l’instant",
+        "pickVideoModel": "Modèle vidéo",
+        "needImageModel": "Choisissez d’abord un modèle d’image",
+        "needAudioModel": "Choisissez d’abord un modèle de voix",
+        "needVideoModel": "Choisissez d’abord un modèle vidéo",
         "generateStarted": "Génération une par une, une seule à la fois.",
         "generatingItem": "Génération {i}/{n} : {name}",
         "generateDoneAll": "Les {n} éléments sont prêts.",
@@ -3846,7 +3881,8 @@
         "composeStarted": "Montage en cours. Le film arrivera sur un nœud vidéo du canevas.",
         "composePlaced": "Le film est sur un nœud vidéo du canevas. Vous pouvez le prévisualiser.",
         "composeFailed": "Le montage a échoué, rien n'a été placé sur le canevas.",
-        "composeSkipped": "Pas de montage cette fois. Vous pourrez le faire plus tard dans le panneau."
+        "composeSkipped": "Pas de montage cette fois. Vous pourrez le faire plus tard dans le panneau.",
+        "needModelInChat": "Choisissez d’abord dans le chat les modèles à utiliser"
       },
       "crew": {
         "director": "Directeur artistique",
@@ -3899,7 +3935,8 @@
       "transcribeTruncated": "Seules les {n} premières minutes ont été transcrites",
       "transcribeNoTimestamps": "La passerelle n’a pas renvoyé d’horodatage ; les temps des sous-titres sont répartis également. Merci de vérifier.",
       "noSilence": "Aucune pause détectée",
-      "warningFallback": "Terminé, mais une partie du contenu n’a pas été transcrit comme prévu"
+      "warningFallback": "Terminé, mais une partie du contenu n’a pas été transcrit comme prévu",
+      "localClipBlocked": "Des extraits sont encore en local après un échec d’envoi ; le canevas ne peut pas être enregistré pour l’instant"
     },
     "compose": {
       "title": "Assembler un clip",
@@ -4076,6 +4113,30 @@
       "twoShot": "Un clip Kling-2.5 ne dure que 3 à 15 secondes, donc une version locale de 30 secondes se fait en deux clips : accroche plus prix, puis arguments plus CTA. Le nombre de mots est le coût — changez une phrase et ne retournez que ce court passage.",
       "courseShorts": "Les sous-titres sont un actif réutilisable : un nœud texte indépendant dont le corps contient une timeline -->, et la source de sous-titres de la timeline grave tout le SRT. Le nœud ne doit pas avoir d’amont, sinon le corps est traité comme un résultat généré à effacer.",
       "microLesson": "Le script et le découpage sont des nœuds sources indépendants (un nœud avec amont ne peut pas garder de corps). Master, SRT séparé, piste de dialogue et liste d’assets arrivent ensemble si vous cochez exporter le pack de livraison au montage — c’est le master remontable voulu par les institutions. Un montage fait au plus 24 plans et un workflow au plus 60 nœuds, donc 36 plans se font par lots. Une voix fournie passe par un nœud audio téléversé relié video → audio."
+    },
+    "split": {
+      "hintAdd": "Cliquez sur une zone vide pour ajouter un point de coupe",
+      "hintMove": "Faites glisser la ligne de coupe ; ← → déplacent le point actuel ; maintenez Maj pour des pas de 1 s",
+      "hintRemove": "Cliquez sur × ou appuyez sur Suppr pour retirer un point de coupe",
+      "trackTitle": "Cliquez sur une zone vide pour ajouter un point de coupe. Chaque segment devient un nœud vidéo",
+      "removeCut": "Retirer le point de coupe"
+    },
+    "videoTool": {
+      "runningSplitAv": "Séparation de la piste audio…",
+      "runningSilence": "Suppression des pauses…",
+      "runningMix": "Mixage de la musique…",
+      "runningCrop": "Recadrage de l’image…",
+      "runningFrames": "Extraction des images…",
+      "noAudio": "Ce clip n’a pas de piste audio",
+      "splitAvOk": "Piste audio et vidéo muette séparées",
+      "silenceNone": "Aucune pause à supprimer n’a été détectée",
+      "silenceOk": "Pauses supprimées",
+      "cropOk": "Image recadrée",
+      "mixOk": "Musique mixée",
+      "framesPending": "Les images extraites ne sont pas encore dans la bibliothèque, l’analyse a été ignorée",
+      "framesFail": "Échec de l’extraction des images. La vidéo n’est peut-être pas lisible depuis une autre origine",
+      "framesOk": "{n} images extraites",
+      "framesLabel": "Extraction d’images"
     }
   },
   "settings": {

@@ -1377,7 +1377,9 @@
         "ratio": "画幅",
         "seconds": "时长（秒）",
         "historyWait": "等待确认是否出片",
-        "historyDone": "已确认是否出片"
+        "historyDone": "已确认是否出片",
+        "readonly": "只读画布不能生成",
+        "pickModel": "请先选择模型"
       },
       "plan": {
         "loadFail": "读取修改方案失败",
@@ -1564,7 +1566,8 @@
         "composeStarted": "按分镜图逐镜出视频，再合成一条成片到画布。",
         "composePlaced": "成片已经放到画布上的视频节点，可直接预览。",
         "composeFailed": "合成没成功，成片没有落到画布上。",
-        "composeSkipped": "这次不合成。之后可在合成面板里做。"
+        "composeSkipped": "这次不合成。之后可在合成面板里做。",
+        "needModelInChat": "请在对话里选择生成用的模型"
       },
       "crew": {
         "director": "艺术总监",
@@ -1617,7 +1620,8 @@
       "transcribeTruncated": "只转了前 {n} 分钟",
       "transcribeNoTimestamps": "网关未返回时间戳，字幕时间按句均分，请校对",
       "noSilence": "没检测到停顿",
-      "warningFallback": "处理完成，但有部分内容未按预期转出"
+      "warningFallback": "处理完成，但有部分内容未按预期转出",
+      "localClipBlocked": "有片段还在本地，上传失败，画布暂时不能保存"
     },
     "compose": {
       "title": "合成一条",
@@ -1794,6 +1798,30 @@
       "twoShot": "Kling-2.5 单段只有 3–15 秒，30 秒同城版要两段接：第一段钩子＋价格锚点、第二段卖点＋CTA；台词字数就是钱——改一句只重拍那一小段。",
       "courseShorts": "字幕是可复用资产：独立文本节点正文带 --> 时间轴，成片时间线「字幕来源」直接烧整份 SRT；节点必须不带上游，否则正文会被当成待清的生成产物。",
       "microLesson": "讲稿与分镜表做成独立源节点（带上游的节点不能带正文）；母版/独立 SRT/对白轨/素材清单在合成时勾「同时导出交付包」一次拿齐——机构客户要的就是可再剪的母版。单次合成 ≤24 镜、工作流 ≤60 节点，铺满 36 镜要分批；自备配音走 video→audio 连线的上传音频节点。"
+    },
+    "split": {
+      "hintAdd": "点击空白添加分割点",
+      "hintMove": "拖动分割线，← → 移动当前分割点，按住 Shift 每次 1 秒",
+      "hintRemove": "点 × 或 Delete 删除分割点",
+      "trackTitle": "点击空白添加分割点，每段会生成一个视频节点",
+      "removeCut": "删除分割点"
+    },
+    "videoTool": {
+      "runningSplitAv": "正在分离音轨…",
+      "runningSilence": "正在去掉停顿…",
+      "runningMix": "正在混入配乐…",
+      "runningCrop": "正在裁切画面…",
+      "runningFrames": "正在抽帧…",
+      "noAudio": "这段素材没有音轨",
+      "splitAvOk": "已分离音轨和无声画面",
+      "silenceNone": "没有检测到可去掉的停顿",
+      "silenceOk": "已去掉停顿",
+      "cropOk": "已裁切画面",
+      "mixOk": "已混入配乐",
+      "framesPending": "抽到的画面还没进资产库，解读先跳过",
+      "framesFail": "抽帧失败，视频可能无法跨域读取",
+      "framesOk": "已抽出 {n} 帧",
+      "framesLabel": "抽帧"
     }
   },
   "settings": {

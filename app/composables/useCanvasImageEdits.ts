@@ -1150,7 +1150,7 @@ function browserMediaFailText(error: unknown) {
     if (error.code === 'browser')
       return t('canvas.merge.browserOnly')
     if (error.code === 'noAudio')
-      return t('这段素材没有音轨')
+      return t('canvas.videoTool.noAudio')
   }
   return error instanceof Error && error.message ? error.message : t('canvas.merge.fail')
 }
@@ -1258,7 +1258,7 @@ async function onSeparateAv(audioTag: '音轨' | '人声' | '背景音' = '音�
     select: true,
   })
   pushHistory()
-  notify(t('已分离音轨和无声画面'))
+  notify(t('canvas.videoTool.splitAvOk'))
   const task = Promise.all([
     uploadBrowserMedia(audioNode.id, parts.audio, 'audio.m4a', 'audio/mp4'),
     uploadBrowserMedia(silentNode.id, parts.video, 'mute.mp4', 'video/mp4'),
@@ -1356,7 +1356,7 @@ async function onRemoveSilence() {
     select: true,
   })
   pushHistory()
-  notify(result.warning === 'no_silence' ? t('没有检测到可去掉的停顿') : t('已去掉停顿'))
+  notify(result.warning === 'no_silence' ? t('canvas.videoTool.silenceNone') : t('canvas.videoTool.silenceOk'))
   const task = uploadBrowserMedia(sibling.id, result.blob, filename, mime)
   trackMergeUpload(task.then(() => undefined))
   void task.catch(() => undefined)
@@ -1940,7 +1940,7 @@ async function runVideoCrop(nodeId: string, box: {
     },
   })
   pushHistory()
-  notify(t('已裁切画面'))
+  notify(t('canvas.videoTool.cropOk'))
   const task = uploadBrowserMedia(sibling.id, blob, 'crop.mp4', 'video/mp4')
   trackMergeUpload(task.then(() => undefined))
   void task.catch(() => undefined)
@@ -2032,7 +2032,7 @@ async function analyzeStripFrames(
   }
   const inputs = frames.slice(0, 4).filter(item => item.assetId > 0).map(item => ({ asset_id: item.assetId, role: 'image' as const }))
   if (!inputs.length) {
-    notify(t('抽到的画面还没进资产库，解读先跳过'), 'error')
+    notify(t('canvas.videoTool.framesPending'), 'error')
     return
   }
   const { cols } = mediaGridLayout(frames.length, { x: 0, y: 0 }, layout.cell, 24)
@@ -2069,11 +2069,11 @@ async function extractVideoFrames(
     }
   })
   if (!frames?.length) {
-    notify(t('抽帧失败，视频可能无法跨域读取'), 'error')
+    notify(t('canvas.videoTool.framesFail'), 'error')
     return
   }
   const layout = placeStripFrames(opts.anchor, frames, opts.tag, opts.label)
-  notify(t('已抽出 {n} 帧', { n: frames.length }))
+  notify(t('canvas.videoTool.framesOk', { n: frames.length }))
   if (opts.analyze)
     await analyzeStripFrames(opts.anchor, frames, layout)
 }
@@ -2085,7 +2085,7 @@ async function onExtractFrames(count: number) {
   await extractVideoFrames(from, count, {
     anchor: from,
     tag: '抽帧',
-    label: t('抽帧'),
+    label: t('canvas.videoTool.framesLabel'),
     analyze: false,
   })
 }

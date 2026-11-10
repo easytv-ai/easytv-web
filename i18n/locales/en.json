@@ -3717,7 +3717,9 @@
         "ratio": "Aspect ratio",
         "seconds": "Duration (seconds)",
         "historyWait": "Waiting to confirm generation",
-        "historyDone": "Generation confirmed"
+        "historyDone": "Generation confirmed",
+        "readonly": "A read-only canvas cannot generate",
+        "pickModel": "Pick a model first"
       },
       "plan": {
         "loadFail": "Failed to load the suggested changes",
@@ -3904,7 +3906,8 @@
         "composeStarted": "Turning storyboard stills into shot videos, then placing one cut on the canvas.",
         "composePlaced": "The cut is on a video node on the canvas. You can preview it there.",
         "composeFailed": "Compose did not finish, so nothing was placed on the canvas.",
-        "composeSkipped": "No compose this time. You can do it later in the compose panel."
+        "composeSkipped": "No compose this time. You can do it later in the compose panel.",
+        "needModelInChat": "Pick the generation models in the chat first"
       },
       "crew": {
         "director": "Art director",
@@ -3957,7 +3960,8 @@
       "transcribeTruncated": "Only the first {n} minutes were transcribed",
       "transcribeNoTimestamps": "The gateway did not return timestamps; subtitle times are evenly split. Please review.",
       "noSilence": "No pauses were detected",
-      "warningFallback": "Finished, but some content was not transcribed as expected"
+      "warningFallback": "Finished, but some content was not transcribed as expected",
+      "localClipBlocked": "Some clips are still local because the upload failed, so the canvas cannot be saved yet"
     },
     "compose": {
       "title": "Compose one clip",
@@ -4134,6 +4138,30 @@
       "twoShot": "Kling-2.5 clips are only 3–15 seconds, so a 30-second local version is two clips: hook plus price, then selling points plus CTA. Word count is the cost — change one line and reshoot only that short piece.",
       "courseShorts": "Subtitles are a reusable asset: an independent text node whose body includes a --> timeline, and the timeline subtitle source burns the whole SRT. The node must have no upstream, or the body is treated as generated output to clear.",
       "microLesson": "Script and shot list are independent source nodes (a node with upstream cannot keep body text). Master, standalone SRT, dialogue track, and asset list come together when you check export delivery pack on compose — that is the recuttable master institutions want. One compose is at most 24 shots and one workflow at most 60 nodes, so 36 shots go in batches. Bring-your-own voice uses an upload audio node wired video → audio."
+    },
+    "split": {
+      "hintAdd": "Click an empty spot to add a split point",
+      "hintMove": "Drag a split line; ← → move the current split point; hold Shift for 1 s steps",
+      "hintRemove": "Click × or press Delete to remove a split point",
+      "trackTitle": "Click an empty spot to add a split point. Each segment becomes its own video node",
+      "removeCut": "Remove split point"
+    },
+    "videoTool": {
+      "runningSplitAv": "Separating the audio track…",
+      "runningSilence": "Trimming pauses…",
+      "runningMix": "Mixing in the music…",
+      "runningCrop": "Cropping the frame…",
+      "runningFrames": "Extracting frames…",
+      "noAudio": "This clip has no audio track",
+      "splitAvOk": "Separated the audio track and the silent video",
+      "silenceNone": "No pauses to trim were detected",
+      "silenceOk": "Pauses trimmed",
+      "cropOk": "Frame cropped",
+      "mixOk": "Music mixed in",
+      "framesPending": "The extracted frames are not in the asset library yet, so analysis was skipped",
+      "framesFail": "Could not extract frames. The video may not be readable across origins",
+      "framesOk": "Extracted {n} frames",
+      "framesLabel": "Frame extraction"
     }
   },
   "settings": {

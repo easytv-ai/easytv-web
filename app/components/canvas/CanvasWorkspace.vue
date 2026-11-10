@@ -1405,7 +1405,7 @@ async function generateBriefPlacedNow(groups?: string[], opts?: BriefGenerateOpt
   }
   const quote = estimateBriefPlaced(groups, opts?.models, opts?.limit)
   if (targets.some(node => isContentNode(node) && !briefModelOf(node, opts?.models))) {
-    notify(t('请在对话里选择生成用的模型'), 'error')
+    notify(t('canvas.chat.brief.needModelInChat'), 'error')
     report.failed = targets.length
     return report
   }
@@ -1490,13 +1490,13 @@ export type ChatMediaGenerateReport = {
 /** 对话栏自由创作：落一个节点并立刻生成，结果写回画布 */
 async function generateFromChat(req: ChatMediaGenerateRequest, extra?: ChatMediaGenerateOpts): Promise<ChatMediaGenerateReport> {
   if (props.readonly)
-    return { ok: false, error: t('只读画布不能生成') }
+    return { ok: false, error: t('canvas.chat.media.readonly') }
   const prompt = String(req.prompt || '').trim()
   const model = String(req.model || '').trim()
   if (!prompt)
     return { ok: false, error: t('请先填写提示词') }
   if (!model)
-    return { ok: false, error: t('请先选择模型') }
+    return { ok: false, error: t('canvas.chat.media.pickModel') }
   await ensureGenerationModels()
   const label = String(req.label || '').trim() || prompt.slice(0, 24)
   const ratio = String(req.ratio || '').trim() || (req.kind === 'image' ? '1:1' : '16:9')
@@ -1525,7 +1525,7 @@ async function generateFromChat(req: ChatMediaGenerateRequest, extra?: ChatMedia
   writeCanvasLastModel(req.kind, model)
   const stopTaskWatch = watch(
     () => {
-      const live = findNode(node.id)
+      const live = findNode(node.id) as CanvasFlowNode | undefined
       return live && isContentNode(live) ? Number(live.data.taskId) || 0 : 0
     },
     (taskId) => {
@@ -1540,7 +1540,7 @@ async function generateFromChat(req: ChatMediaGenerateRequest, extra?: ChatMedia
   finally {
     stopTaskWatch()
   }
-  const live = findNode(node.id)
+  const live = findNode(node.id) as CanvasFlowNode | undefined
   const data = live && isContentNode(live) ? live.data : node.data
   const status = String(data.taskStatus || '')
   const url = String(data.content || '')
@@ -4069,7 +4069,7 @@ async function finishBgmMix(audioId: string, audioAssetId?: number) {
     })
     updateNodeData(audioId, { bgmMix: null })
     pushHistory()
-    notify(t('已混入配乐'))
+    notify(t('canvas.videoTool.mixOk'))
     publishMergeProgress(null)
     const file = new File([blob], 'mix-bgm.mp4', { type: 'video/mp4' })
     const task = assetApi.upload(file).then((uploaded) => {
@@ -5937,7 +5937,7 @@ const {
   spawnDepthNode,
   runSubjectAction,
   relabelGroups,
-  groupNodeList: ids => laterFns.groupNodeList(ids),
+  groupNodeList: (ids: string[]) => laterFns.groupNodeList(ids),
   updateNode,
   editSrc,
   montageOpen,

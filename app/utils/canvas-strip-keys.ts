@@ -63,9 +63,8 @@ export function splitLabelRows(cuts: number[], gap: number) {
     while (row < cuts.length) {
       const taken = lanes[row] || []
       if (taken.every(pos => Math.abs(pos - cut.value) >= span)) {
-        if (!lanes[row])
-          lanes[row] = []
-        lanes[row].push(cut.value)
+        const lane = lanes[row] ?? (lanes[row] = [])
+        lane.push(cut.value)
         rows[cut.index] = row
         break
       }

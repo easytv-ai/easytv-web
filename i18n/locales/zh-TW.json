@@ -3671,6 +3671,32 @@
         "stopping": "停止中…",
         "disclaimer": "AI 可能會出錯，內容僅供參考，請查證重要資訊。"
       },
+      "media": {
+        "runningImage": "正在生成圖片，放到畫布上…",
+        "runningVideo": "正在生成影片，放到畫布上…",
+        "runningAudio": "正在生成音訊，放到畫布上…",
+        "placedImage": "圖片已生成，已放到畫布。",
+        "placedVideo": "影片已生成，已放到畫布。",
+        "placedAudio": "音訊已生成，已放到畫布。",
+        "needModel": "請先選一個對應的已定價模型",
+        "needPrompt": "請先填寫出片提示詞",
+        "confirmTitle": "確認後才會真正出片",
+        "confirmHint": "先選模型和畫幅，看清積分再生成。對話模型只負責構思，不會直接扣點。",
+        "generate": "生成",
+        "skip": "這次不生成",
+        "skipped": "這次不生成。之後可在節點上點生成。",
+        "type": "類型",
+        "kindImage": "圖片",
+        "kindVideo": "影片",
+        "kindAudio": "音訊",
+        "prompt": "提示詞",
+        "ratio": "畫幅",
+        "seconds": "時長（秒）",
+        "historyWait": "等待確認是否出片",
+        "historyDone": "已確認是否出片",
+        "readonly": "唯讀畫布不能生成",
+        "pickModel": "請先選擇模型"
+      },
       "plan": {
         "loadFail": "讀取修改方案失敗",
         "noChanges": "這一輪沒有要改的地方",
@@ -3796,6 +3822,15 @@
         "optGenerateStills": "只要角色、場景和道具圖",
         "optGenerateLater": "之後再點節點上的生成",
         "generateNext": "節點都已落到畫布。出圖和配音要先確認再跑。",
+        "pickModelHint": "先選出圖、配音用的模型。配音可以不選。積分按所選模型計算；預設用上次選過的，沒有就用最便宜的已定價模型。",
+        "pickVideoHint": "出影片會用這裡選的模型，不同模型差價很大。",
+        "pickImageModel": "出圖模型",
+        "pickAudioModel": "配音模型",
+        "skipAudioModel": "暫不配音",
+        "pickVideoModel": "出影片模型",
+        "needImageModel": "請先選出圖模型",
+        "needAudioModel": "請先選配音模型",
+        "needVideoModel": "請先選出影片模型",
         "generateStarted": "開始按順序生成，同時只跑一條。",
         "generatingItem": "正在生成 {i}/{n}：{name}",
         "generateDoneAll": "這 {n} 條都生成好了。",
@@ -3847,7 +3882,8 @@
         "composeStarted": "按分鏡圖逐鏡出視頻，再合成一條成片到畫布。",
         "composePlaced": "成片已經放到畫布上的視頻節點，可直接預覽。",
         "composeFailed": "合成沒成功，成片沒有落到畫布上。",
-        "composeSkipped": "這次不合成。之後可在合成面板裡做。"
+        "composeSkipped": "這次不合成。之後可在合成面板裡做。",
+        "needModelInChat": "請在對話裡選擇生成用的模型"
       },
       "crew": {
         "director": "藝術總監",
@@ -3900,7 +3936,8 @@
       "transcribeTruncated": "只轉了前 {n} 分鐘",
       "transcribeNoTimestamps": "閘道未返回時間戳，字幕時間按句均分，請校對",
       "noSilence": "沒檢測到停頓",
-      "warningFallback": "處理完成，但有部分內容未按預期轉出"
+      "warningFallback": "處理完成，但有部分內容未按預期轉出",
+      "localClipBlocked": "有片段還在本機，上傳失敗，畫布暫時不能儲存"
     },
     "compose": {
       "title": "合成一條",
@@ -4077,6 +4114,30 @@
       "twoShot": "Kling-2.5 單段只有 3–15 秒，30 秒同城版要兩段接：第一段鉤子＋價格錨點、第二段賣點＋CTA；台詞字數就是錢——改一句只重拍那一小段。",
       "courseShorts": "字幕是可複用資產：獨立文字節點正文帶 --> 時間軸，成片時間線「字幕來源」直接燒整份 SRT；節點必須不帶上游，否則正文會被當成待清的生成產物。",
       "microLesson": "講稿與分鏡表做成獨立源節點（帶上游的節點不能帶正文）；母版/獨立 SRT/對白軌/素材清單在合成時勾「同時匯出交付包」一次拿齊——機構客戶要的就是可再剪的母版。單次合成 ≤24 鏡、工作流 ≤60 節點，鋪滿 36 鏡要分批；自備配音走 video→audio 連線的上傳音訊節點。"
+    },
+    "split": {
+      "hintAdd": "點擊空白新增分割點",
+      "hintMove": "拖曳分割線，← → 移動目前分割點，按住 Shift 每次 1 秒",
+      "hintRemove": "點 × 或 Delete 刪除分割點",
+      "trackTitle": "點擊空白新增分割點，每段會生成一個影片節點",
+      "removeCut": "刪除分割點"
+    },
+    "videoTool": {
+      "runningSplitAv": "正在分離音軌…",
+      "runningSilence": "正在去掉停頓…",
+      "runningMix": "正在混入配樂…",
+      "runningCrop": "正在裁切畫面…",
+      "runningFrames": "正在抽幀…",
+      "noAudio": "這段素材沒有音軌",
+      "splitAvOk": "已分離音軌和無聲畫面",
+      "silenceNone": "沒有檢測到可去掉的停頓",
+      "silenceOk": "已去掉停頓",
+      "cropOk": "已裁切畫面",
+      "mixOk": "已混入配樂",
+      "framesPending": "抽到的畫面還沒進資產庫，解讀先跳過",
+      "framesFail": "抽幀失敗，影片可能無法跨域讀取",
+      "framesOk": "已抽出 {n} 幀",
+      "framesLabel": "抽幀"
     }
   },
   "settings": {

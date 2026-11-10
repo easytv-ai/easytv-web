@@ -3670,6 +3670,32 @@
         "stopping": "Stopping…",
         "disclaimer": "AI can make mistakes. Content is for reference only; please verify important information."
       },
+      "media": {
+        "runningImage": "Đang tạo ảnh và đặt lên canvas…",
+        "runningVideo": "Đang tạo video và đặt lên canvas…",
+        "runningAudio": "Đang tạo âm thanh và đặt lên canvas…",
+        "placedImage": "Đã tạo ảnh và đặt lên canvas.",
+        "placedVideo": "Đã tạo video và đặt lên canvas.",
+        "placedAudio": "Đã tạo âm thanh và đặt lên canvas.",
+        "needModel": "Hãy chọn trước một mô hình đã định giá cho loại này",
+        "needPrompt": "Hãy nhập prompt tạo trước",
+        "confirmTitle": "Chỉ tạo sau khi bạn xác nhận",
+        "confirmHint": "Chọn mô hình và tỉ lệ khung hình, xem rõ số điểm rồi mới tạo. Mô hình trò chuyện chỉ lên ý tưởng, không trực tiếp trừ điểm.",
+        "generate": "Tạo",
+        "skip": "Lần này không tạo",
+        "skipped": "Lần này không tạo. Sau này bấm tạo trên nút.",
+        "type": "Loại",
+        "kindImage": "Ảnh",
+        "kindVideo": "Video",
+        "kindAudio": "Âm thanh",
+        "prompt": "Prompt",
+        "ratio": "Tỉ lệ khung hình",
+        "seconds": "Thời lượng (giây)",
+        "historyWait": "Đang chờ xác nhận có tạo hay không",
+        "historyDone": "Đã xác nhận việc tạo",
+        "readonly": "Canvas chỉ đọc không thể tạo",
+        "pickModel": "Hãy chọn mô hình trước"
+      },
       "plan": {
         "loadFail": "Failed to load the suggested changes",
         "noChanges": "Lần này không có gì cần sửa.",
@@ -3795,6 +3821,15 @@
         "optGenerateStills": "Chỉ ảnh nhân vật, bối cảnh và đạo cụ",
         "optGenerateLater": "Để sau, bấm tạo trên từng nút",
         "generateNext": "Các nút đã lên canvas. Ảnh và giọng cần xác nhận rồi mới chạy.",
+        "pickModelHint": "Hãy chọn mô hình ảnh và giọng đọc trước. Có thể bỏ qua giọng đọc. Điểm tính theo mô hình đã chọn; mặc định dùng mô hình lần trước, nếu chưa có thì dùng mô hình đã định giá rẻ nhất.",
+        "pickVideoHint": "Video sẽ dùng mô hình chọn ở đây. Giá giữa các mô hình chênh lệch rất lớn.",
+        "pickImageModel": "Mô hình ảnh",
+        "pickAudioModel": "Mô hình giọng đọc",
+        "skipAudioModel": "Tạm chưa lồng giọng",
+        "pickVideoModel": "Mô hình video",
+        "needImageModel": "Hãy chọn mô hình ảnh trước",
+        "needAudioModel": "Hãy chọn mô hình giọng đọc trước",
+        "needVideoModel": "Hãy chọn mô hình video trước",
         "generateStarted": "Bắt đầu tạo lần lượt, mỗi lần một mục.",
         "generatingItem": "Đang tạo {i}/{n}: {name}",
         "generateDoneAll": "Cả {n} mục đã xong.",
@@ -3846,7 +3881,8 @@
         "composeStarted": "Đang ghép. Thành phẩm sẽ nằm trên nút video của canvas.",
         "composePlaced": "Thành phẩm đã nằm trên nút video của canvas, xem trước được ngay.",
         "composeFailed": "Ghép không xong, canvas chưa có thành phẩm.",
-        "composeSkipped": "Lần này không ghép. Sau này làm trong bảng ghép."
+        "composeSkipped": "Lần này không ghép. Sau này làm trong bảng ghép.",
+        "needModelInChat": "Hãy chọn mô hình dùng để tạo trong khung trò chuyện trước"
       },
       "crew": {
         "director": "Giám đốc nghệ thuật",
@@ -3899,7 +3935,8 @@
       "transcribeTruncated": "Chỉ chuyển được {n} phút đầu",
       "transcribeNoTimestamps": "Cổng không trả về dấu thời gian; thời lượng phụ đề được chia đều. Vui lòng kiểm tra.",
       "noSilence": "Không phát hiện khoảng dừng",
-      "warningFallback": "Đã xử lý xong, nhưng một phần nội dung chưa chuyển đúng như kỳ vọng"
+      "warningFallback": "Đã xử lý xong, nhưng một phần nội dung chưa chuyển đúng như kỳ vọng",
+      "localClipBlocked": "Một số đoạn vẫn nằm trên máy do tải lên thất bại nên chưa thể lưu canvas"
     },
     "compose": {
       "title": "Ghép thành một clip",
@@ -4076,6 +4113,30 @@
       "twoShot": "Một đoạn Kling-2.5 chỉ dài 3–15 giây, nên bản địa phương 30 giây phải nối hai đoạn: đoạn một là câu móc và giá, đoạn hai là điểm bán và CTA. Số chữ chính là tiền — sửa một câu thì chỉ quay lại đoạn ngắn đó.",
       "courseShorts": "Phụ đề là tài sản dùng lại được: một nút văn bản độc lập có dòng thời gian --> trong nội dung, và nguồn phụ đề của timeline sẽ in cả file SRT. Nút này không được có đầu vào, nếu không nội dung bị coi là kết quả tạo cần xóa.",
       "microLesson": "Bài giảng và bảng phân cảnh là các nút nguồn độc lập (nút có đầu vào không giữ được nội dung). Bản gốc, SRT riêng, track thoại và danh sách tài nguyên có đủ một lần khi tick xuất gói bàn giao lúc ghép — đó là bản gốc có thể dựng lại mà khách tổ chức cần. Một lần ghép tối đa 24 cảnh, một quy trình tối đa 60 nút, nên 36 cảnh phải chia đợt. Giọng tự chuẩn bị đi qua nút âm thanh tải lên, nối video → audio."
+    },
+    "split": {
+      "hintAdd": "Bấm vào chỗ trống để thêm điểm tách",
+      "hintMove": "Kéo đường tách; ← → di chuyển điểm tách hiện tại; giữ Shift để nhảy 1 giây",
+      "hintRemove": "Bấm × hoặc Delete để xóa điểm tách",
+      "trackTitle": "Bấm vào chỗ trống để thêm điểm tách. Mỗi đoạn sẽ thành một nút video",
+      "removeCut": "Xóa điểm tách"
+    },
+    "videoTool": {
+      "runningSplitAv": "Đang tách bản âm thanh…",
+      "runningSilence": "Đang cắt khoảng dừng…",
+      "runningMix": "Đang trộn nhạc nền…",
+      "runningCrop": "Đang cắt khung hình…",
+      "runningFrames": "Đang trích khung hình…",
+      "noAudio": "Đoạn này không có bản âm thanh",
+      "splitAvOk": "Đã tách bản âm thanh và video không tiếng",
+      "silenceNone": "Không phát hiện khoảng dừng nào để cắt",
+      "silenceOk": "Đã cắt khoảng dừng",
+      "cropOk": "Đã cắt khung hình",
+      "mixOk": "Đã trộn nhạc nền",
+      "framesPending": "Khung hình đã trích chưa vào thư viện tài sản nên bỏ qua phần phân tích",
+      "framesFail": "Trích khung hình thất bại. Có thể không đọc được video do khác nguồn gốc",
+      "framesOk": "Đã trích {n} khung hình",
+      "framesLabel": "Trích khung hình"
     }
   },
   "settings": {

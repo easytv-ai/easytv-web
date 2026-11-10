@@ -501,7 +501,7 @@ async function settleLocalMedia(manual: boolean) {
   }
   if (manual || !blobSaveWarned) {
     blobSaveWarned = true
-    notify(t('有片段还在本地，上传失败，画布暂时不能保存'), 'error')
+    notify(t('canvas.media.localClipBlocked'), 'error')
   }
   return false
 }

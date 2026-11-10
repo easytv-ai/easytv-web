@@ -49,7 +49,7 @@ export function useCanvasVideoMerge(opts: {
       if (error.code === 'browser')
         return opts.t('canvas.merge.browserOnly')
       if (error.code === 'noAudio')
-        return opts.t('这段素材没有音轨')
+        return opts.t('canvas.videoTool.noAudio')
     }
     return error instanceof Error && error.message ? error.message : opts.t('canvas.merge.fail')
   }
