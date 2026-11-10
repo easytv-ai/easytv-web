@@ -1517,6 +1517,7 @@
         "generatingItem": "正在生成 {i}/{n}：{name}",
         "generateDoneAll": "这 {n} 条都生成好了。",
         "generateDoneSome": "{n} 条里完成 {ok} 条，失败 {fail} 条。",
+        "generateStillQueued": "还有 {n} 条仍在排队，没有当成失败，也不会重新扣分。",
         "generateEmpty": "没有可以生成的节点。",
         "generateSkipped": "这次不自动生成。之后可在节点上点生成。",
         "countCharacters": "角色 {n} 张",

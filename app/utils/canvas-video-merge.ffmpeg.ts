@@ -275,7 +275,7 @@ export async function trimVideoBlob(
     report({ phase: 'reading', progress: 12 })
     await writeSource(ffmpeg, url, input)
     report({ phase: 'encoding', progress: 40 })
-    const code = await encodeRange(ffmpeg, input, output, start, end, (progress) => {
+    const code = await encodeRangeAccurate(ffmpeg, input, output, start, end, (progress) => {
       report({ phase: 'encoding', progress: 40 + Math.round(progress * 55) })
     })
     if (code !== 0)

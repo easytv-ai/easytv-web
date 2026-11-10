@@ -3800,6 +3800,7 @@
         "generatingItem": "正在生成 {i}/{n}：{name}",
         "generateDoneAll": "這 {n} 條都生成好了。",
         "generateDoneSome": "{n} 條裡完成 {ok} 條，失敗 {fail} 條。",
+        "generateStillQueued": "還有 {n} 條仍在排隊，沒有當成失敗，也不會重新扣分。",
         "generateEmpty": "沒有可以生成的節點。",
         "generateSkipped": "這次不自動生成。之後可在節點上點生成。",
         "countCharacters": "角色 {n} 張",

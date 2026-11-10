@@ -1681,10 +1681,14 @@ function activeReply() {
   return null
 }
 
+function lockedMediaReply() {
+  return [...messages.value].reverse().find(row => row.card?.kind === 'media-confirm' && row.card.locked && !row.card.skipped) ?? null
+}
+
 function markStopped(reply: ChatMsg | null) {
   if (!reply) {
     busy.value = false
-    const last = [...messages.value].reverse().find(row => row.card?.kind === 'media-confirm' && row.card.locked && !row.card.skipped)
+    const last = lockedMediaReply()
     if (last?.card?.kind === 'media-confirm')
       last.card.locked = false
     persistSession()
@@ -1702,40 +1706,50 @@ function markStopped(reply: ChatMsg | null) {
   persistSession()
 }
 
-/** 生成过程中把发送按钮换成停止：取消这一轮任务，气泡改成「已停止」 */
+/** 生成过程中把发送按钮换成停止：先取消任务，取消成功才解锁卡片。 */
 async function stopReply() {
   if (!busy.value || stopping.value)
     return
   stopping.value = true
-  const reply = activeReply()
+  const reply = activeReply() || lockedMediaReply()
   const taskId = runTaskId
   const agent = runAgent
-  nextRun()
-  stopPolling()
-  markStopped(reply)
   try {
-    if (!taskId || !reply)
-      return
-    const res = await taskApi.cancel(taskId)
-    if (res?.success)
-      return
-    const poll = await taskApi.get(taskId)
-    const task = poll?.success ? poll.data : null
-    if (!task)
-      return
-    if (task.status === 'succeeded') {
-      if (agent)
-        await presentAgentPlan(reply, taskId)
-      else
-        finishReply(reply, task.result_text || t('canvas.chat.msg.empty'))
-      return
+    if (taskId) {
+      const res = await taskApi.cancel(taskId)
+      const poll = res?.success ? null : await taskApi.get(taskId)
+      const task = poll?.success ? poll.data : null
+      const status = res?.success ? 'cancelled' : task?.status
+      if (status === 'succeeded') {
+        nextRun()
+        stopPolling()
+        if (reply && agent)
+          await presentAgentPlan(reply, taskId)
+        else if (reply)
+          finishReply(reply, task?.result_text || t('canvas.chat.msg.empty'))
+        else
+          markStopped(null)
+        return
+      }
+      if (status === 'failed') {
+        nextRun()
+        stopPolling()
+        if (reply)
+          failReply(reply, task?.error_msg || t('生成失败'))
+        else
+          markStopped(null)
+        return
+      }
+      if (status !== 'cancelled') {
+        notify(res?.message || t('取消失败'), 'error')
+        if (reply?.card?.kind === 'media-confirm')
+          reply.card.locked = true
+        return
+      }
     }
-    if (task.status === 'failed') {
-      failReply(reply, task.error_msg || t('生成失败'))
-      return
-    }
-    if (task.status !== 'cancelled')
-      notify(res?.message || t('取消失败'), 'error')
+    nextRun()
+    stopPolling()
+    markStopped(reply)
   }
   finally {
     stopping.value = false
@@ -2163,7 +2177,7 @@ function seedBriefModels(card: BriefGenerateCard | BriefVideoCard): BriefMediaMo
   if (card.kind === 'generate') {
     if (briefNeedsImage(card.counts) && !next.image)
       next.image = defaultBriefModel(models.value, 'image', last.image, isMember.value)
-    if (card.counts.voices && !next.audio)
+    if (card.counts.voices && !next.audio && !card.skipAudio)
       next.audio = defaultBriefModel(models.value, 'audio', last.audio, isMember.value)
     if (briefWantsFilm(currentBriefPath()) && card.counts.shots && !next.video)
       next.video = defaultBriefModel(models.value, 'video', last.video, isMember.value)
@@ -2180,7 +2194,10 @@ function quoteGroupsOf(card: BriefGenerateCard) {
   const chosen = card.questions[0]?.chosen
   if (chosen == null)
     return undefined
-  return briefGenerateGroups(chosen) || undefined
+  const groups = briefGenerateGroups(chosen) || undefined
+  if (!groups)
+    return undefined
+  return briefRunGroups(groups, card.skipAudio ? { ...card.models, audio: '' } : card.models)
 }
 
 function refreshGenerateQuote(card: BriefGenerateCard) {
@@ -2214,6 +2231,8 @@ watch(models, () => {
 
 function onBriefModelPick(card: BriefGenerateCard | BriefVideoCard, kind: BriefMediaKind, value: string | number) {
   const id = String(value || '').trim()
+  if (card.kind === 'generate' && kind === 'audio')
+    card.skipAudio = !id
   card.models = { ...(card.models || {}), [kind]: id }
   briefPickedModels.value = { ...briefPickedModels.value, [kind]: id }
   if (id) {
@@ -2294,11 +2313,13 @@ function runBriefGenerate(groups: string[], mediaModels?: BriefMediaModels) {
       onDone: (report) => {
         writeBriefProgress(row.id, !report.total
           ? t('canvas.chat.brief.generateEmpty')
-          : report.ok + report.failed === 0
-            ? t('canvas.chat.brief.generateSkipped')
-            : report.failed
-              ? t('canvas.chat.brief.generateDoneSome', { ok: report.ok, fail: report.failed, n: report.total })
-              : t('canvas.chat.brief.generateDoneAll', { n: report.ok }))
+          : report.waiting && !report.failed
+            ? t('canvas.chat.brief.generateStillQueued', { n: report.waiting })
+            : report.ok + report.failed === 0
+              ? t('canvas.chat.brief.generateSkipped')
+              : report.failed
+                ? t('canvas.chat.brief.generateDoneSome', { ok: report.ok, fail: report.failed, n: report.total })
+                : t('canvas.chat.brief.generateDoneAll', { n: report.ok }))
         persistSession()
         scrollToEnd()
         resolve(report)
@@ -2494,6 +2515,8 @@ async function confirmBriefGenerate(item: ChatMsg) {
     return
   }
   seedBriefModels(card)
+  if (card.skipAudio && card.models)
+    card.models.audio = ''
   groups = briefRunGroups(groups, card.models)
   const wantsImage = groups.some(group => group !== 'voice' && group !== 'video')
   if (wantsImage && !card.models?.image) {
@@ -2997,8 +3020,11 @@ function runFreeMedia(card: ChatMediaConfirmCard, reply: ChatMsg, id: number) {
     refs: card.refs,
   }, {
     onTask: (taskId) => {
-      if (runAlive(id))
-        runTaskId = taskId
+      if (!runAlive(id) || stopping.value) {
+        void taskApi.cancel(taskId)
+        return
+      }
+      runTaskId = taskId
     },
     onDone: (report) => {
       if (!runAlive(id))

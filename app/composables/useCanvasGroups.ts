@@ -4,6 +4,7 @@ import {
   collapsedGroupSize,
   collapseLayoutForKids,
   defaultGroupColor,
+  groupThumbOf,
   isContentNode,
   isGroupNode,
   isNodeLocked,
@@ -158,6 +159,7 @@ export function useCanvasGroups(opts: {
       const size = nodeSize(group)
       group.data.expandedW = size.w
       group.data.expandedH = size.h
+      group.data.thumbs = kids.map(groupThumbOf)
       setGroupKidsVisible(kids, false)
       group.data.collapsed = true
       const box = collapsedGroupSize(kids.length, collapseLayoutForKids(kids, group.data.layout))

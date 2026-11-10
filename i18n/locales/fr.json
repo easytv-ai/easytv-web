@@ -3799,6 +3799,7 @@
         "generatingItem": "Génération {i}/{n} : {name}",
         "generateDoneAll": "Les {n} éléments sont prêts.",
         "generateDoneSome": "{ok} sur {n} réussis, {fail} en échec.",
+        "generateStillQueued": "{n} encore en file. Ce n'est pas un échec, et les points ne sont pas débités une seconde fois.",
         "generateEmpty": "Aucun nœud à générer.",
         "generateSkipped": "Rien n'est généré automatiquement. Vous pourrez lancer depuis chaque nœud.",
         "countCharacters": "{n} portraits",

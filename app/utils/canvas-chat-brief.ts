@@ -91,6 +91,8 @@ export type BriefGenerateCard = {
   step?: number
   auto?: boolean
   models?: BriefMediaModels
+  /** 用户选了「暂不配音」。空字符串会被当成还没选，不能靠它挡住默认模型。 */
+  skipAudio?: boolean
 }
 
 export type BriefVideoCard = {
@@ -133,6 +135,8 @@ export type BriefGenerateReport = {
   ok: number
   failed: number
   total: number
+  /** 等到界面超时仍在排队或生成，没有标失败，也不能当失败去重试 */
+  waiting?: number
 }
 
 export type BriefGenerateOpts = {

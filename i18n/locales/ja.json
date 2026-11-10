@@ -3800,6 +3800,7 @@
         "generatingItem": "生成中 {i}/{n}：{name}",
         "generateDoneAll": "この {n} 本はすべてできました。",
         "generateDoneSome": "{n} 本のうち {ok} 本成功、{fail} 本失敗。",
+        "generateStillQueued": "あと {n} 本は順番待ちです。失敗にはせず、ポイントは再請求しません。",
         "generateEmpty": "生成できるノードがありません。",
         "generateSkipped": "自動生成はしません。あとでノードから生成できます。",
         "countCharacters": "キャラ {n} 枚",

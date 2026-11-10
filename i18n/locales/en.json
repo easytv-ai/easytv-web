@@ -3857,6 +3857,7 @@
         "generatingItem": "Generating {i}/{n}: {name}",
         "generateDoneAll": "All {n} items are ready.",
         "generateDoneSome": "{ok} of {n} succeeded, {fail} failed.",
+        "generateStillQueued": "{n} still queued. Not marked failed, and points are not charged again.",
         "generateEmpty": "No nodes to generate.",
         "generateSkipped": "Nothing is auto-generated. You can generate from each node later.",
         "countCharacters": "{n} character stills",

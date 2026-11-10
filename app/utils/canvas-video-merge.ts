@@ -441,14 +441,15 @@ export function removeSilenceAudioArgs(input: string, output: string, expr: stri
 }
 
 /**
- * 按时间裁一段。-ss / -to 放在 -i 前面，先跳到附近再转码。
+ * 按时间裁一段。-ss / -to 放在 -i 后面，按帧解码到起点再转码。
+ * 放在 -i 前面会落到前一个关键帧，成片起点比用户标的更早。
  * 没有音轨时第二次去掉音频。
  */
 export function trimVideoArgs(input: string, output: string, start: number, end: number, withAudio: boolean) {
   const args = [
+    '-i', input,
     '-ss', ffmpegClock(start),
     '-to', ffmpegClock(end),
-    '-i', input,
     '-c:v', 'libx264',
     '-preset', 'veryfast',
   ]

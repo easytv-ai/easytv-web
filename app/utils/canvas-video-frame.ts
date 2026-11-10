@@ -143,27 +143,34 @@ async function imageLoads(src: string, timeoutMs = 4000) {
   })
 }
 
+function seekLanded(current: number, target: number) {
+  return Number.isFinite(current) && Math.abs(current - target) < 0.35
+}
+
+/** 等到画面真的停在目标时间附近。没到位就返回 false，调用方不能把当前帧当成这一张。 */
 async function seekVideo(video: HTMLVideoElement, time: number) {
-  await new Promise<void>((resolve) => {
+  const target = Math.max(0, time)
+  if (seekLanded(video.currentTime, target) && video.readyState >= 2)
+    return true
+  return await new Promise<boolean>((resolve) => {
     let settled = false
-    const done = () => {
+    const finish = (ok: boolean) => {
       if (settled)
         return
       settled = true
-      video.removeEventListener('seeked', done)
-      resolve()
+      video.removeEventListener('seeked', onSeeked)
+      resolve(ok)
     }
-    video.addEventListener('seeked', done)
+    const onSeeked = () => finish(seekLanded(video.currentTime, target))
+    video.addEventListener('seeked', onSeeked)
     try {
-      if (Math.abs(video.currentTime - time) < 0.001 && video.readyState >= 2)
-        done()
-      else
-        video.currentTime = time
+      video.currentTime = target
     }
     catch {
-      done()
+      finish(false)
+      return
     }
-    window.setTimeout(done, 400)
+    window.setTimeout(() => finish(seekLanded(video.currentTime, target)), 2500)
   })
 }
 
@@ -184,9 +191,11 @@ async function grabStripFromVideo(
       return { duration, frames: [] }
     const frames: string[] = []
     for (const time of stripFrameTimes(duration, count)) {
-      await seekVideo(video, time)
+      const landed = await seekVideo(video, time)
       if (isStale?.())
         return { duration: 0, frames: [] }
+      if (!landed)
+        continue
       canvas.width = video.videoWidth || 160
       canvas.height = video.videoHeight || 90
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
@@ -277,24 +286,9 @@ export async function captureVideoFrame(
       target = Math.min(target, max)
     }
 
-    await new Promise<void>((resolve) => {
-      let settled = false
-      const done = () => {
-        if (settled)
-          return
-        settled = true
-        video.removeEventListener('seeked', done)
-        resolve()
-      }
-      video.addEventListener('seeked', done)
-      try {
-        video.currentTime = target
-      }
-      catch {
-        done()
-      }
-      window.setTimeout(done, 800)
-    })
+    const landed = await seekVideo(video, target)
+    if (!landed)
+      throw new Error('seek')
 
     const width = video.videoWidth || 0
     const height = video.videoHeight || 0

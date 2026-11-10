@@ -1,5 +1,6 @@
 /** 海报要画进 canvas 再导出。OSS 封面没有 CORS 头，浏览器直接画会失败，上面只剩空渐变。只代理 allowedMediaHosts 里的域名。 */
 import { allowedMediaHosts, isAllowedMediaUrl } from '../utils/media-hosts'
+import { isRasterImageType, looksLikeMarkup, setMediaProxyHeaders } from '../utils/media-proxy'
 
 export default defineEventHandler(async (event) => {
   const raw = String(getQuery(event).url || '')
@@ -18,13 +19,15 @@ export default defineEventHandler(async (event) => {
   if (!res.ok)
     throw createError({ statusCode: 502, statusMessage: '封面读取失败' })
   const type = ((res.headers.get('content-type') || '').split(';')[0] ?? '').trim().toLowerCase()
-  if (!type.startsWith('image/'))
+  if (!isRasterImageType(type))
     throw createError({ statusCode: 400, statusMessage: '不是图片' })
   const bytes = new Uint8Array(await res.arrayBuffer())
   if (bytes.byteLength > 8 * 1024 * 1024)
     throw createError({ statusCode: 413, statusMessage: '图片过大' })
+  if (looksLikeMarkup(bytes))
+    throw createError({ statusCode: 400, statusMessage: '不是图片' })
 
-  setHeader(event, 'content-type', type)
+  setMediaProxyHeaders(event, type)
   setHeader(event, 'cache-control', 'private, max-age=300')
   return bytes
 })

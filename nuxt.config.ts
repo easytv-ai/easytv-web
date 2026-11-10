@@ -140,9 +140,9 @@ export default defineNuxtConfig({
       siteName: (globalThis as any).process?.env?.NUXT_PUBLIC_SITE_NAME || 'EasyTV',
       /** 站点公开地址：canonical、sitemap、OG 图片绝对地址都从这里拼 */
       siteUrl: (globalThis as any).process?.env?.NUXT_PUBLIC_SITE_URL || 'http://localhost:3005',
-      apiBaseUrl: (globalThis as any).process?.env?.NUXT_PUBLIC_API_BASE_URL || 'https://tv-api.easyapi.com',
+      apiBaseUrl: (globalThis as any).process?.env?.NUXT_PUBLIC_API_BASE_URL || 'http://localhost:8383',
       /** 服务端媒体代理额外放行的域名（逗号分隔），自托管时填自己的 OSS / CDN 域名 */
-      mediaHosts: (globalThis as any).process?.env?.NUXT_PUBLIC_MEDIA_HOSTS || 'tv-oss.easyapi.com',
+      mediaHosts: (globalThis as any).process?.env?.NUXT_PUBLIC_MEDIA_HOSTS || '',
       /** 法务页（协议 / 隐私 / AI 规范）展示的联系邮箱，留空则不展示邮箱 */
       contactEmail: (globalThis as any).process?.env?.NUXT_PUBLIC_CONTACT_EMAIL || '',
     },

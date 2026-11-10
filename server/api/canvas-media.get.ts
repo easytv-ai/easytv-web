@@ -2,17 +2,9 @@ import { Readable } from 'node:stream'
 import type { ReadableStream as WebReadableStream } from 'node:stream/web'
 import { getRequestHeader, sendStream } from 'h3'
 import { allowedMediaHosts, isAllowedMediaUrl } from '../utils/media-hosts'
+import { isProxyMediaType, setMediaProxyHeaders } from '../utils/media-proxy'
 
 const MAX_BYTES = 512 * 1024 * 1024
-
-function isMediaType(type: string) {
-  return type.startsWith('video/')
-    || type.startsWith('audio/')
-    || type.startsWith('image/')
-    || type === 'application/octet-stream'
-    || type === 'application/mp4'
-    || type === 'binary/octet-stream'
-}
 
 /** OSS 视频没有 CORS 头，浏览器不能直接交给 ffmpeg。只代理白名单域名。 */
 export default defineEventHandler(async (event) => {
@@ -57,7 +49,7 @@ export default defineEventHandler(async (event) => {
   if (Number.isFinite(total) && total > MAX_BYTES)
     throw createError({ statusCode: 413, statusMessage: '视频过大' })
   const type = ((res.headers.get('content-type') || '').split(';')[0] ?? '').trim().toLowerCase()
-  if (type && !isMediaType(type))
+  if (type && !isProxyMediaType(type))
     throw createError({ statusCode: 400, statusMessage: '不是视频' })
 
   if (res.status === 206)
@@ -69,7 +61,7 @@ export default defineEventHandler(async (event) => {
     setHeader(event, 'accept-ranges', acceptRanges)
   else if (res.status === 206 || range)
     setHeader(event, 'accept-ranges', 'bytes')
-  setHeader(event, 'content-type', type || 'video/mp4')
+  setMediaProxyHeaders(event, type || 'video/mp4')
   if (length > 0)
     setHeader(event, 'content-length', length)
   setHeader(event, 'cache-control', 'private, max-age=3600')

@@ -3797,6 +3797,7 @@
         "generatingItem": "Генерация {i}/{n}: {name}",
         "generateDoneAll": "Все {n} штук готовы.",
         "generateDoneSome": "Из {n} готово {ok}, ошибок {fail}.",
+        "generateStillQueued": "Ещё {n} в очереди. Это не ошибка, баллы повторно не списываются.",
         "generateEmpty": "Нет узлов для генерации.",
         "generateSkipped": "Автогенерации нет. Потом можно запустить с каждого узла.",
         "countCharacters": "персонажи: {n}",

@@ -3799,6 +3799,7 @@
         "generatingItem": "Đang tạo {i}/{n}: {name}",
         "generateDoneAll": "Cả {n} mục đã xong.",
         "generateDoneSome": "{n} mục: thành công {ok}, thất bại {fail}.",
+        "generateStillQueued": "Còn {n} mục đang xếp hàng. Không tính là thất bại và không trừ điểm lần nữa.",
         "generateEmpty": "Không có nút nào để tạo.",
         "generateSkipped": "Không tự tạo. Sau này bấm tạo trên từng nút.",
         "countCharacters": "{n} ảnh nhân vật",

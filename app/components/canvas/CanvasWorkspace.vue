@@ -1432,6 +1432,11 @@ async function generateBriefPlacedNow(groups?: string[], opts?: BriefGenerateOpt
         const task = await waitTask(node.id, taskId, timeout)
         status = String(task?.status || node.data.taskStatus || '')
       }
+      if (status === 'pending' || status === 'running') {
+        report.waiting = (report.waiting || 0) + 1
+        opts?.onProgress?.({ index, total: targets.length, label, status: 'start' })
+        continue
+      }
       const ok = status === 'succeeded'
       if (ok)
         report.ok++

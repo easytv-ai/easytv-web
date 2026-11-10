@@ -1,8 +1,19 @@
 import type { Node } from '@vue-flow/core'
 import { alignedPositions, distributedPositions, type NodeAlignMode, type NodeDistributeAxis } from '~/utils/canvas-align'
 import { canvasStageSize, type CanvasNodeData } from '~/utils/canvas-node-kinds'
+import { isMediaUrl, resolveMediaUrl } from '~/utils/media'
+import { ossVideoSnapshotUrl } from '~/utils/canvas-video-frame'
 
 export type CanvasGroupLayout = 'grid' | 'row' | 'col'
+
+export type GroupThumb = {
+  id: string
+  color: string
+  media: string
+  poster: string
+  video: boolean
+  text: string
+}
 
 export type CanvasGroupData = {
   kind: 'group'
@@ -16,6 +27,8 @@ export type CanvasGroupData = {
   storyboard?: { cols: number }
   /** 单独锁定：组不能拖、不能删，随画布保存 */
   locked?: boolean
+  /** 收起时记下的缩略图。子节点被隐藏后，组节点仍能画出来 */
+  thumbs?: GroupThumb[]
 }
 
 /**
@@ -192,6 +205,28 @@ export function collapseLayoutForKids(kids: { position: { x: number, y: number }
     maxY = Math.max(maxY, kid.position.y)
   }
   return (maxY - minY) > (maxX - minX) ? 'col' : 'row'
+}
+
+/** 组内子节点的缩略图。视频用 OSS 截帧，避免 video 标签在收起后画不出画面。 */
+export function groupThumbOf(node: CanvasFlowNode): GroupThumb {
+  const data = isContentNode(node) ? node.data : null
+  const raw = (data?.kind === 'director' ? data.previewUrl : data?.content)?.trim() || ''
+  const isVisual = data?.kind === 'image' || data?.kind === 'video' || data?.kind === 'director'
+  const media = data && isVisual && isMediaUrl(raw)
+    ? resolveMediaUrl(raw)
+    : (data?.refUrl && isMediaUrl(data.refUrl) ? resolveMediaUrl(data.refUrl) : '')
+  const video = data?.kind === 'video'
+  const text = data?.kind === 'text'
+    ? (data.content || '').replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').trim()
+    : ''
+  return {
+    id: node.id,
+    color: data?.kind === 'text' ? (data.color || '') : '',
+    media,
+    poster: video && media ? ossVideoSnapshotUrl(media, 0.4) : '',
+    video: Boolean(video),
+    text,
+  }
 }
 
 export function collapsedGroupSize(count: number, layout: CanvasGroupLayout = 'grid') {

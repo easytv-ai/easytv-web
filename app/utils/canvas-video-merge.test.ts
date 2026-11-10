@@ -96,9 +96,9 @@ describe('trimVideoArgs', () => {
   it('按起止秒裁切，没有音轨时去掉音频', () => {
     expect(ffmpegClock(1.2)).toBe('1.200')
     expect(trimVideoArgs('cut-in.mp4', 'cut-out.mp4', 1.25, 4.5, true)).toEqual([
+      '-i', 'cut-in.mp4',
       '-ss', '1.250',
       '-to', '4.500',
-      '-i', 'cut-in.mp4',
       '-c:v', 'libx264',
       '-preset', 'veryfast',
       '-c:a', 'aac',

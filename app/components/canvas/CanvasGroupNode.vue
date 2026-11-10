@@ -1,8 +1,7 @@
 <script setup lang="ts">
 import type { NodeProps } from '@vue-flow/core'
 import { useVueFlow } from '@vue-flow/core'
-import { collapseLayoutForKids, isContentNode, isNodeLocked, type CanvasFlowNode, type CanvasGroupData } from '~/utils/canvas-group'
-import { isMediaUrl, resolveMediaUrl } from '~/utils/media'
+import { collapseLayoutForKids, groupThumbOf, isNodeLocked, type CanvasFlowNode, type CanvasGroupData, type GroupThumb } from '~/utils/canvas-group'
 import { CANVAS_CHANGE_KEY } from '~/utils/canvas-change'
 
 const props = defineProps<NodeProps<CanvasGroupData>>()
@@ -20,33 +19,28 @@ const thumbLayout = computed(() => {
 
 type Corner = 'tl' | 'tr' | 'bl' | 'br'
 
+const posterMiss = ref<Record<string, boolean>>({})
+
 const thumbs = computed(() => {
-  return getNodes.value
+  const live = getNodes.value
     .filter(node => node.parentNode === props.id)
     .sort((a, b) => {
       if (thumbLayout.value === 'col')
         return a.position.y === b.position.y ? a.position.x - b.position.x : a.position.y - b.position.y
       return a.position.x === b.position.x ? a.position.y - b.position.y : a.position.x - b.position.x
     })
-    .map((node) => {
-      const data = isContentNode(node as CanvasFlowNode) ? node.data : null
-      const raw = (data?.kind === 'director' ? data.previewUrl : data?.content)?.trim() || ''
-      const isVisual = data?.kind === 'image' || data?.kind === 'video' || data?.kind === 'director'
-      const media = data && isVisual && isMediaUrl(raw)
-        ? resolveMediaUrl(raw)
-        : (data?.refUrl && isMediaUrl(data.refUrl) ? resolveMediaUrl(data.refUrl) : '')
-      const text = data?.kind === 'text'
-        ? (data.content || '').replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').trim()
-        : ''
-      return {
-        id: node.id,
-        color: data?.kind === 'text' ? (data.color || '') : '',
-        media,
-        video: data?.kind === 'video',
-        text,
-      }
-    })
+    .map(node => groupThumbOf(node as CanvasFlowNode))
+  const saved = props.data.thumbs || []
+  return live.some(item => item.media || item.text) ? live : (saved.length ? saved : live)
 })
+
+function thumbImage(item: GroupThumb) {
+  if (item.poster && !posterMiss.value[item.id])
+    return item.poster
+  if (item.media && !item.video)
+    return item.media
+  return ''
+}
 
 function onResize(event: PointerEvent, corner: Corner) {
   if (groupLocked.value)
@@ -120,13 +114,19 @@ function onResize(event: PointerEvent, corner: Corner) {
         class="cgroup__thumb"
         :style="item.color ? { background: item.color } : undefined"
       >
-        <img v-if="item.media && !item.video" :src="item.media" alt="" draggable="false">
+        <img
+          v-if="thumbImage(item)"
+          :src="thumbImage(item)"
+          alt=""
+          draggable="false"
+          @error="posterMiss[item.id] = true"
+        >
         <video
           v-else-if="item.media && item.video"
-          :src="item.media"
+          :src="`${item.media}#t=0.1`"
           muted
           playsinline
-          preload="metadata"
+          preload="auto"
         />
         <i v-else-if="item.text">{{ item.text }}</i>
       </span>
