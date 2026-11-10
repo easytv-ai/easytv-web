@@ -2,6 +2,9 @@ import { describe, expect, it } from 'vitest'
 import {
   briefAskPicks,
   briefGenerateGroups,
+  briefBatchGenerateInstruction,
+  parseBriefGenerateAction,
+  stripBriefGenerateAction,
   briefNeedsImage,
   briefRunGroups,
   chatGenerateInstruction,
@@ -263,6 +266,24 @@ describe('parseChatGenerateAction', () => {
       model: undefined,
     })
     expect(stripChatGenerateAction(raw)).toBe('先出一段夜景。')
+  })
+})
+
+describe('parseBriefGenerateAction', () => {
+  it('把「只出第一张」交给模型，读回 limit 而不是整批 GENERATE', () => {
+    const raw = '好，先出第一张角色图。\n<<<BRIEF_GENERATE{"limit":1}>>>'
+    expect(parseBriefGenerateAction(raw)).toEqual({
+      groups: ['character', 'scene', 'prop', 'shot'],
+      limit: 1,
+    })
+    expect(stripBriefGenerateAction(raw)).toBe('好，先出第一张角色图。')
+    expect(parseBriefGenerateAction('<<<BRIEF_GENERATE{"all":true}>>>')?.groups).toEqual([
+      'character', 'scene', 'prop', 'shot', 'voice',
+    ])
+    expect(parseBriefGenerateAction('<<<BRIEF_GENERATE{"skip":true}>>>')).toEqual({ groups: null })
+    expect(parseBriefGenerateAction('普通回复')).toBeNull()
+    expect(briefBatchGenerateInstruction([{ name: '王建国', group: 'character' }])).toContain('BRIEF_GENERATE')
+    expect(briefBatchGenerateInstruction([{ name: '王建国', group: 'character' }])).not.toContain('<<<GENERATE')
   })
 })
 

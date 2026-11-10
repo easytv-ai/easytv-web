@@ -889,9 +889,9 @@ async function onChatGenerateMedia(req: { kind: 'image' | 'video' | 'audio', pro
   }
 }
 
-async function onChatGenerateBrief(groups: string[], opts?: { models?: { image?: string, audio?: string, video?: string }, onProgress?: (row: { index: number, total: number, label: string, status: 'start' | 'ok' | 'fail' }) => void, onDone?: (report: { ok: number, failed: number, total: number }) => void }) {
+async function onChatGenerateBrief(groups: string[], opts?: { models?: { image?: string, audio?: string, video?: string }, limit?: number, onProgress?: (row: { index: number, total: number, label: string, status: 'start' | 'ok' | 'fail' }) => void, onDone?: (report: { ok: number, failed: number, total: number }) => void }) {
   try {
-    const result = await workspace.value?.generateBriefPlaced(groups, { onProgress: opts?.onProgress, models: opts?.models })
+    const result = await workspace.value?.generateBriefPlaced(groups, { onProgress: opts?.onProgress, models: opts?.models, limit: opts?.limit })
     opts?.onDone?.(result || { ok: 0, failed: 0, total: 0 })
   }
   catch {

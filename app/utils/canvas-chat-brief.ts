@@ -142,6 +142,7 @@ export type BriefGenerateReport = {
 export type BriefGenerateOpts = {
   onProgress?: (row: BriefGenerateProgress) => void
   models?: BriefMediaModels
+  limit?: number
 }
 
 export type BriefComposeReport = {
@@ -219,6 +220,83 @@ export function briefGenerateGroups(chosen: number): BriefMediaGroup[] | null {
   if (chosen === 2)
     return ['character', 'scene', 'prop']
   return null
+}
+
+const BRIEF_IMAGE_GROUPS: BriefMediaGroup[] = ['character', 'scene', 'prop', 'shot']
+const BRIEF_ALL_GROUPS: BriefMediaGroup[] = ['character', 'scene', 'prop', 'shot', 'voice']
+const BRIEF_GROUP_SET = new Set<string>(BRIEF_ALL_GROUPS)
+
+export type BriefGenerateIntent = {
+  groups: BriefMediaGroup[] | null
+  /** 按画布落点顺序只跑前 N 条；不设则整组都跑 */
+  limit?: number
+}
+
+const BRIEF_GENERATE_MARK = /(?:<<<\s*)?BRIEF_GENERATE\s*\{/i
+
+function briefGenerateMarkIndex(raw: string) {
+  const hit = String(raw || '').search(BRIEF_GENERATE_MARK)
+  return hit < 0 ? -1 : hit
+}
+
+/** 对话模型对「要不要生成已落画布的节点」给出的动作，不是新写一张 GENERATE */
+export function parseBriefGenerateAction(text: string): BriefGenerateIntent | null {
+  const raw = String(text || '')
+  const mark = briefGenerateMarkIndex(raw)
+  if (mark < 0)
+    return null
+  const json = extractBalancedObject(raw, mark)
+  if (!json)
+    return null
+  try {
+    const obj = JSON.parse(json) as Record<string, unknown>
+    if (obj.skip === true)
+      return { groups: null }
+    const limitRaw = Math.round(Number(obj.limit))
+    const limit = Number.isFinite(limitRaw) && limitRaw > 0 ? limitRaw : undefined
+    const groups = Array.isArray(obj.groups)
+      ? obj.groups.map(item => String(item || '').trim()).filter((item): item is BriefMediaGroup => BRIEF_GROUP_SET.has(item))
+      : []
+    if (obj.all === true)
+      return { groups: BRIEF_ALL_GROUPS, limit }
+    if (groups.length)
+      return { groups, limit }
+    if (limit)
+      return { groups: BRIEF_IMAGE_GROUPS, limit }
+    return { groups: null }
+  }
+  catch {
+    return null
+  }
+}
+
+export function stripBriefGenerateAction(text: string) {
+  const raw = String(text || '')
+  const mark = briefGenerateMarkIndex(raw)
+  if (mark < 0)
+    return raw.trim()
+  const json = extractBalancedObject(raw, mark)
+  let end = json ? raw.indexOf(json, mark) + json.length : -1
+  if (end >= 0 && raw.slice(end, end + 3) === '>>>')
+    end += 3
+  if (end < 0) {
+    const close = raw.indexOf('>>>', mark)
+    end = close < 0 ? raw.length : close + 3
+  }
+  return `${raw.slice(0, mark)}${raw.slice(end)}`.replace(/\n{3,}/g, '\n\n').trim()
+}
+
+/** 发给对话模型：用户在确认已有节点，不要新开一张 GENERATE */
+export function briefBatchGenerateInstruction(items: { name: string, group: string }[]) {
+  const list = items.map((item, index) => `${index + 1}. ${item.name} (${item.group})`).join('\n')
+  return [
+    '画布上已有待生成节点，按落点顺序如下：',
+    list || '（清单为空）',
+    '用户这句话是在确认要不要生成这些已有节点。不要新写提示词，不要输出 GENERATE，也不要声称已经生成完成。',
+    '先用中文回一两句，再在回复末尾单独一行输出其中一个：',
+    '<<<BRIEF_GENERATE{"limit":1}>>>',
+    'limit 表示按上面顺序只生成前 N 张图（不含音色）。{"all":true} 全部生成。{"groups":["character"]} 只生成该组。{"skip":true} 这次不生成。',
+  ].join('\n')
 }
 
 /** 没选配音模型时从批量生成里拿掉音色，避免空模型把整批拦住 */

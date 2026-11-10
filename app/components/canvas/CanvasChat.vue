@@ -36,7 +36,10 @@ import {
   briefShots,
   briefSpecChips,
   briefTitle,
+  briefBatchGenerateInstruction,
   briefGenerateGroups,
+  parseBriefGenerateAction,
+  stripBriefGenerateAction,
   briefModelsOf,
   briefNeedsImage,
   briefRunGroups,
@@ -64,6 +67,8 @@ import {
   type BriefDocCard,
   type BriefGenerateCard,
   type BriefGenerateCounts,
+  type BriefGenerateIntent,
+  type BriefMediaGroup,
   type BriefMediaKind,
   type BriefMediaModels,
   type ChatFreeMediaKind,
@@ -128,7 +133,7 @@ const emit = defineEmits<{
   /** 对白音色：每条声线一个音频节点，接到最近的分镜文本上 */
   insertAudios: [items: { label: string, prompt: string, group?: string, tag?: string }[]]
   resetBrief: []
-  generateBrief: [groups: string[], opts?: { models?: BriefMediaModels, onProgress?: (row: BriefGenerateProgress) => void, onDone?: (report: BriefGenerateReport) => void }]
+  generateBrief: [groups: string[], opts?: { models?: BriefMediaModels, limit?: number, onProgress?: (row: BriefGenerateProgress) => void, onDone?: (report: BriefGenerateReport) => void }]
   generateMedia: [req: { kind: ChatFreeMediaKind, prompt: string, model: string, ratio?: string, seconds?: number, resolution?: string, label?: string, refs?: Array<{ assetId?: number, url: string, name?: string }> }, opts?: { onTask?: (taskId: number) => void, onDone?: (report: { ok: boolean, nodeId?: string, url?: string, error?: string }) => void }]
   placeVideos: [shots?: string[]]
   composeBrief: [opts?: BriefComposeOpts]
@@ -824,6 +829,7 @@ let runId = 0
 let runTaskId = 0
 let runAgent = false
 const pendingChatRefs = new Map<number, NonNullable<ChatMediaConfirmCard['refs']>>()
+const pendingBriefBatch = new Map<number, { title: string, models?: BriefMediaModels }>()
 const CHAT_MEDIA_RATIOS = ['1:1', '16:9', '9:16', '4:3', '3:4', '3:2', '2:3', '21:9']
 
 function chatMediaTypeOptions() {
@@ -1592,6 +1598,7 @@ function dropRun() {
   stopPolling()
   busy.value = false
   stopping.value = false
+  pendingBriefBatch.clear()
   if (taskId)
     void taskApi.cancel(taskId)
 }
@@ -1619,6 +1626,7 @@ function finishReply(msg: ChatMsg, text: string, error = false, insert = !error)
 
 /** 发送失败：次数用完走 i18n，其它失败写进气泡（配额由 finishReply 统一刷新） */
 function failReply(reply: ChatMsg, message: string, data?: { reason?: string } | null) {
+  pendingBriefBatch.delete(reply.id)
   const quota = isChatQuotaExceeded(message, data)
   const text = quota ? t('canvas.chat.msg.quota') : message
   if (quota)
@@ -2266,22 +2274,31 @@ function specChipsOf(item: ChatMsg) {
 }
 
 function briefPromptLinesOf(item: ChatMsg) {
+  return briefPendingCatalog(item).map(row => ({ name: row.name, prompt: row.prompt }))
+}
+
+function briefPendingCatalog(item: ChatMsg) {
   const before = messagesUpTo(item)
   const anchors = [...before].reverse().find(row => row.card?.kind === 'anchors')
   const board = [...before].reverse().find(row => row.card?.kind === 'board')
+  const voice = [...before].reverse().find(row => row.card?.kind === 'voice')
   const style = activeStylePrompt.value
-  const lines: { name: string, prompt: string }[] = []
+  const lines: { name: string, prompt: string, group: BriefMediaGroup }[] = []
   if (anchors?.card?.kind === 'anchors') {
     for (const row of anchors.card.characters || [])
-      lines.push({ name: row.name, prompt: characterImagePrompt(row, style) })
+      lines.push({ name: row.name, prompt: characterImagePrompt(row, style), group: 'character' })
     for (const row of anchors.card.scenes || [])
-      lines.push({ name: row.name, prompt: sceneImagePrompt(row, style) })
+      lines.push({ name: row.name, prompt: sceneImagePrompt(row, style), group: 'scene' })
     for (const row of anchors.card.props || [])
-      lines.push({ name: row.name, prompt: propImagePrompt(row, style) })
+      lines.push({ name: row.name, prompt: propImagePrompt(row, style), group: 'prop' })
   }
   if (board?.card?.kind === 'board') {
     for (const row of board.card.shots || [])
-      lines.push({ name: t('canvas.chat.brief.shotName', { n: row.no }), prompt: shotImagePrompt(row, style) })
+      lines.push({ name: t('canvas.chat.brief.shotName', { n: row.no }), prompt: shotImagePrompt(row, style), group: 'shot' })
+  }
+  if (voice?.card?.kind === 'voice' && voice.card.placed) {
+    for (const row of voice.card.voices || [])
+      lines.push({ name: row.name, prompt: voiceAudioPrompt(row), group: 'voice' })
   }
   return lines
 }
@@ -2295,7 +2312,7 @@ function writeBriefProgress(id: number, text: string) {
   scrollToEnd()
 }
 
-function runBriefGenerate(groups: string[], mediaModels?: BriefMediaModels) {
+function runBriefGenerate(groups: string[], mediaModels?: BriefMediaModels, limit?: number) {
   return new Promise<BriefGenerateReport>((resolve) => {
     const row: ChatMsg = {
       id: ++seq,
@@ -2307,6 +2324,7 @@ function runBriefGenerate(groups: string[], mediaModels?: BriefMediaModels) {
     scrollToEnd()
     emit('generateBrief', groups, {
       models: mediaModels,
+      limit,
       onProgress: (item) => {
         writeBriefProgress(row.id, t('canvas.chat.brief.generatingItem', { i: item.index, n: item.total, name: item.label }))
       },
@@ -2502,9 +2520,11 @@ async function confirmBriefGenerate(item: ChatMsg) {
   if (!question || question.chosen == null)
     return
   const pick = askChosenText(question)
-  let groups = briefGenerateGroups(question.chosen)
-  if (!groups && question.chosen >= question.options.length && /生成/.test(question.note || ''))
-    groups = ['character', 'scene', 'prop', 'shot', 'voice']
+  if (question.chosen >= question.options.length) {
+    void confirmBriefGenerateByModel(item, pick)
+    return
+  }
+  const groups = briefGenerateGroups(question.chosen)
   if (!groups?.length) {
     card.locked = true
     messages.value.push({ id: ++seq, role: 'user', text: pick })
@@ -2514,6 +2534,58 @@ async function confirmBriefGenerate(item: ChatMsg) {
     persistSession()
     return
   }
+  await runConfirmedBriefGenerate(card, groups, pick)
+}
+
+async function confirmBriefGenerateByModel(item: ChatMsg, pick: string) {
+  const card = item.card
+  if (!card || card.kind !== 'generate' || card.locked || busy.value)
+    return
+  seedBriefModels(card)
+  if (card.skipAudio && card.models)
+    card.models.audio = ''
+  card.locked = true
+  card.auto = briefAuto.value
+  briefPickedModels.value = { ...briefPickedModels.value, ...(card.models || {}) }
+  messages.value.push({ id: ++seq, role: 'user', text: pick })
+  const reply: ChatMsg = { id: ++seq, role: 'assistant', text: '', pending: true }
+  messages.value.push(reply)
+  persistSession()
+  scrollToEnd()
+  pendingBriefBatch.set(reply.id, { title: card.title, models: card.models })
+  const hinted = `${pick}\n\n[${briefBatchGenerateInstruction(briefPendingCatalog(item))}]`
+  busy.value = true
+  stopping.value = false
+  void ask(plainChatPrompt({
+    current: hinted,
+    turns: historyTurns(),
+  }), reply, [], nextRun())
+}
+
+async function applyBriefGenerateIntent(title: string, intent: BriefGenerateIntent | null, models?: BriefMediaModels) {
+  let groups = intent?.groups
+  if (!groups?.length) {
+    if (!intent) {
+      messages.value.push({ id: ++seq, role: 'assistant', text: t('canvas.chat.brief.generateSkipped') })
+      persistSession()
+      scrollToEnd()
+    }
+    return
+  }
+  groups = briefRunGroups(groups, models)
+  const wantsImage = groups.some(group => group !== 'voice' && group !== 'video')
+  if (wantsImage && !models?.image) {
+    notify(t('canvas.chat.brief.needImageModel'), 'error')
+    return
+  }
+  busy.value = true
+  const report = await runBriefGenerate(groups, models, intent?.limit)
+  if (!intent?.limit)
+    await afterStillsReady(title, report, groups, models)
+  busy.value = false
+}
+
+async function runConfirmedBriefGenerate(card: BriefGenerateCard, groups: BriefMediaGroup[], pick: string) {
   seedBriefModels(card)
   if (card.skipAudio && card.models)
     card.models.audio = ''
@@ -2863,6 +2935,14 @@ function mediaKindLabel(kind: ChatFreeMediaKind) {
 }
 
 function settleDialogueReply(reply: ChatMsg, raw: string, id: number) {
+  const batch = pendingBriefBatch.get(reply.id)
+  if (batch) {
+    pendingBriefBatch.delete(reply.id)
+    const visible = stripChatGenerateAction(stripBriefGenerateAction(raw)) || raw
+    finishReply(reply, visible, false, false)
+    void applyBriefGenerateIntent(batch.title, parseBriefGenerateAction(raw), batch.models)
+    return
+  }
   const action = parseChatGenerateAction(raw)
   const visible = stripChatGenerateAction(raw) || raw
   const refs = pendingChatRefs.get(reply.id) || []

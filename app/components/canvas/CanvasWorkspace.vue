@@ -1361,8 +1361,14 @@ async function ensureGenerationModels() {
   }
 }
 
-function estimateBriefPlaced(groups?: string[], models?: BriefMediaModels) {
-  const targets = briefNodesToGenerate(groups)
+function limitBriefTargets(nodes: CanvasFlowNode[], limit?: number) {
+  if (!limit || limit < 1)
+    return nodes
+  return nodes.slice(0, limit)
+}
+
+function estimateBriefPlaced(groups?: string[], models?: BriefMediaModels, limit?: number) {
+  const targets = limitBriefTargets(briefNodesToGenerate(groups), limit)
   let points = 0
   for (const node of targets) {
     const model = briefModelOf(node, models)
@@ -1391,13 +1397,13 @@ async function generateBriefPlacedNow(groups?: string[], opts?: BriefGenerateOpt
   await ensureGenerationModels()
   if (!groups?.length || groups.includes('shot'))
     linkBriefShotAnchors()
-  const targets = briefNodesToGenerate(groups)
+  const targets = limitBriefTargets(briefNodesToGenerate(groups), opts?.limit)
   report.total = targets.length
   if (!targets.length) {
     notify(t('没有可以生成的节点'))
     return report
   }
-  const quote = estimateBriefPlaced(groups, opts?.models)
+  const quote = estimateBriefPlaced(groups, opts?.models, opts?.limit)
   if (targets.some(node => isContentNode(node) && !briefModelOf(node, opts?.models))) {
     notify(t('请在对话里选择生成用的模型'), 'error')
     report.failed = targets.length
