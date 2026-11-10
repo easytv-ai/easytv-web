@@ -3,7 +3,9 @@ import { useVueFlow } from '@vue-flow/core'
 import subjectApi from '~/api/subject'
 import taskApi from '~/api/task'
 import CanvasSubjectPicker from '~/components/canvas/CanvasSubjectPicker.vue'
-import type { GenerationModel, GenerationModelDetail, GeneratePayload, Subject } from '~/types/creative'
+import CanvasNodeCandidates from '~/components/canvas/CanvasNodeCandidates.vue'
+import type { GenerationModel, GenerationModelDetail, GeneratePayload, NodeCandidate, Subject } from '~/types/creative'
+import { modelKeepInfo } from '~/utils/canvas-reroll'
 import { effectiveUnitPrice, estimateTaskPoints, modelPromoDisplay } from '~/utils/model-price'
 import { prettyModelSlug, shortModelName } from '~/utils/model-name'
 import { resolveCatalogModel } from '~/utils/canvas-catalog-model'
@@ -160,6 +162,8 @@ type ModelOption = {
   /** 近 7 天失败偏多（API.md 37）：名字后带「近期失败多」小标 */
   warn?: boolean
   failRate?: number
+  /** 近 30 天留用率（API.md 39.4）：样本够才有，下拉里多一行小字 */
+  keep?: { rate: number, pulls: number }
 }
 
 /** 副文案：优先网关 description，其次 category/vendor，最后 label/provider */
@@ -189,6 +193,7 @@ function apiModelsFor(kind: string, only?: (item: GenerationModel) => boolean): 
     .map((item) => {
       const detail = peekModelDetail(item.model)
       const promo = item.priced ? modelPromoDisplay(item, isMember.value) : null
+      const keep = modelKeepInfo(item)
       return {
         id: item.model,
         name: shortModelName(item),
@@ -196,6 +201,7 @@ function apiModelsFor(kind: string, only?: (item: GenerationModel) => boolean): 
         detail,
         ...(promo ? { promo: { ...promo, unit: UNIT_LABEL[item.unit] || '次' } } : {}),
         ...(item.recent_warn ? { warn: true, failRate: item.recent_fail_rate } : {}),
+        ...(keep ? { keep } : {}),
       }
     })
 }
@@ -273,6 +279,12 @@ const props = withDefaults(defineProps<{
   locked?: boolean
   /** 生成请求还没返回：按钮置灰，挡住连点 */
   submitting?: boolean
+  /** 节点历史结果（API.md 39.2）：够两条才传进来，工具行上出「历史结果 n」 */
+  candidates?: NodeCandidate[]
+  /** 节点当前产物，用来在历史结果里标出「当前」 */
+  candidateCurrent?: { content?: string, assetId?: number }
+  /** 只读画布 / 正在生成：历史结果能看不能切 */
+  candidatesDisabled?: boolean
 }>(), {
   kind: 'image',
   expanded: false,
@@ -295,6 +307,9 @@ const props = withDefaults(defineProps<{
   readonly: false,
   locked: false,
   submitting: false,
+  candidates: () => [],
+  candidateCurrent: () => ({}),
+  candidatesDisabled: false,
 })
 
 /** 跟练只读时给禁用控件的统一悬停说明 */
@@ -324,6 +339,7 @@ const emit = defineEmits<{
   'update:params': [params: Record<string, unknown>]
   'update:model': [model: string]
   'toggle-lock': []
+  'pick-candidate': [candidate: NodeCandidate]
 }>()
 
 const isText = computed(() => props.kind === 'text')
@@ -576,9 +592,64 @@ const videoResItems = computed(() => {
     return [...VIDEO_RES_ITEMS]
   return list
 })
+/**
+ * 档位被模型「改掉」的记录（API.md 39.5）：用户选过 / 节点上存着的时长、分辨率，当前模型不支持时会落到第一档。
+ * 以前是静默改，现在记下从哪档改到哪档，提交时由 planCanvasGenerate 提示一次。
+ * 面板默认值（用户没选过）被换掉不算——那不是「改了你的选择」。
+ */
+const specChosen = {
+  duration: props.params?.duration !== undefined && props.params?.duration !== null && props.params?.duration !== '',
+  resolution: typeof props.params?.resolution === 'string' && props.params.resolution.trim() !== '',
+}
+const specAdjusted: Partial<Record<'duration' | 'resolution', { from: string, to: string }>> = {}
+function noteSpecAdjusted(key: 'duration' | 'resolution', from: string, to: string) {
+  if (!specChosen[key])
+    return
+  const origin = specAdjusted[key]?.from ?? from
+  if (origin === to)
+    delete specAdjusted[key]
+  else
+    specAdjusted[key] = { from: origin, to }
+}
+/** 用户自己点了档位：这就是他要的，之前的改档记录作废 */
+function chooseSpec(key: 'duration' | 'resolution') {
+  specChosen[key] = true
+  delete specAdjusted[key]
+}
+function pickVideoRes(item: string) {
+  videoRes.value = item
+  chooseSpec('resolution')
+}
+function pickVideoDuration(item: string) {
+  videoDuration.value = item
+  chooseSpec('duration')
+}
+/** 取出并清空改档记录：只在点生成时读一次，免得同一条提示每次生成都弹 */
+function takeSpecAdjusted(): NonNullable<GeneratePayload['spec_adjusted']> {
+  const out: NonNullable<GeneratePayload['spec_adjusted']> = []
+  const current = {
+    duration: isAudio.value ? audioDuration.value : videoDuration.value,
+    resolution: videoRes.value,
+  }
+  for (const key of ['duration', 'resolution'] as const) {
+    const item = specAdjusted[key]
+    delete specAdjusted[key]
+    if (!item || item.to !== current[key])
+      continue
+    if (key === 'resolution' && !(isVideo.value || isDirector.value))
+      continue
+    if (key === 'duration' && (isTalkingMode.value || !(isVideo.value || isDirector.value || isAudio.value)))
+      continue
+    out.push({ key, from: item.from, to: item.to })
+  }
+  return out
+}
 watch(videoResItems, (items) => {
-  if (items.length && !items.includes(videoRes.value))
+  if (items.length && !items.includes(videoRes.value)) {
+    if (isVideo.value || isDirector.value)
+      noteSpecAdjusted('resolution', videoRes.value, items[0]!)
     videoRes.value = items[0]!
+  }
 }, { immediate: true })
 
 const videoDurationItems = computed(() => durationItems(VIDEO_DURATION_ITEMS))
@@ -586,12 +657,18 @@ const audioDurationItems = computed(() => durationItems(AUDIO_DURATION_ITEMS))
 
 // 换模型后原来的秒数可能不在新列表里，回落到第一档，避免提交一个该模型不支持的时长
 watch(videoDurationItems, (items) => {
-  if (items.length && !items.includes(videoDuration.value))
+  if (items.length && !items.includes(videoDuration.value)) {
+    if (isVideo.value || isDirector.value)
+      noteSpecAdjusted('duration', videoDuration.value, items[0]!)
     videoDuration.value = items[0]!
+  }
 }, { immediate: true })
 watch(audioDurationItems, (items) => {
-  if (items.length && !items.includes(audioDuration.value))
+  if (items.length && !items.includes(audioDuration.value)) {
+    if (isAudio.value)
+      noteSpecAdjusted('duration', audioDuration.value, items[0]!)
     audioDuration.value = items[0]!
+  }
 }, { immediate: true })
 
 /** 口播配置：以节点 data.talking 为准，改动即时写回节点 */
@@ -704,6 +781,10 @@ watch(() => props.params, (params) => {
   quality.value = paramEnum('quality', QUALITY_ITEMS.map(item => item.id), quality.value)
   clarity.value = paramEnum('clarity', CLARITY_ITEMS, clarity.value)
   ratio.value = paramEnum('ratio', RATIO_ITEMS, ratio.value)
+  if (params.duration !== undefined && params.duration !== null && params.duration !== '')
+    specChosen.duration = true
+  if (typeof params.resolution === 'string' && params.resolution.trim())
+    specChosen.resolution = true
   videoRes.value = paramText('resolution', videoRes.value)
   videoDuration.value = paramSeconds('duration', videoDuration.value)
   audioDuration.value = paramSeconds('duration', audioDuration.value)
@@ -793,6 +874,9 @@ function generatePayload(): GeneratePayload {
     if (voice)
       payload.voice = voice
   }
+  const adjusted = takeSpecAdjusted()
+  if (adjusted.length)
+    payload.spec_adjusted = adjusted
   return payload
 }
 
@@ -850,7 +934,38 @@ async function pickSlash(key: string) {
   emit('chip', key)
 }
 
-defineExpose({ generatePayload, videoMode, insertCameraMove })
+/**
+ * 重抽建议的落点（utils/canvas-reroll 的动作码）：换模型 / 改时长 / 挂主体 / 切模式都是面板里现成的入口，
+ * 这里只是替用户把它打开。锁定 / 跟练时与手点一样不生效。
+ */
+function openModelMenu() {
+  if (writeBlocked.value || noModels.value)
+    return false
+  if (!modelMenu.value)
+    toggleModel()
+  return true
+}
+function openSpecMenu() {
+  if (writeBlocked.value || isText.value)
+    return false
+  if (!specMenu.value)
+    toggleSpec()
+  return true
+}
+function openSubjectPicker() {
+  if (writeBlocked.value || !canUseSubjects.value)
+    return false
+  subjectPickerOpen.value = true
+  return true
+}
+function setVideoMode(id: string) {
+  if (writeBlocked.value || !isVideo.value || !VIDEO_MODES.some(item => item.id === id))
+    return false
+  pickMode(id as VideoModeId)
+  return true
+}
+
+defineExpose({ generatePayload, videoMode, insertCameraMove, openModelMenu, openSpecMenu, openSubjectPicker, setVideoMode })
 
 watch(() => props.expanded, () => {
   closeMenus()
@@ -987,6 +1102,7 @@ function persistAudioParams() {
 
 function setAudioDuration(item: string) {
   audioDuration.value = item
+  chooseSpec('duration')
   persistAudioParams()
 }
 
@@ -1201,6 +1317,15 @@ const placeholder = computed(() => {
         <UIcon :name="subjectIds.length ? 'i-lucide-check' : 'i-lucide-users-round'" class="size-3.5" />
         {{ subjectIds.length ? t('已引用 {n} 个主体', { n: subjectIds.length }) : t('主体') }}
       </button>
+      <CanvasNodeCandidates
+        v-if="candidates.length"
+        :items="candidates"
+        :kind="kind"
+        :current="candidateCurrent"
+        :disabled="candidatesDisabled || writeBlocked"
+        :disabled-title="writeBlockedTitle || (candidatesDisabled ? t('canvas.candidates.blocked') : undefined)"
+        @pick="emit('pick-candidate', $event)"
+      />
       <button
         type="button"
         class="canvas-inspector__expand"
@@ -1456,6 +1581,9 @@ const placeholder = computed(() => {
                 {{ item.detail.vendor.name }}
                 <template v-if="item.detail.category"> · {{ item.detail.category }}</template>
               </small>
+              <small v-if="item.keep" class="canvas-inspector__model-vendor">
+                {{ t('canvas.keep.line', { rate: item.keep.rate, n: item.keep.pulls }) }}
+              </small>
               <small v-if="item.promo" class="canvas-promo">
                 <s>{{ item.promo.origin }}</s>
                 {{ t('{n} 积分/{unit}', { n: item.promo.price, unit: t(item.promo.unit) }) }}
@@ -1571,7 +1699,7 @@ const placeholder = computed(() => {
                   :key="item"
                   type="button"
                   :class="{ 'is-on': videoRes === item }"
-                  @click="videoRes = item"
+                  @click="pickVideoRes(item)"
                 >
                   {{ item }}
                 </button>
@@ -1603,7 +1731,7 @@ const placeholder = computed(() => {
                   :key="item"
                   type="button"
                   :class="{ 'is-on': videoDuration === item }"
-                  @click="videoDuration = item"
+                  @click="pickVideoDuration(item)"
                 >
                   {{ item }}
                 </button>

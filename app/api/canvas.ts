@@ -1,5 +1,5 @@
 import http from '~/api/http'
-import type { ApiResponse, CanvasDetail, CanvasGraph, CanvasShare, CanvasSummary, CanvasVersion, GenerationTask, PageQuery, Paged, SharedCanvas } from '~/types/creative'
+import type { ApiResponse, CanvasDetail, CanvasGraph, CanvasShare, CanvasSummary, CanvasVersion, GenerationTask, NodeCandidate, PageQuery, Paged, SharedCanvas } from '~/types/creative'
 import type { AgentPlan, AssistNodeSummary, AssistPlan } from '~/utils/canvas-assist'
 
 /** 画布：API.md 2.1 */
@@ -28,6 +28,14 @@ export const canvasApi = {
   /** 版本历史（不含 graph），最新在前，最多 50 条 */
   versions(id: number): Promise<ApiResponse<Paged<CanvasVersion>>> {
     return http.get(`/user/canvas/${id}/versions`)
+  },
+
+  /**
+   * 节点历史结果（API.md 39.2）：每个节点成功过的产物，新的在前、最多 8 条；没有结果的节点不在对象里。
+   * 画布可读即可。node_ids 1–50 个。
+   */
+  nodeCandidates(id: number, nodeIds: string[]): Promise<ApiResponse<{ candidates: Record<string, NodeCandidate[]> }>> {
+    return http.get(`/user/canvas/${id}/node-candidates`, { node_ids: nodeIds.join(',') })
   },
 
   /** 单个版本（含 graph） */

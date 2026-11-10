@@ -200,6 +200,13 @@ export type GenerationModel = {
   recent_fail_rate?: number
   recent_warn?: boolean
   /**
+   * 近 30 天留用率（API.md 39.4）：成功的节点任务数 / 留用率（百分比 0–100）/ 平均几条换一条留用。
+   * 样本不足或一条都没留用时三个都是 0，不展示。
+   */
+  recent_keep_total?: number
+  recent_keep_rate?: number
+  recent_pulls_per_keep?: number
+  /**
    * 图片模型接收参考图 / 原图的方式（API.md 11.4）：none 不支持；edits 支持原图 + 蒙版局部修改；
    * url 支持参考图但不支持蒙版。非图片模型为空串。
    */
@@ -381,6 +388,10 @@ export type GenerationTask = {
   created_at: number
   started_at: number
   finished_at: number
+  /** 这次顶替掉的同节点上一条成功任务（API.md 39.1），0 = 该节点第一次出结果；旧后端不返回 */
+  reroll_of?: number
+  /** 重抽原因，逗号分隔（API.md 39.1） */
+  reroll_reason?: string
 }
 
 export type WorkStatus = -1 | 0 | 1 | 2
@@ -786,6 +797,10 @@ export type GeneratePayload = {
   lang?: string
   /** 配音音色 */
   voice?: string
+  /** 节点已有结果、用户重抽时选的不满意原因（API.md 39.1），随任务提交，只做记录 */
+  reroll_reason?: string[]
+  /** 面板因模型不支持而自动改过的档位（时长 / 分辨率），提交时提示一次改成了什么 */
+  spec_adjusted?: Array<{ key: 'duration' | 'resolution', from: string, to: string }>
 }
 
 // ===== 付费域（API.md 6）=====
@@ -1324,6 +1339,8 @@ export type NodeCandidate = {
   created_at: number
   /** 审片结论（API.md 25.5），缺失 / null 为待审 */
   review?: ShotReview | null
+  /** 任务类型，只有节点历史结果接口（API.md 39.2）返回 */
+  type?: TaskType
 }
 
 export type ShotMedia = {

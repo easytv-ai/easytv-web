@@ -1822,6 +1822,81 @@
       "framesFail": "抽帧失败，视频可能无法跨域读取",
       "framesOk": "已抽出 {n} 帧",
       "framesLabel": "抽帧"
+    },
+    "reroll": {
+      "title": "哪里不满意？",
+      "hint": "点一下原因再抽，更容易一次到位。原因只做记录，不会改你的提示词",
+      "hintNode": "「{label}」已有结果。点一下原因再抽，更容易一次到位；原因只做记录，不会改你的提示词",
+      "adviceTitle": "不一定要整条重抽，可以先试试",
+      "confirm": "按这些原因重抽",
+      "skip": "直接重抽",
+      "dontAsk": "不再询问",
+      "reason": {
+        "identity": "人物 / 主体不对",
+        "performance": "动作表演",
+        "performanceAudio": "语气 / 情绪不对",
+        "lipsync": "口型",
+        "composition": "构图镜头",
+        "continuity": "连戏",
+        "duration": "时长节奏",
+        "style": "风格不对",
+        "technical": "畸变 / 画质",
+        "off_prompt": "没按描述来"
+      },
+      "advice": {
+        "attachSubject": "引用一个主体把人物锁住，再抽才稳",
+        "attachRef": "挂一张人物 / 主体的参考图，模型才知道要画谁",
+        "smartEdit": "用智能编辑只改不满意的局部，其余保持不变",
+        "model": "换一个留用率更高的模型试试",
+        "retake": "用片段重拍只重做有问题的那几秒，并在提示词里写清动作",
+        "camera": "在提示词里写明景别和运镜，或从运镜库里选一个",
+        "styleLib": "从风格库选一个风格，整体调性更稳",
+        "styleRef": "挂一张风格参考图，让模型照着这个调子画",
+        "styleRefVideo": "加一张参考图定下画面风格",
+        "optimize": "让 AI 把提示词补全、写具体，再生成",
+        "promptAudio": "把文本里的停顿、重音和情绪写清楚，再生成",
+        "voice": "换一个更贴合的音色",
+        "talking": "口播类内容切到口播模式，用原生带声的模型",
+        "firstLast": "用首尾帧把开头和结尾的画面定住",
+        "extend": "从上一段的末帧续写，衔接更自然",
+        "duration": "直接改时长再生成"
+      },
+      "action": {
+        "ref": "加参考",
+        "subject": "选主体",
+        "style_ref": "选风格图",
+        "stylelib": "打开风格库",
+        "smart_edit": "智能编辑",
+        "retake": "片段重拍",
+        "extend": "智能续写",
+        "optimize": "优化提示词",
+        "camera": "选运镜",
+        "model": "换模型",
+        "talking": "切到口播",
+        "first_last": "切到首尾帧",
+        "spec": "改时长",
+        "voice": "换音色"
+      }
+    },
+    "candidates": {
+      "entry": "历史结果 {n}",
+      "title": "历史结果",
+      "hint": "点一条把节点切回这个结果，不扣积分",
+      "blocked": "画布只读或节点正在生成，暂时不能切换",
+      "current": "当前",
+      "rejected": "已退回",
+      "switched": "已切回这条结果",
+      "unknownModel": "未知模型"
+    },
+    "gate": {
+      "needFirstFrame": "首帧模式需要一张首帧图：连一张图片到这个节点，或把模式切回「全能参考」再生成",
+      "needFirstFrameFl2v": "首尾帧模式需要一张首帧图：连一张图片到这个节点，或把模式切回「全能参考」再生成",
+      "firstFrameUnlinked": "首帧图不在你的资产库里（常见于复制来的画布），请重新上传或从资产库选入后再生成",
+      "durationAdjusted": "当前模型不支持 {from}，时长已改为 {to}",
+      "resolutionAdjusted": "当前模型不支持 {from}，分辨率已改为 {to}"
+    },
+    "keep": {
+      "line": "留用率 {rate}% · 约 {n} 次出一条"
     }
   },
   "settings": {

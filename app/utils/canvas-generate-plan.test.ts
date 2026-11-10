@@ -187,4 +187,81 @@ describe('planCanvasGenerate', () => {
     expect(plan.params.lang).toBeUndefined()
     expect(plan.params.voice).toBeUndefined()
   })
+  it('首帧 / 首尾帧模式没有首帧图时拦下，不提交', () => {
+    const i2v = planCanvasGenerate({
+      node: node('video', { prompt: '推镜头' }),
+      payload: { model: 'vid-1', params: { mode: 'i2v' } },
+      inputs: [],
+    })
+    expect(i2v).toEqual({ ok: false, messageKey: 'canvas.gate.needFirstFrame' })
+    const fl2v = planCanvasGenerate({
+      node: node('video', { prompt: '推镜头' }),
+      payload: { model: 'vid-1', params: { mode: 'fl2v' } },
+      inputs: [{ asset_id: 9, role: 'last_frame' }],
+    })
+    expect(fl2v).toEqual({ ok: false, messageKey: 'canvas.gate.needFirstFrameFl2v' })
+    // 画面上有图但没有资产 ID（复制来的画布）：说清楚是图没进资产库
+    const unlinked = planCanvasGenerate({
+      node: node('video', { prompt: '推镜头' }),
+      payload: { model: 'vid-1', params: { mode: 'i2v' } },
+      unlinkedRefs: 1,
+    })
+    expect(unlinked).toEqual({ ok: false, messageKey: 'canvas.gate.firstFrameUnlinked' })
+  })
+
+  it('有首帧、引用了主体或挂了角色素材的首帧模式照常提交；全能参考和文生视频不拦', () => {
+    const base = { node: node('video', { prompt: '推镜头' }) }
+    expect(planCanvasGenerate({
+      ...base,
+      payload: { model: 'vid-1', params: { mode: 'i2v' } },
+      inputs: [{ asset_id: 3, role: 'first_frame' }],
+    }).ok).toBe(true)
+    expect(planCanvasGenerate({
+      ...base,
+      payload: { model: 'vid-1', params: { mode: 'i2v' }, subject_ids: [5] },
+    }).ok).toBe(true)
+    expect(planCanvasGenerate({
+      node: node('video', { prompt: '推镜头', subjectIds: [5] }),
+      payload: { model: 'vid-1', params: { mode: 'fl2v' } },
+    }).ok).toBe(true)
+    expect(planCanvasGenerate({
+      ...base,
+      payload: { model: 'vid-1', params: { mode: 'i2v' } },
+      inputs: [{ asset_id: 4, role: 'character' }],
+    }).ok).toBe(true)
+    expect(planCanvasGenerate({
+      ...base,
+      payload: { model: 'vid-1', params: { mode: 'reference' } },
+      inputs: [{ asset_id: 4, role: 'reference' }],
+    }).ok).toBe(true)
+    expect(planCanvasGenerate({ ...base, payload: { model: 'vid-1', params: { mode: 'reference' } } }).ok).toBe(true)
+    expect(planCanvasGenerate({ ...base, payload: { model: 'vid-1', params: {} } }).ok).toBe(true)
+    // 导演台不走这道闸
+    expect(planCanvasGenerate({
+      node: node('director', { prompt: '推镜头' }),
+      payload: { model: 'vid-1', params: { mode: 'fl2v' } },
+    }).ok).toBe(true)
+  })
+
+  it('时长 / 分辨率被面板改档时各提示一条，没变的不提示', () => {
+    const plan = planCanvasGenerate({
+      node: node('video', { prompt: '推镜头' }),
+      payload: {
+        model: 'vid-1',
+        params: { mode: 'reference', duration: 4, resolution: '768P' },
+        spec_adjusted: [
+          { key: 'duration', from: '10s', to: '4s' },
+          { key: 'resolution', from: '720P', to: '768P' },
+          { key: 'duration', from: '4s', to: '4s' },
+        ],
+      },
+    })
+    expect(plan.ok).toBe(true)
+    if (!plan.ok)
+      return
+    expect(plan.notices).toEqual([
+      { key: 'canvas.gate.durationAdjusted', params: { from: '10s', to: '4s' } },
+      { key: 'canvas.gate.resolutionAdjusted', params: { from: '720P', to: '768P' } },
+    ])
+  })
 })

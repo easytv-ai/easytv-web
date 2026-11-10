@@ -4137,6 +4137,81 @@
       "framesFail": "Échec de l’extraction des images. La vidéo n’est peut-être pas lisible depuis une autre origine",
       "framesOk": "{n} images extraites",
       "framesLabel": "Extraction d’images"
+    },
+    "reroll": {
+      "title": "Qu'est-ce qui ne va pas ?",
+      "hint": "Indiquez ce qui cloche avant de relancer. C'est seulement enregistré, votre prompt n'est jamais modifié",
+      "hintNode": "« {label} » a déjà un résultat. Indiquez ce qui cloche avant de relancer. C'est seulement enregistré, votre prompt n'est jamais modifié",
+      "adviceTitle": "Pas forcément besoin de tout relancer. Essayez d'abord ceci",
+      "confirm": "Relancer pour ces raisons",
+      "skip": "Relancer directement",
+      "dontAsk": "Ne plus demander",
+      "reason": {
+        "identity": "Mauvais personnage / sujet",
+        "performance": "Action / jeu",
+        "performanceAudio": "Ton / émotion à côté",
+        "lipsync": "Synchro labiale",
+        "composition": "Cadrage / caméra",
+        "continuity": "Raccord",
+        "duration": "Durée / rythme",
+        "style": "Mauvais style",
+        "technical": "Déformation / qualité",
+        "off_prompt": "Prompt non respecté"
+      },
+      "advice": {
+        "attachSubject": "Référencez un sujet pour verrouiller le personnage avant de relancer",
+        "attachRef": "Joignez une image de référence du personnage ou du sujet pour que le modèle sache qui dessiner",
+        "smartEdit": "Utilisez Smart edit pour ne retoucher que la zone qui gêne et garder le reste",
+        "model": "Essayez un modèle au taux de conservation plus élevé",
+        "retake": "Utilisez Segment retake pour ne refaire que les secondes ratées, et précisez l'action dans le prompt",
+        "camera": "Précisez la valeur de plan et le mouvement de caméra dans le prompt, ou choisissez-en un dans la bibliothèque",
+        "styleLib": "Choisissez un style dans la Style library pour un rendu plus stable",
+        "styleRef": "Joignez une image de référence de style à suivre",
+        "styleRefVideo": "Ajoutez une image de référence pour fixer le rendu",
+        "optimize": "Laissez l'IA compléter et préciser le prompt, puis générez",
+        "promptAudio": "Notez les pauses, les accents et l'émotion dans le texte, puis générez",
+        "voice": "Passez à une voix mieux adaptée",
+        "talking": "Pour un face caméra, passez en mode Talking head avec un modèle à audio natif",
+        "firstLast": "Utilisez First & last frame pour fixer l'image de début et de fin",
+        "extend": "Prolongez depuis la dernière image du clip précédent pour un raccord plus fluide",
+        "duration": "Changez la durée puis générez à nouveau"
+      },
+      "action": {
+        "ref": "Ajouter une référence",
+        "subject": "Choisir un sujet",
+        "style_ref": "Choisir une image de style",
+        "stylelib": "Ouvrir la Style library",
+        "smart_edit": "Smart edit",
+        "retake": "Segment retake",
+        "extend": "Smart Extend",
+        "optimize": "Optimiser le prompt",
+        "camera": "Choisir un mouvement",
+        "model": "Changer de modèle",
+        "talking": "Passer en Talking head",
+        "first_last": "Passer en First & last frame",
+        "spec": "Changer la durée",
+        "voice": "Changer de voix"
+      }
+    },
+    "candidates": {
+      "entry": "Historique {n}",
+      "title": "Résultats précédents",
+      "hint": "Cliquez pour remettre ce résultat sur le nœud. Aucun point débité",
+      "blocked": "Le canevas est en lecture seule ou le nœud est en cours de génération : changement impossible pour l'instant",
+      "current": "Actuel",
+      "rejected": "Refusé",
+      "switched": "Résultat rétabli",
+      "unknownModel": "Modèle inconnu"
+    },
+    "gate": {
+      "needFirstFrame": "Le mode First frame a besoin d'une première image : reliez une image à ce nœud, ou repassez en mode « Omni reference » avant de générer",
+      "needFirstFrameFl2v": "Le mode First & last frame a besoin d'une première image : reliez une image à ce nœud, ou repassez en mode « Omni reference » avant de générer",
+      "firstFrameUnlinked": "La première image n'est pas dans votre bibliothèque (fréquent sur un canevas copié). Importez-la à nouveau ou choisissez-la dans vos ressources, puis générez",
+      "durationAdjusted": "Ce modèle ne prend pas en charge {from} : la durée est passée à {to}",
+      "resolutionAdjusted": "Ce modèle ne prend pas en charge {from} : la résolution est passée à {to}"
+    },
+    "keep": {
+      "line": "Taux de conservation {rate} % · environ {n} essais par résultat gardé"
     }
   },
   "settings": {

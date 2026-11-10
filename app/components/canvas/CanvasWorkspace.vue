@@ -68,7 +68,7 @@ import { fillI18n } from '~/utils/i18n-fill'
 import { sanitizeGraphForSave } from '~/utils/canvas-graph-save'
 import { briefNodeTitle, briefPickShotRefs, briefTitleHead, defaultBriefModel, readCanvasLastModels, writeCanvasLastModel, SHOT_REF_HINT, type BriefComposeOpts, type BriefGenerateOpts, type BriefGenerateReport, type BriefMediaModels } from '~/utils/canvas-chat-brief'
 import { useToast } from '#imports'
-import type { Asset, AssetType, CanvasGraph, GeneratePayload, GenerationModel, GenerationTask, MediaJob, Style } from '~/types/creative'
+import type { Asset, AssetType, CanvasGraph, GeneratePayload, GenerationModel, GenerationTask, MediaJob, NodeCandidate, Style } from '~/types/creative'
 import taskApi from '~/api/task'
 import mediaApi from '~/api/media'
 import {
@@ -82,6 +82,10 @@ import { CANVAS_STALE_KEY, computeStaleMap, type InputSnapshot } from '~/utils/c
 import { useCanvasPracticeHost } from '~/composables/useCanvasPracticeHost'
 import { useCanvasVideoOps } from '~/composables/useCanvasVideoOps'
 import { useCanvasImageEdits } from '~/composables/useCanvasImageEdits'
+import { useCanvasNodeCandidates } from '~/composables/useCanvasNodeCandidates'
+import CanvasRerollPanel from '~/components/canvas/CanvasRerollPanel.vue'
+import { nodeHasResult, readRerollAsk, rerollNodeType, shouldAskReroll, writeRerollAsk, type RerollAction, type RerollContext, type RerollReason, type RerollTrigger } from '~/utils/canvas-reroll'
+import { canPickNodeCandidate, nodeCandidatePatch } from '~/utils/canvas-node-history'
 import { useCanvasVideoTools } from '~/composables/useCanvasVideoTools'
 import { useCanvasMatrix } from '~/composables/useCanvasMatrix'
 import { useCanvasCompose } from '~/composables/useCanvasCompose'
@@ -229,7 +233,15 @@ async function gateSpend(points: number) {
     return true
   return confirmSpend(points)
 }
-const inspectorRef = ref<{ generatePayload?: () => GeneratePayload, videoMode?: string, insertCameraMove?: (id: string) => void } | null>(null)
+const inspectorRef = ref<{
+  generatePayload?: () => GeneratePayload
+  videoMode?: string
+  insertCameraMove?: (id: string) => void
+  openModelMenu?: () => boolean
+  openSpecMenu?: () => boolean
+  openSubjectPicker?: () => boolean
+  setVideoMode?: (id: string) => boolean
+} | null>(null)
 const markModalRef = ref<{ confirm: () => void } | null>(null)
 const props = withDefaults(defineProps<{
   /** 当前画布 id（已保存过才有），生成任务会挂到该画布 */
@@ -3541,7 +3553,7 @@ function onKeydown(event: KeyboardEvent) {
         notify(t('节点已锁定'))
         return
       }
-      void onGenerate(undefined, selected.value || undefined)
+      requestGenerate('shortcut')
     },
     zoomIn: onUserZoomIn,
     zoomOut: onUserZoomOut,
@@ -3945,7 +3957,7 @@ function onSelAction(name: string) {
         downloadMediaNode()
     },
     expand: () => { textEditorOpen.value = true },
-    regen: () => { void onGenerate(inspectorRef.value?.generatePayload?.(), selected.value || undefined) },
+    regen: () => { requestGenerate('selbar', inspectorRef.value?.generatePayload?.()) },
     brush: () => openMarkEditor(selected.value, 'mark'),
     inpaint: () => openMarkEditor(selected.value, 'erase'),
     smartEdit: openSmartEdit,
@@ -4244,7 +4256,7 @@ function onInspectorGenerate(payload?: GeneratePayload) {
     notify(t('节点已锁定'))
     return
   }
-  void onGenerate(payload, selected.value || undefined)
+  requestGenerate('inspector', payload)
 }
 
 function onInspectorSend() {
@@ -4252,7 +4264,7 @@ function onInspectorSend() {
   // send 属编辑侧出口，跟练期间一并拦下
   if (selectionWriteBlocked())
     return
-  void onGenerate(undefined, selected.value || undefined)
+  requestGenerate('inspector')
 }
 
 /** 主体引用（API.md 10.2）：记在节点 data.subjectIds 上，随画布保存 */
@@ -4439,6 +4451,9 @@ const {
   onTaskSucceeded: (nodeId, task) => { void finishBgmMix(nodeId, task.result_asset_id) },
 })
 
+/** 提交过新任务的节点：它的历史结果缓存已经旧了，下次选中且跑完时强制重拉（API.md 39.2） */
+const candidateStale = new Set<string>()
+
 /**
  * 所有提交路径都从这里开始轮询（节点生成 / 节点重跑 / 一稿多版 / 视频重拍续写 / 媒体作业的模型动作），
  * 顺手通知运行队列查一次：不然面板关着、当前又一条进行中的都没有时不会轮询，
@@ -4447,6 +4462,7 @@ const {
 function pollTask(nodeId: string, taskId: number) {
   runQueueNotify.submitted()
   pollTaskRaw(nodeId, taskId)
+  candidateStale.add(nodeId)
 }
 
 /** 媒体作业同理：模型动作会在服务端起一条生成任务，队列也要立刻看到（本地动作没有任务，最多白查一次） */
@@ -5554,6 +5570,229 @@ laterFns.dropNode = dropNode
 laterFns.groupNodeList = groupNodeList
 laterFns.joinGroup = joinGroup
 
+// ===== 少抽卡（API.md 39）：重抽前先问哪里不满意、建议改走局部修复、历史结果切回 =====
+
+/** 正在等用户回答的那次重抽：面板确认后才真正走 onGenerate */
+const rerollAsk = ref<{ nodeId: string, payload: GeneratePayload } | null>(null)
+
+/** 这些节点的「生成」其实是派生动作（片段重拍 / 高清 / 逐帧拉片 / 深度捕捉），不算重抽 */
+function isDerivedNode(data: CanvasNodeData) {
+  return isRetakeNode(data) || isHdNode(data) || isFramePullNode(data) || isDepthMotionNode(data)
+}
+
+/**
+ * 用户亲手点的生成（检查器按钮 / ⌘Enter / 工具条重新生成）都从这里进：
+ * 节点已有结果就先弹询问面板，其余情况原样走 onGenerate。
+ * 批量 / 对话 / 助手方案 / 过期重跑不经过这里，直接调 onGenerate，所以不会弹。
+ */
+function requestGenerate(trigger: RerollTrigger, payload?: GeneratePayload) {
+  // 询问面板开着：这次生成等面板的确认，别让 ⌘Enter 再从旁边漏一条出去
+  if (rerollAsk.value)
+    return
+  const node = selected.value || undefined
+  if (node && isContentNode(node) && !props.readonly && !canvasLocked.value && !generating.value) {
+    const draft = payload ?? inspectorRef.value?.generatePayload?.()
+    const input = {
+      kind: node.data.kind,
+      data: node.data,
+      trigger,
+      derived: isDerivedNode(node.data),
+      practice: practiceLocked.value,
+    }
+    if (draft?.model && shouldAskReroll({ ...input, ask: readRerollAsk() })) {
+      rerollAsk.value = { nodeId: node.id, payload: draft }
+      return
+    }
+    // 勾过「不再询问」的重抽照样记一笔，口径才对得上：skipped 且 muted
+    if (draft?.model && shouldAskReroll(input))
+      track('canvas_reroll', { kind: node.data.kind, model: draft.model, reasons: [], skipped: true, muted: true })
+    void onGenerate(draft ?? payload, node)
+    return
+  }
+  void onGenerate(payload, node)
+}
+
+/** 面板给建议用的上下文：节点类型、挂了什么、哪些入口现在真能走 */
+const rerollContext = computed<RerollContext | null>(() => {
+  const ask = rerollAsk.value
+  const node = ask ? findNode(ask.nodeId) as CanvasFlowNode | undefined : undefined
+  if (!node || !isContentNode(node))
+    return null
+  const type = rerollNodeType(node.data.kind)
+  if (!type)
+    return null
+  const data = node.data
+  const src = String(data.content || '').trim()
+  const hasPrompt = Boolean(String(data.prompt || '').trim())
+  const available: RerollAction[] = ['model', 'spec', 'ref']
+  if (type === 'image') {
+    available.push('subject', 'style_ref', 'stylelib')
+    if (src)
+      available.push('smart_edit')
+  }
+  if (type === 'video') {
+    available.push('subject', 'stylelib', 'camera', 'talking', 'first_last')
+    if (src) {
+      available.push('extend')
+      if (mediaActionIfListed(mediaActions.value, 'retake_segment').available)
+        available.push('retake')
+    }
+  }
+  if (type === 'audio')
+    available.push('voice')
+  if (type !== 'audio' && hasPrompt)
+    available.push('optimize')
+  return {
+    type,
+    hasRef: Boolean(connectedRefThumbs(node.id).length || uploadedRefList(data).length || data.castUrl),
+    hasSubject: Boolean(data.subjectIds?.length),
+    hasFirstFrame: type === 'video' && collectRefImages(node).length > 0,
+    videoMode: type === 'video' ? String(ask?.payload.params?.mode || data.videoMode || 'reference') : undefined,
+    available,
+  }
+})
+
+const rerollLabel = computed(() => {
+  const node = rerollAsk.value ? findNode(rerollAsk.value.nodeId) as CanvasFlowNode | undefined : undefined
+  return node && isContentNode(node) ? String(node.data.label || '') : ''
+})
+
+function closeRerollAsk() {
+  rerollAsk.value = null
+}
+
+function onRerollConfirm(reasons: RerollReason[], dontAsk: boolean) {
+  const ask = rerollAsk.value
+  rerollAsk.value = null
+  if (!ask)
+    return
+  if (dontAsk)
+    writeRerollAsk(false)
+  const node = findNode(ask.nodeId) as CanvasFlowNode | undefined
+  if (!node || !isContentNode(node))
+    return
+  track('canvas_reroll', { kind: node.data.kind, model: ask.payload.model, reasons, skipped: reasons.length === 0 })
+  void onGenerate(reasons.length ? { ...ask.payload, reroll_reason: reasons } : ask.payload, node)
+}
+
+/** 点了建议上的按钮：不重抽，改走现成的局部修复 / 调整入口 */
+function onRerollDivert(action: RerollAction, reasons: RerollReason[], dontAsk: boolean) {
+  const ask = rerollAsk.value
+  rerollAsk.value = null
+  if (!ask)
+    return
+  if (dontAsk)
+    writeRerollAsk(false)
+  const node = findNode(ask.nodeId) as CanvasFlowNode | undefined
+  if (!node || !isContentNode(node))
+    return
+  track('canvas_reroll_divert', { kind: node.data.kind, model: ask.payload.model, reasons, action })
+  // 询问面板是独立浮层：等它卸掉再开目标入口，免得两个浮层叠在一起
+  void nextTick(() => runRerollAction(action))
+}
+
+function runRerollAction(action: RerollAction) {
+  const node = selected.value
+  if (!node || !isContentNode(node))
+    return
+  if (action === 'ref')
+    onInspectorChip('ref')
+  else if (action === 'style_ref')
+    onInspectorChip('style')
+  else if (action === 'stylelib')
+    onInspectorChip('stylelib')
+  else if (action === 'optimize')
+    onInspectorChip('optimize')
+  else if (action === 'camera')
+    onInspectorChip('cam')
+  else if (action === 'voice')
+    onInspectorChip('voice')
+  else if (action === 'smart_edit')
+    openSmartEdit()
+  else if (action === 'retake')
+    onNodeMenuRetake()
+  else if (action === 'extend')
+    openExtendStudio()
+  else if (action === 'subject')
+    inspectorRef.value?.openSubjectPicker?.()
+  else if (action === 'model')
+    inspectorRef.value?.openModelMenu?.()
+  else if (action === 'spec')
+    inspectorRef.value?.openSpecMenu?.()
+  else if (action === 'talking')
+    inspectorRef.value?.setVideoMode?.('talking')
+  else if (action === 'first_last')
+    inspectorRef.value?.setVideoMode?.('fl2v')
+}
+
+/** 节点历史结果（API.md 39.2）：选中有结果的图片 / 视频 / 音频节点时按需拉，任务成功后刷新 */
+const nodeCandidates = useCanvasNodeCandidates({ canvasId: () => props.canvasId })
+
+const candidateTarget = computed(() => {
+  const node = selected.value
+  if (!node || selectedNodes.value.length !== 1 || !isContentNode(node) || !rerollNodeType(node.data.kind) || isDerivedNode(node.data))
+    return null
+  return {
+    id: node.id,
+    status: String(node.data.taskStatus || ''),
+    ready: nodeHasResult(node.data),
+  }
+})
+
+watch(candidateTarget, (now) => {
+  if (!now)
+    return
+  if (now.status === 'pending' || now.status === 'running') {
+    candidateStale.add(now.id)
+    return
+  }
+  if (!now.ready)
+    return
+  const force = candidateStale.delete(now.id)
+  void nodeCandidates.load([now.id], force)
+}, { immediate: true })
+
+watch(() => props.canvasId, () => {
+  candidateStale.clear()
+  nodeCandidates.reset()
+})
+
+const selectedCandidates = computed(() => (candidateTarget.value ? nodeCandidates.listOf(candidateTarget.value.id) : []))
+
+const selectedCandidateCurrent = computed(() => {
+  const node = selected.value
+  if (!node || !isContentNode(node))
+    return {}
+  return { content: String(node.data.content || ''), assetId: Number(node.data.assetId) || 0 }
+})
+
+const selectedCandidatesDisabled = computed(() => {
+  const node = selected.value
+  return props.readonly || canvasLocked.value || !node || !isContentNode(node) || !canPickNodeCandidate(node.data)
+})
+
+/** 把节点切回某条历史结果：只改节点上的产物字段，不产生任务、不扣分；标脏走正常保存 */
+function onPickCandidate(candidate: NodeCandidate) {
+  const node = selected.value
+  if (!node || !isContentNode(node))
+    return
+  if (!canEditCanvas('放入') || selectionWriteBlocked())
+    return
+  if (!canPickNodeCandidate(node.data)) {
+    notify(t('该节点正在生成中'))
+    return
+  }
+  updateNodeData(node.id, nodeCandidatePatch(candidate))
+  pushHistory()
+  track('node_candidate_pick', {
+    kind: node.data.kind,
+    model: candidate.model,
+    task_id: candidate.task_id,
+    canvas_id: props.canvasId || 0,
+  })
+  notify(t('canvas.candidates.switched'))
+}
+
 // ===== 一稿多版矩阵（平台规格 × 多语言派生）：面板选与算，这里落图 + 交服务端批量 =====
 
 const matrixPanelOpen = ref(false)
@@ -6364,6 +6603,10 @@ const styleLibValue = computed(() => {
       :model="selected && isContentNode(selected) ? selected.data.model || '' : ''"
       :params="selected && isContentNode(selected) ? selected.data.params ?? null : null"
       :submitting="generating"
+      :candidates="selectedCandidates"
+      :candidate-current="selectedCandidateCurrent"
+      :candidates-disabled="selectedCandidatesDisabled"
+      @pick-candidate="onPickCandidate"
       @update:model="onInspectorModel"
       @update:subject-ids="onInspectorSubjects"
       @update:video-mode="onInspectorVideoMode"
@@ -6441,6 +6684,16 @@ const styleLibValue = computed(() => {
       :points="optimizePoints"
       @close="closeOptimize"
       @apply="onOptimizeApply"
+    />
+
+    <CanvasRerollPanel
+      v-if="rerollAsk && rerollContext"
+      :open="Boolean(rerollAsk)"
+      :context="rerollContext"
+      :label="rerollLabel"
+      @close="closeRerollAsk"
+      @confirm="onRerollConfirm"
+      @divert="onRerollDivert"
     />
 
     <CanvasMontageModal

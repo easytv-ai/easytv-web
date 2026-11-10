@@ -4162,6 +4162,81 @@
       "framesFail": "Could not extract frames. The video may not be readable across origins",
       "framesOk": "Extracted {n} frames",
       "framesLabel": "Frame extraction"
+    },
+    "reroll": {
+      "title": "What's off?",
+      "hint": "Pick what's wrong before you reroll. It's only recorded and never changes your prompt",
+      "hintNode": "\"{label}\" already has a result. Pick what's wrong before you reroll. It's only recorded and never changes your prompt",
+      "adviceTitle": "You may not need a full reroll. Try this first",
+      "confirm": "Reroll for these reasons",
+      "skip": "Just reroll",
+      "dontAsk": "Don't ask again",
+      "reason": {
+        "identity": "Wrong character / subject",
+        "performance": "Action / acting",
+        "performanceAudio": "Tone / emotion is off",
+        "lipsync": "Lip sync",
+        "composition": "Framing / camera",
+        "continuity": "Continuity",
+        "duration": "Length / pacing",
+        "style": "Wrong style",
+        "technical": "Distortion / quality",
+        "off_prompt": "Didn't follow the prompt"
+      },
+      "advice": {
+        "attachSubject": "Reference a subject to lock the character before rerolling",
+        "attachRef": "Attach a reference image of the character or subject so the model knows who to draw",
+        "smartEdit": "Use Smart edit to change only the part you dislike and keep the rest",
+        "model": "Try a model with a higher keep rate",
+        "retake": "Use Segment retake to redo only the bad seconds, and spell out the action in the prompt",
+        "camera": "State the shot size and camera movement in the prompt, or pick one from the camera library",
+        "styleLib": "Pick a style from the Style library for a steadier look",
+        "styleRef": "Attach a style reference image for the model to follow",
+        "styleRefVideo": "Add a reference image to pin down the look",
+        "optimize": "Let AI flesh out the prompt with specifics, then generate",
+        "promptAudio": "Write the pauses, stress and emotion into the text, then generate",
+        "voice": "Switch to a voice that fits better",
+        "talking": "For talking-head content, switch to Talking head mode with a native-audio model",
+        "firstLast": "Use First & last frame to pin the opening and closing shots",
+        "extend": "Extend from the last frame of the previous clip for a smoother cut",
+        "duration": "Change the duration and generate again"
+      },
+      "action": {
+        "ref": "Add reference",
+        "subject": "Pick subject",
+        "style_ref": "Pick style image",
+        "stylelib": "Open Style library",
+        "smart_edit": "Smart edit",
+        "retake": "Segment retake",
+        "extend": "Smart Extend",
+        "optimize": "Optimize prompt",
+        "camera": "Pick camera move",
+        "model": "Change model",
+        "talking": "Switch to Talking head",
+        "first_last": "Switch to First & last frame",
+        "spec": "Change duration",
+        "voice": "Change voice"
+      }
+    },
+    "candidates": {
+      "entry": "History {n}",
+      "title": "Past results",
+      "hint": "Click one to switch the node back to it. No points charged",
+      "blocked": "The canvas is read-only or the node is generating, so you can't switch right now",
+      "current": "Current",
+      "rejected": "Rejected",
+      "switched": "Switched back to this result",
+      "unknownModel": "Unknown model"
+    },
+    "gate": {
+      "needFirstFrame": "First frame mode needs a first-frame image: connect an image to this node, or switch the mode back to \"Omni reference\" and generate again",
+      "needFirstFrameFl2v": "First & last frame mode needs a first-frame image: connect an image to this node, or switch the mode back to \"Omni reference\" and generate again",
+      "firstFrameUnlinked": "The first-frame image isn't in your asset library (common on copied canvases). Upload it again or pick it from your assets, then generate",
+      "durationAdjusted": "This model doesn't support {from}, so the duration was changed to {to}",
+      "resolutionAdjusted": "This model doesn't support {from}, so the resolution was changed to {to}"
+    },
+    "keep": {
+      "line": "Keep rate {rate}% · about {n} tries per keeper"
     }
   },
   "settings": {

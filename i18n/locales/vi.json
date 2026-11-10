@@ -4137,6 +4137,81 @@
       "framesFail": "Trích khung hình thất bại. Có thể không đọc được video do khác nguồn gốc",
       "framesOk": "Đã trích {n} khung hình",
       "framesLabel": "Trích khung hình"
+    },
+    "reroll": {
+      "title": "Chưa ưng ở đâu?",
+      "hint": "Chọn lý do trước khi tạo lại để dễ đạt ngay lần sau. Lý do chỉ được ghi nhận, không sửa prompt của bạn",
+      "hintNode": "\"{label}\" đã có kết quả. Chọn lý do trước khi tạo lại để dễ đạt ngay lần sau. Lý do chỉ được ghi nhận, không sửa prompt của bạn",
+      "adviceTitle": "Không nhất thiết phải tạo lại toàn bộ. Hãy thử cách này trước",
+      "confirm": "Tạo lại theo các lý do này",
+      "skip": "Tạo lại luôn",
+      "dontAsk": "Không hỏi lại",
+      "reason": {
+        "identity": "Sai nhân vật / chủ thể",
+        "performance": "Hành động / diễn xuất",
+        "performanceAudio": "Sai giọng điệu / cảm xúc",
+        "lipsync": "Khẩu hình",
+        "composition": "Bố cục / máy quay",
+        "continuity": "Liền mạch",
+        "duration": "Thời lượng / nhịp",
+        "style": "Sai phong cách",
+        "technical": "Méo hình / chất lượng",
+        "off_prompt": "Không đúng mô tả"
+      },
+      "advice": {
+        "attachSubject": "Tham chiếu một chủ thể để khóa nhân vật rồi mới tạo lại",
+        "attachRef": "Gắn ảnh tham chiếu của nhân vật / chủ thể để mô hình biết cần vẽ ai",
+        "smartEdit": "Dùng Smart edit để chỉ sửa phần chưa ưng, giữ nguyên phần còn lại",
+        "model": "Thử một mô hình có tỷ lệ giữ lại cao hơn",
+        "retake": "Dùng Segment retake để chỉ làm lại mấy giây bị lỗi và ghi rõ hành động trong prompt",
+        "camera": "Ghi rõ cỡ cảnh và chuyển động máy trong prompt, hoặc chọn một kiểu trong thư viện",
+        "styleLib": "Chọn một phong cách trong Style library để tổng thể ổn định hơn",
+        "styleRef": "Gắn ảnh tham chiếu phong cách để mô hình vẽ theo",
+        "styleRefVideo": "Thêm một ảnh tham chiếu để chốt phong cách hình ảnh",
+        "optimize": "Để AI bổ sung và viết cụ thể prompt rồi mới tạo",
+        "promptAudio": "Ghi rõ chỗ ngắt, nhấn giọng và cảm xúc trong văn bản rồi mới tạo",
+        "voice": "Đổi sang giọng phù hợp hơn",
+        "talking": "Với nội dung nói trước ống kính, chuyển sang chế độ Talking head và dùng mô hình có sẵn âm thanh",
+        "firstLast": "Dùng First & last frame để cố định hình mở đầu và kết thúc",
+        "extend": "Viết tiếp từ khung cuối của đoạn trước để chuyển cảnh mượt hơn",
+        "duration": "Đổi thời lượng rồi tạo lại"
+      },
+      "action": {
+        "ref": "Thêm tham chiếu",
+        "subject": "Chọn chủ thể",
+        "style_ref": "Chọn ảnh phong cách",
+        "stylelib": "Mở Style library",
+        "smart_edit": "Smart edit",
+        "retake": "Segment retake",
+        "extend": "Smart Extend",
+        "optimize": "Tối ưu prompt",
+        "camera": "Chọn chuyển động máy",
+        "model": "Đổi mô hình",
+        "talking": "Chuyển sang Talking head",
+        "first_last": "Chuyển sang First & last frame",
+        "spec": "Đổi thời lượng",
+        "voice": "Đổi giọng"
+      }
+    },
+    "candidates": {
+      "entry": "Lịch sử {n}",
+      "title": "Kết quả trước đây",
+      "hint": "Bấm vào một mục để đưa nút về kết quả đó. Không trừ điểm",
+      "blocked": "Canvas chỉ đọc hoặc nút đang tạo nên tạm thời chưa đổi được",
+      "current": "Hiện tại",
+      "rejected": "Đã trả lại",
+      "switched": "Đã chuyển về kết quả này",
+      "unknownModel": "Mô hình không rõ"
+    },
+    "gate": {
+      "needFirstFrame": "Chế độ First frame cần một ảnh khung đầu: nối một ảnh vào nút này, hoặc chuyển chế độ về \"Omni reference\" rồi tạo lại",
+      "needFirstFrameFl2v": "Chế độ First & last frame cần một ảnh khung đầu: nối một ảnh vào nút này, hoặc chuyển chế độ về \"Omni reference\" rồi tạo lại",
+      "firstFrameUnlinked": "Ảnh khung đầu không có trong thư viện của bạn (thường gặp ở canvas sao chép). Hãy tải lên lại hoặc chọn từ tài nguyên rồi tạo",
+      "durationAdjusted": "Mô hình này không hỗ trợ {from}, thời lượng đã đổi thành {to}",
+      "resolutionAdjusted": "Mô hình này không hỗ trợ {from}, độ phân giải đã đổi thành {to}"
+    },
+    "keep": {
+      "line": "Tỷ lệ giữ lại {rate}% · khoảng {n} lần cho một kết quả dùng được"
     }
   },
   "settings": {

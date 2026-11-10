@@ -113,6 +113,32 @@ export function planCanvasGenerate(input: {
     })
   }
 
+  // 少抽卡（API.md 39.5）：首帧 / 首尾帧模式却没有任何可当首帧的图，提交了也是白花钱，先拦下。
+  // 只管视频节点；引用了主体或挂了角色素材的不拦（服务端会把主体图并进 inputs，口播就是这么走的）。
+  const videoMode = typeof params.mode === 'string' ? params.mode : ''
+  if (kind === 'video' && (videoMode === 'i2v' || videoMode === 'fl2v')) {
+    const given = input.inputs || []
+    const hasFrame = given.some(item => item.role === 'first_frame' || item.role === 'character')
+    const hasSubject = (payload.subject_ids ?? node.data.subjectIds ?? []).length > 0
+    if (!hasFrame && !hasSubject) {
+      return {
+        ok: false,
+        messageKey: unlinkedRefs
+          ? 'canvas.gate.firstFrameUnlinked'
+          : videoMode === 'fl2v' ? 'canvas.gate.needFirstFrameFl2v' : 'canvas.gate.needFirstFrame',
+      }
+    }
+  }
+  // 时长 / 分辨率被面板按模型支持的档位改过：以前是静默改，这里说清楚改成了什么
+  for (const item of payload.spec_adjusted ?? []) {
+    if (!item || item.from === item.to)
+      continue
+    notices.push({
+      key: item.key === 'resolution' ? 'canvas.gate.resolutionAdjusted' : 'canvas.gate.durationAdjusted',
+      params: { from: item.from, to: item.to },
+    })
+  }
+
   const camIds = cameraIdsInPrompt(prompt)
   if (camIds.length)
     prompt = expandCameraTokens(prompt)

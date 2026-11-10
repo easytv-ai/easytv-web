@@ -4138,6 +4138,81 @@
       "framesFail": "抽幀失敗，影片可能無法跨域讀取",
       "framesOk": "已抽出 {n} 幀",
       "framesLabel": "抽幀"
+    },
+    "reroll": {
+      "title": "哪裡不滿意？",
+      "hint": "點一下原因再抽，更容易一次到位。原因只做記錄，不會改你的提示詞",
+      "hintNode": "「{label}」已有結果。點一下原因再抽，更容易一次到位；原因只做記錄，不會改你的提示詞",
+      "adviceTitle": "不一定要整條重抽，可以先試試",
+      "confirm": "按這些原因重抽",
+      "skip": "直接重抽",
+      "dontAsk": "不再詢問",
+      "reason": {
+        "identity": "人物 / 主體不對",
+        "performance": "動作表演",
+        "performanceAudio": "語氣 / 情緒不對",
+        "lipsync": "口型",
+        "composition": "構圖鏡頭",
+        "continuity": "連戲",
+        "duration": "時長節奏",
+        "style": "風格不對",
+        "technical": "畸變 / 畫質",
+        "off_prompt": "沒按描述來"
+      },
+      "advice": {
+        "attachSubject": "引用一個主體把人物鎖住，再抽才穩",
+        "attachRef": "掛一張人物 / 主體的參考圖，模型才知道要畫誰",
+        "smartEdit": "用智能編輯只改不滿意的局部，其餘保持不變",
+        "model": "換一個留用率更高的模型試試",
+        "retake": "用片段重拍只重做有問題的那幾秒，並在提示詞裡寫清動作",
+        "camera": "在提示詞裡寫明景別和運鏡，或從運鏡庫裡選一個",
+        "styleLib": "從風格庫選一個風格，整體調性更穩",
+        "styleRef": "掛一張風格參考圖，讓模型照著這個調子畫",
+        "styleRefVideo": "加一張參考圖定下畫面風格",
+        "optimize": "讓 AI 把提示詞補全、寫具體，再生成",
+        "promptAudio": "把文本裡的停頓、重音和情緒寫清楚，再生成",
+        "voice": "換一個更貼合的音色",
+        "talking": "口播類內容切到口播模式，用原生帶聲的模型",
+        "firstLast": "用首尾幀把開頭和結尾的畫面定住",
+        "extend": "從上一段的末幀續寫，銜接更自然",
+        "duration": "直接改時長再生成"
+      },
+      "action": {
+        "ref": "加參考",
+        "subject": "選主體",
+        "style_ref": "選風格圖",
+        "stylelib": "打開風格庫",
+        "smart_edit": "智能編輯",
+        "retake": "片段重拍",
+        "extend": "智能續寫",
+        "optimize": "優化提示詞",
+        "camera": "選運鏡",
+        "model": "換模型",
+        "talking": "切到口播",
+        "first_last": "切到首尾幀",
+        "spec": "改時長",
+        "voice": "換音色"
+      }
+    },
+    "candidates": {
+      "entry": "歷史結果 {n}",
+      "title": "歷史結果",
+      "hint": "點一條把節點切回這個結果，不扣積分",
+      "blocked": "畫布唯讀或節點正在生成，暫時不能切換",
+      "current": "目前",
+      "rejected": "已退回",
+      "switched": "已切回這條結果",
+      "unknownModel": "未知模型"
+    },
+    "gate": {
+      "needFirstFrame": "首幀模式需要一張首幀圖：連一張圖片到這個節點，或把模式切回「全能參考」再生成",
+      "needFirstFrameFl2v": "首尾幀模式需要一張首幀圖：連一張圖片到這個節點，或把模式切回「全能參考」再生成",
+      "firstFrameUnlinked": "首幀圖不在你的資產庫裡（常見於複製來的畫布），請重新上傳或從資產庫選入後再生成",
+      "durationAdjusted": "目前模型不支援 {from}，時長已改為 {to}",
+      "resolutionAdjusted": "目前模型不支援 {from}，解析度已改為 {to}"
+    },
+    "keep": {
+      "line": "留用率 {rate}% · 約 {n} 次出一條"
     }
   },
   "settings": {

@@ -25,6 +25,8 @@ type TaskRequest = {
   subjectVersions?: Record<string, number>
   lang?: string
   voice?: string
+  /** 重抽原因（API.md 39.1）：只有写回原节点的那条带，一次出多张的兄弟节点不带 */
+  rerollReason?: string[]
 }
 
 /**
@@ -188,6 +190,7 @@ export function useCanvasGenerate(opts: {
       subject_versions: req.subjectIds.length && req.subjectVersions && Object.keys(req.subjectVersions).length ? req.subjectVersions : undefined,
       lang: req.type === 'audio' ? req.lang || undefined : undefined,
       voice: req.type === 'audio' ? req.voice || undefined : undefined,
+      reroll_reason: req.rerollReason?.length ? req.rerollReason : undefined,
     })
     if (!res?.success || !res.data) {
       opts.notify(res?.message || opts.t('提交失败'), 'error')
@@ -350,7 +353,9 @@ export function useCanvasGenerate(opts: {
         opts.applyMediaNodeSize(node.id, aw, ah)
     }
 
-    if (!await submitNodeTask(node, req)) {
+    // 重抽原因只跟着顶替原结果的这一条走；下面批量的兄弟节点是新节点，不算重抽
+    const rerollReason = payload?.reroll_reason?.filter(Boolean) ?? []
+    if (!await submitNodeTask(node, rerollReason.length ? { ...req, rerollReason } : req)) {
       void opts.refreshWallet()
       return
     }

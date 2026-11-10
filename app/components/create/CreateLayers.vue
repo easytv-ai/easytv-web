@@ -25,6 +25,7 @@ import {
   reviewGateVerdict,
   reviewReasonLabel,
 } from '~/utils/create-review-gate'
+import { reviewRerollReasons, shotReviewsByAsset } from '~/utils/canvas-reroll'
 import { groupLayerNodes, layerTagOf, refImageIn, shotNoOf, type LayerFlowEdge } from '~/utils/create-layer-nodes'
 import {
   mergeTaskResults,
@@ -227,6 +228,8 @@ const gateBusy = ref(false)
 const timelineLocked = ref(false)
 /** 分镜图候选的审片结论（asset_id → review），从镜头视图读；角色图候选不在镜头视图里，只审分镜图 */
 const imageReviews = ref(new Map<number, ShotReview>())
+/** 所有候选的审片结论（含视频 / 配音）：重新生成时把退回原因作为重抽原因带上（API.md 39.1） */
+const shotReviews = ref(new Map<number, ShotReview>())
 /** 正在提交审片的资产 id */
 const reviewBusy = ref(0)
 const rejectForm = ref<{ nodeId: string, assetId: number, reason: ShotReviewReason, note: string } | null>(null)
@@ -264,6 +267,7 @@ async function loadGate() {
   reviewGate.value = normalizeReviewGate(res.data.timeline?.review_gate)
   timelineLocked.value = Boolean(res.data.locked)
   imageReviews.value = imageReviewsOf(res.data.shots, res.data.characters)
+  shotReviews.value = shotReviewsByAsset(res.data.shots, res.data.characters)
 }
 
 async function setGate(value: ReviewGate) {
@@ -341,6 +345,13 @@ async function submitReview(node: FlowNode, status: ShotReviewStatus, reason: Sh
     else
       next.delete(assetId)
     imageReviews.value = next
+    // 同一份结论也在 shotReviews 里：一并更新，撤销退回后重新生成才不会带上旧原因
+    const all = new Map(shotReviews.value)
+    if (res.data.review)
+      all.set(assetId, res.data.review)
+    else
+      all.delete(assetId)
+    shotReviews.value = all
     if (rejectForm.value?.assetId === assetId)
       rejectForm.value = null
     // 结论变了，之前「被门禁拦下」的提示不再准确，让用户重新点生成
@@ -684,7 +695,7 @@ function onPickModel(layer: Layer, value: string | number) {
  */
 type RunResult = 'ok' | 'busy' | 'failed' | 'blocked'
 
-async function runNode(layer: Layer, node: FlowNode): Promise<RunResult> {
+async function runNode(layer: Layer, node: FlowNode, rerollReason: string[] = []): Promise<RunResult> {
   if (isActive(node))
     return 'ok'
   const prompt = promptOf(layer, node)
@@ -713,6 +724,7 @@ async function runNode(layer: Layer, node: FlowNode): Promise<RunResult> {
     canvas_id: props.canvasId,
     node_id: node.id,
     project_id: props.projectId || undefined,
+    reroll_reason: rerollReason.length ? rerollReason : undefined,
   })
   if (!res?.success || !res.data) {
     // 并发满：节点保持原状（待生成），由 runLayer 等空位后重试
@@ -980,12 +992,16 @@ async function regenerate(layer: Layer, node: FlowNode) {
   const selected = modelOf(layer, node)
   const usedModel = String(node.data.model || '')
   const modelChanged = Boolean(usedModel && selected && usedModel !== selected)
+  // 当前这条产物被审片退回过：退回原因就是这次重抽的原因，随任务带上（服务端只在确有上一条成功结果时落库）。
+  // 向导里已经在审片时问过一遍了，这里不再弹询问面板
+  const assetId = nodeAssetId(node)
+  const rerollReason = reviewRerollReasons(imageReviews.value.get(assetId) ?? shotReviews.value.get(assetId))
   patchNode(node.id, { taskStatus: '', taskError: '' })
   let ok = false
   // 后端 retake 只接受「已成功的视频」（同参数重拍，记 retake_of）；
   // 换过模型、图片 / 音频重新生成、失败或取消后重试都按当前选择的模型新建任务
   if (taskId > 0 && layer.type === 'video' && status === 'succeeded' && !modelChanged) {
-    const res = await taskApi.retake(taskId)
+    const res = await taskApi.retake(taskId, { reroll_reason: rerollReason })
     if (res?.success && res.data) {
       applyTask(node.id, res.data)
       ensurePolling()
@@ -998,7 +1014,7 @@ async function regenerate(layer: Layer, node: FlowNode) {
     }
   }
   else {
-    const result = await runNode(layer, node)
+    const result = await runNode(layer, node, rerollReason)
     ok = result === 'ok'
     // 单节点不排队：并发占满直接告诉用户，别静默没反应
     if (result === 'busy')

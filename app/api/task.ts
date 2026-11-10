@@ -35,6 +35,8 @@ export const taskApi = {
     lang?: string
     /** 音频任务音色 */
     voice?: string
+    /** 重抽原因（API.md 39.1）：节点已有成功结果时才落库，白名单外的值服务端丢弃 */
+    reroll_reason?: string[]
   }): Promise<ApiResponse<GenerationTask>> {
     return http.post('/user/task', data)
   },
@@ -63,8 +65,8 @@ export const taskApi = {
   },
 
   /** 片段重拍（API.md 10.3）：同参数重跑，新任务的 retake_of 记原任务 */
-  retake(id: number): Promise<ApiResponse<GenerationTask>> {
-    return http.post(`/user/task/${id}/retake`)
+  retake(id: number, body: { reroll_reason?: string[] } = {}): Promise<ApiResponse<GenerationTask>> {
+    return http.post(`/user/task/${id}/retake`, body.reroll_reason?.length ? body : undefined)
   },
 
   /** 续写（API.md 10.3）：取原视频末帧作首帧建新视频任务，parent_task_id 记原任务；model 可选，指定续写用的视频模型 */
