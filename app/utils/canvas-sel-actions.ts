@@ -47,7 +47,7 @@ export type CanvasSelActionApi = {
   extractFrames: (count: number) => void
   runSubject: (name: 'remove-subject' | 'edit-subject' | 'replace-subject') => void
   runImageEdit: (name: ImageEditAction) => void
-  /** 把选中那串节点存成工作流模板（L3，API.md 31.1） */
+  /** 把选中那串节点存成工作流模板（API.md 31.1） */
   saveWorkflow: () => void
   fallback: () => void
 }

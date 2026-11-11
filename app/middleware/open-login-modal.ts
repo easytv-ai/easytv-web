@@ -3,7 +3,7 @@ import { sanitizeLoginRedirectPath, storeLoginRedirect } from '~/utils/auth-logi
 import { OPEN_LOGIN_COOKIE, type LoginModalTab } from '~/utils/login-modal'
 
 /**
- * /login、/register、/forgot-password 不再作为页面停留。
+ * /login、/register、/forgot-password 不作为页面停留。
  * 记下要打开的 Tab，回到回跳地址或首页，由登录弹窗接住。
  */
 function queryText(value: unknown) {

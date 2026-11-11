@@ -3,7 +3,7 @@
  * 3D 导演台整页外壳。
  *
  * 布局跟参考台一样：左右通栏，中间视口，时间轴只躺在视口底下。
- * 返回和送截图挂在两侧顶上，不再单独占一条白顶栏。
+ * 返回和送截图挂在两侧顶上，不单独占一条白顶栏。
  */
 import { ref, shallowRef } from 'vue'
 import CanvasDirectorSession from '~/components/canvas/CanvasDirectorSession.vue'

@@ -8,7 +8,7 @@ import { TIKTOK_HASHTAGS, YOUTUBE_HASHTAGS, withHashtags } from '~/utils/share-c
 const { t } = useI18n()
 
 /**
- * 分享弹窗（T29）：顶部是带二维码的分享卡片预览，下面是各平台快捷分享、保存海报 / 复制文案、链接栏。
+ * 分享弹窗：顶部是带二维码的分享卡片预览，下面是各平台快捷分享、保存海报 / 复制文案、链接栏。
  * 分享作品时链接 = /watch/:id，分享作者主页时 = /author/:id；
  * 登录用户带 ?ref=<aff_code>（播放页带 ref 打开会上报 share_open，作者得积分，API.md 8.4）。
  * 海报在 1080×1920 的 canvas 上画：封面（跨域失败退回深色渐变）+ 标题 + 副标题 + 品牌标 + 右下角二维码。
@@ -85,7 +85,7 @@ const scanLabel = computed(() => target.value?.kind === 'author' ? t('share.scan
 const link = computed(() => {
   if (!target.value || !import.meta.client)
     return ''
-  // 分享链接走 localePath（F6）：英文等非默认语言带 /en 前缀，落地页与分享时看到的一致
+  // 分享链接走 localePath：英文等非默认语言带 /en 前缀，落地页与分享时看到的一致
   const path = localePath(target.value.path)
   const base = `${siteUrl || window.location.origin}${path}`
   return isLoggedIn.value && affCode.value ? `${base}?ref=${encodeURIComponent(affCode.value)}` : base
@@ -352,7 +352,7 @@ const SHARE_SITES: Record<'douyin' | 'xiaohongshu' | 'tiktok' | 'youtube', strin
 
 async function shareTo(kind: 'douyin' | 'xiaohongshu' | 'x' | 'tiktok' | 'youtube') {
   report(kind)
-  // TikTok / YouTube 用带话题标签的平台专属文案（F6 分发引导），其余平台用通用文案
+  // TikTok / YouTube 用带话题标签的平台专属文案，其余平台用通用文案
   const text = kind === 'tiktok' ? tiktokCaption.value : kind === 'youtube' ? youtubeCaption.value : shareText.value
   const copied = await copyText(text, t('文案已复制，发布时粘贴即可'))
   if (kind === 'x') {

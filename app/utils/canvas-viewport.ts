@@ -269,7 +269,7 @@ export function canvasOrganizeGrid(
 
 /**
  * 按连线从左到右分层；没连线则摊成宫格。
- * 间距按每张卡真实宽高算，不再用固定 280×200（默认卡片已经 320 宽，方图 320 高，固定格子会叠在一起）。
+ * 间距按每张卡真实宽高算，不用固定格子：默认卡片 320 宽、方图 320 高，固定格子会叠在一起。
  */
 export function canvasOrganizePositions(
   list: CanvasOrganizeNode[],

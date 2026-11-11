@@ -53,7 +53,7 @@ export function valueAfterDrag(options: {
  * 面板里的角度一律显示成度，存的是弧度。
  *
  * 上游的旋转输入框直接显示弧度，用户看到的是 0.785 这种数 —— 想转 45°
- * 得自己心算。转换只发生在显示层，store 里存的还是三的弧度。
+ * 得自己心算。转换只发生在显示层，store 里存的还是 three 的弧度。
  */
 export function radiansToDegrees(value: number): number {
   return (value * 180) / Math.PI

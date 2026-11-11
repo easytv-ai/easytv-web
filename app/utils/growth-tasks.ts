@@ -1,6 +1,6 @@
 import type { GrowthTask, GrowthTasks } from '~/types/creative'
 
-/** 产品已不做微信绑定，新手任务列表不再展示这条（接口仍可能下发）。 */
+/** 产品不做微信绑定：接口仍可能下发这条任务，新手任务列表里隐藏。 */
 const HIDDEN_GROWTH_TASK_KEYS = new Set(['bind_wechat'])
 
 export function isHiddenGrowthTask(key: string) {

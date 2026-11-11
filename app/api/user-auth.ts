@@ -24,9 +24,6 @@ export const VERIFICATION_ACTION = {
 } as const satisfies Record<string, VerificationAction>
 
 export const userAuth = {
-  /**
-   * 用户登录
-   */
   login(data: any): Promise<any> {
     return http.post('/user/login', data, {})
   },
@@ -38,23 +35,14 @@ export const userAuth = {
     return http.post('/user/console_access/exchange', data, {})
   },
 
-  /**
-   * 用户登出
-   */
   logout(): Promise<any> {
     return http.get('/user/logout', {})
   },
 
-  /**
-   * 用户注册
-   */
   register(data: any): Promise<any> {
     return http.post('/user/register', data, {})
   },
 
-  /**
-   * 重置密码
-   */
   reset(data: any): Promise<any> {
     return http.post('/user/reset', data, {})
   },

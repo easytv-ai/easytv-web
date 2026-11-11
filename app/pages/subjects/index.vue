@@ -10,7 +10,7 @@ const { t } = useI18n()
 const { libraryTabs } = useStudioNav()
 
 /**
- * 主体库（API.md 10.2 F2）：角色 / 场景 / 道具的可复用参考图与描述。
+ * 主体库（API.md 10.2）：角色 / 场景 / 道具的可复用参考图与描述。
  * 画布与成片向导通过 subject_ids 引用主体，服务端自动并入参考图并补充提示词。
  */
 definePageMeta({

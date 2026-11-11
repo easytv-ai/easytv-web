@@ -54,7 +54,7 @@ let keywordTimer: number | undefined
 let seq = 0
 
 const TYPE_LABEL: Record<AssetType, string> = { image: t('图片'), video: t('视频'), audio: t('音频'), text: t('文本'), other: t('文件') }
-/** 入口只收一种类型（风格封面只有图片）时，列表按这个类型向接口要满页，不再在本地丢掉别的类型 */
+/** 入口只收一种类型（风格封面只有图片）时，列表按这个类型向接口要满页，不在本地丢掉别的类型 */
 const pinnedType = computed(() => props.accept.length === 1 ? props.accept[0] : '')
 const tabs = computed(() => {
   if (pinnedType.value)

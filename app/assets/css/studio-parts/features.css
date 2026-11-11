@@ -2847,7 +2847,7 @@ html.dark .camera-lib__search {
   box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.18);
 }
 
-/* ===== 宫格切分（L4）：盖在图片节点上的分割线层 ===== */
+/* ===== 宫格切分：盖在图片节点上的分割线层 ===== */
 
 .canvas-gsplit__cell {
   position: absolute;
@@ -2947,7 +2947,7 @@ html.dark .camera-lib__search {
   cursor: not-allowed;
 }
 
-/* ===== 分镜组拼接（L4） ===== */
+/* ===== 分镜组拼接 ===== */
 
 .canvas-montage {
   width: min(92vw, 520px);
@@ -3215,7 +3215,7 @@ html.dark .camera-lib__search {
   color: var(--st-warn, #c45c26);
 }
 
-/* ===== 提示词优化对照（L15） ===== */
+/* ===== 提示词优化对照 ===== */
 
 .canvas-optimize {
   width: min(94vw, 760px);
@@ -3332,7 +3332,7 @@ html.dark .camera-lib__search {
   }
 }
 
-/* 运镜收藏（L21）：卡片右上角的星 */
+/* 运镜收藏：卡片右上角的星 */
 .camera-lib__star {
   position: absolute;
   top: 8px;
@@ -3363,7 +3363,7 @@ html.dark .camera-lib__search {
   fill: currentColor;
 }
 
-/* ===== 风格库（L5，API.md 34）：复用运镜库的壳，弹窗皮跟版本历史对齐 ===== */
+/* ===== 风格库（API.md 34）：复用运镜库的壳，弹窗皮跟版本历史对齐 ===== */
 .style-lib-mask {
   background: rgba(0, 0, 0, 0.55);
   backdrop-filter: none;
@@ -3550,7 +3550,7 @@ html.dark .style-lib__text small {
   color: var(--st-on-text);
 }
 
-/* ===== 我的风格（L18，API.md 34.5）：「我的」页签的工具条、角标与卡片上的操作 ===== */
+/* ===== 我的风格（API.md 34.5）：「我的」页签的工具条、角标与卡片上的操作 ===== */
 .camera-lib__tabs button.is-mine {
   display: inline-flex;
   align-items: center;

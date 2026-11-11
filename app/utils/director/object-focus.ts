@@ -4,9 +4,8 @@
  * 机位锁定某个对象时，注视的不是它的原点（那在脚底），而是身体或体积的中部。
  * 这里算的就是那个点。
  *
- * 角色的高度来自 runtime 的体型表，那部分还没搬，所以做成可注入：
- * 传了 labelYOf 就用真实体型高度，没传就退到一个通用值。等 runtime 搬完之后
- * 由上层统一注入，这里不留假数据。
+ * 角色的高度来自体型表（body-types.ts 的 labelYOf），由上层注入：
+ * 传了 labelYOf 就用真实体型高度，没传就退到一个通用值。
  */
 import { Euler, Vector3 } from 'three'
 import type { DirectorObject, GeometryPrimitiveType } from './schema'
@@ -27,7 +26,7 @@ const GEOMETRY_FOCUS_OFFSET_Y: Record<GeometryPrimitiveType, number> = {
   pyramid: 0.55,
 }
 
-/** 角色体型 → 头顶标签高度的查找函数，由 runtime 层提供 */
+/** 角色体型 → 头顶标签高度的查找函数，实现见 body-types.ts 的 labelYOf */
 export type LabelYLookup = (bodyType: string | null | undefined, rigType: string | undefined) => number | null
 
 /** 机位能锁定的对象：看不见的、机位本身和全景都不算 */

@@ -1145,7 +1145,7 @@ html.dark .studio-chip--gold.is-on {
   min-height: 32px;
 }
 
-/* 首页 / 项目的一级标签。必须跟布局走：以前放在导演台样式里，刷新首页时加载不到，要先打开创作页再回来才出现。 */
+/* 首页 / 项目的一级标签。必须放在布局样式里：放进导演台样式的话，刷新首页时加载不到，要先打开创作页再回来才出现。 */
 .section-tabs {
   display: flex;
   align-items: center;

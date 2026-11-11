@@ -35,7 +35,7 @@ const GUIDE_SPOT_PAD = 8
 const ZONE_EVERY_FRAMES = 8
 /** 单帧最大步长（ms）：标签页切回来时 dt 会是几秒，夹住它，免得平滑一步跳完 */
 const MAX_FRAME_MS = 64
-/** 清单贴画布舞台右上：画布顶栏 12 + 40 之下留 12px 净空（与旧实现同一口径） */
+/** 清单贴画布舞台右上：画布顶栏 12 + 40 之下留 12px 净空 */
 const LIST_TOP_FROM_PANE = 64
 
 export type GuideOverlayAnchor = {

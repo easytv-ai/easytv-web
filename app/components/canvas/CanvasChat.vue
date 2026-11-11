@@ -144,7 +144,7 @@ const emit = defineEmits<{
   openStyle: []
   /** 已提交一条本画布的任务（文本对话 / 结合画布）：画布的运行队列要立刻知道 */
   taskStarted: []
-  /** Agent 页里的「创建 Skill」：留在本页打开编辑器，不再跳回自己 */
+  /** Agent 页里的「创建 Skill」：留在本页打开编辑器，不做跳转 */
   createSkill: []
 }>()
 
@@ -299,7 +299,7 @@ function createSkill() {
   void navigateTo(localePath('/agent'))
 }
 
-// ---- 对话额度（免费对话的每日次数；对话模型由平台统一配置，不再让用户选）----
+// ---- 对话额度（免费对话的每日次数；对话模型由平台统一配置，不由用户选）----
 const quota = ref<ChatQuota | null>(null)
 
 /** 打开面板与每次发送结束后刷新（两条路径都刷）；请求失败保留上一次的值，不打断对话 */
@@ -350,7 +350,7 @@ async function loadModels() {
 // ---- 模型面板（Agent 弹层）----
 const modelTab = ref<GenerationModel['type']>('text')
 /**
- * Agent 自动选模型：开着时对话任务不再固定用 chatModel——
+ * Agent 自动选模型：开着时对话任务不固定用 chatModel——
  * 带图片附件的消息自动挑能看图的文本模型（pickVisionTextModel 同一套偏好），
  * 纯文字用第一个已定价文本模型；结合画布（askAgent）则不传 model，
  * 由服务端按 AgentModel → 第一个已定价文本模型兜底。
@@ -879,7 +879,7 @@ const activeTabKey = computed(() => `easytv-chat-active-${storageScope.value}`)
 const skillKey = computed(() => `easytv-chat-skill-${storageScope.value}`)
 /**
  * 当前激活的 Skill：激活后整段对话都带 skill_id，服务端据此注入这个 Skill 的
- * 执行规则与输出格式（API.md 1.6），同时给作者记分成（T26）。
+ * 执行规则与输出格式（API.md 1.6），同时给作者记分成。
  */
 const activeSkill = ref<ChatSkill | null>(null)
 
@@ -1028,7 +1028,7 @@ function persistOpenTabs() {
   writeStorage(activeTabKey.value, sessionId.value)
 }
 
-/** 已保存画布的打开标签不再留在本机，避免和接口列表各记一份 */
+/** 已保存画布的打开标签不留在本机，避免和接口列表各记一份 */
 function forgetRemoteTabKeys(canvasId: number) {
   try {
     localStorage.removeItem(`easytv-chat-open-${canvasId}`)
@@ -1059,7 +1059,7 @@ function pickSkill(item: ChatSkill | null) {
   writeStorage(skillKey.value, item)
 }
 
-/** 这张画布以前存在本机的会话，逐段交给账号接口，成功一段就从本机拿掉 */
+/** 这张画布留在本机的老会话，逐段交给账号接口，成功一段就从本机拿掉 */
 async function uploadLocalChats(canvasId: number) {
   const key = `easytv-chat-${canvasId}`
   let local = readStorage<ChatSession[]>(key, [])
@@ -3421,7 +3421,6 @@ async function presentAgentPlan(reply: ChatMsg, taskId: number, guard?: number) 
   const data = plan.data
   const noChanges = !data.changes.length
   // 纯问答：changes 为空、校验通过（后端 allowNoChange 豁免，reply 非空）→ 不挂方案卡，按普通消息渲染。
-  // 旧版同样只在 changes 非空 / 校验失败时才挂卡，本次的差异只是把这条分支写显式、给空 reply 补兜底文案
   const plainReply = noChanges && (!data.validate || data.validate.ok)
   if (!noChanges) {
     reply.plan = data

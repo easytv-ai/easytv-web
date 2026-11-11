@@ -6,7 +6,7 @@ import { slashQueryAt } from '~/utils/canvas-slash'
 
 const { t } = useI18n()
 
-// 建议条与切换弹层是 Teleport 出去的兄弟节点，根节点不再唯一
+// 建议条与切换弹层是 Teleport 出去的兄弟节点，根节点不唯一
 defineOptions({ inheritAttrs: false })
 
 const props = defineProps<{
@@ -20,7 +20,7 @@ const props = defineProps<{
   /** 旧数据只有单选运镜、提示词里还没有标签时，打开后落到文末 */
   cameraMove?: string
   marks?: Array<{ id: string, name: string }>
-  /** 可被智能引用的参考素材（L1，API.md 31.2） */
+  /** 可被智能引用的参考素材（API.md 31.2） */
   refs?: RefCandidate[]
 }>()
 
@@ -47,7 +47,7 @@ const suggest = ref<RefMatch | null>(null)
 const suggestRect = ref<{ x: number, y: number } | null>(null)
 /** 点开的引用标签：切换它指向的素材 */
 const switching = ref<{ name: string, nth: number, x: number, y: number } | null>(null)
-/** 光标前刚打了 @ 又没素材可配：给一条「从素材库选 / 从画布选」的入口（L21） */
+/** 光标前刚打了 @ 又没素材可配：给一条「从素材库选 / 从画布选」的入口 */
 const atHint = ref<{ start: number, end: number } | null>(null)
 /** 从 @ 入口选素材时记下 @ 那段的位置，素材回来后整段换成引用标签 */
 let pendingAt: { start: number, end: number } | null = null
@@ -594,7 +594,7 @@ defineExpose({ insertCameraMove, focus, replaceRange, caretOffset, confirmAllSug
     @mouseup="rememberCaret"
   />
   <Teleport to="body">
-    <!-- @ 后没有素材可配（L21）：从素材库或画布上选一个，选完自动插引用标签 -->
+    <!-- @ 后没有素材可配：从素材库或画布上选一个，选完自动插引用标签 -->
     <div
       v-if="!suggest && atHint && suggestRect"
       class="canvas-autolink"
@@ -612,7 +612,7 @@ defineExpose({ insertCameraMove, focus, replaceRange, caretOffset, confirmAllSug
         {{ t('从画布选节点') }}
       </button>
     </div>
-    <!-- 智能引用建议（L1）：贴在光标下面，Tab 确认 -->
+    <!-- 智能引用建议：贴在光标下面，Tab 确认 -->
     <div
       v-if="suggest && suggestRect"
       class="canvas-autolink"

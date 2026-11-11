@@ -1,7 +1,7 @@
 /**
  * 跟练浮层（CanvasPracticeTour）的聚光 / 卡片平滑几何：纯函数、零依赖、node 环境可测。
  *
- * 为什么是「指数趋近」而不是 CSS transition：聚光框的位置由 rAF 每帧算（锚点会跟着画布平移
+ * 用「指数趋近」而不是 CSS transition：聚光框的位置由 rAF 每帧算（锚点会跟着画布平移
  * 与相机补间一起动），CSS transition 会和逐帧写入抢同一个属性；指数趋近把 dt 折进公式，
  * 掉帧时路径不变（16.7ms 走两帧 ≈ 33.4ms 走一帧），所以是帧率无关的。
  */
@@ -39,7 +39,7 @@ export function guideApproach(cur: number, target: number, dtMs: number, halfLif
   return Math.abs(target - next) < GUIDE_SETTLE_PX ? target : next
 }
 
-/** 锚点矩形 → 聚光框：外扩一圈呼吸位，再夹到窗口里（与 canvas.css 的 .canvas-guide__spot 同一口径，8 是贴边的最小净空、16 = 左右各 8，照原实现搬） */
+/** 锚点矩形 → 聚光框：外扩一圈呼吸位，再夹到窗口里（与 canvas.css 的 .canvas-guide__spot 同一口径，8 是贴边的最小净空、16 = 左右各 8） */
 export function guideSpotRect(rect: GuideRect, pad: number, win: GuideViewport): GuideRect {
   return {
     left: Math.max(8, rect.left - pad),

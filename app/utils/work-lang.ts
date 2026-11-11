@@ -1,5 +1,5 @@
 /**
- * 作品语种映射（F6 出海，API.md 10.7）。
+ * 作品语种映射（出海，API.md 10.7）。
  *
  * 后端 CreateWork 要求「作品语种由前端按界面语言传」（controller/work.go），
  * NormalizeLang 只认 zh / en / ja / ko / es / fr，未知语种置空（空 = 中文广场）。

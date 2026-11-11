@@ -217,7 +217,7 @@ html.dark .canvas-promo__chip {
 }
 
 
-/* ===== 设置 · 推广返利（T13 / 看板） ===== */
+/* ===== 设置 · 推广返利（看板） ===== */
 .invite-url {
   flex: 1 1 auto;
   min-width: 0;
@@ -476,7 +476,7 @@ html.dark .canvas-promo__chip {
   }
 }
 
-/* ===== 邀请落地页 /i/:code（T13，独立布局） ===== */
+/* ===== 邀请落地页 /i/:code（独立布局） ===== */
 .invite-page {
   display: flex;
   min-height: 100dvh;
@@ -691,7 +691,7 @@ html.dark .canvas-promo__chip {
   }
 }
 
-/* ===== 一句话成片向导（/create，T25）===== */
+/* ===== 一句话成片向导（/create）===== */
 .create-page {
   max-width: var(--st-page-max, 1180px);
   margin: 0 auto;
@@ -2050,7 +2050,7 @@ html.dark .canvas-promo__chip {
   }
 }
 
-/* ===== 分享弹窗（T29）：卡片预览 + 品牌色平台入口 + 链接栏 ===== */
+/* ===== 分享弹窗：卡片预览 + 品牌色平台入口 + 链接栏 ===== */
 .share-modal-mask {
   backdrop-filter: blur(6px);
 }
@@ -2403,7 +2403,7 @@ html.dark .canvas-promo__chip {
   }
 }
 
-/* ===== 技能上架状态角标（T28，Agent 卡片 / 弹窗 / 创作者中心共用） ===== */
+/* ===== 技能上架状态角标（Agent 卡片 / 弹窗 / 创作者中心共用） ===== */
 .skill-review-badge {
   display: inline-flex;
   align-items: center;
@@ -2436,7 +2436,7 @@ html.dark .canvas-promo__chip {
   cursor: help;
 }
 
-/* 同团队成员共享过来的技能（F7，API.md 10.10）：只能使用，用蓝色区别于上架状态 */
+/* 同团队成员共享过来的技能（API.md 10.10）：只能使用，用蓝色区别于上架状态 */
 .skill-review-badge.is-team {
   max-width: 100%;
   overflow: hidden;
@@ -2458,7 +2458,7 @@ html.dark .canvas-promo__chip {
   color: #dc2626;
 }
 
-/* ===== Agent 页创作者榜（T28） ===== */
+/* ===== Agent 页创作者榜 ===== */
 .agent-leader {
   max-width: 1760px;
   margin: 0 auto 16px;
@@ -2576,7 +2576,7 @@ html.dark .canvas-promo__chip {
   }
 }
 
-/* ===== 设置 · 创作者中心 / 创作伙伴计划（T28 / T32） ===== */
+/* ===== 设置 · 创作者中心 / 创作伙伴计划 ===== */
 .creator-exchange {
   display: flex;
   flex-wrap: wrap;
@@ -2949,7 +2949,7 @@ html.dark .canvas-promo__chip {
   font-size: 12px;
 }
 
-/* ===== 活动中心（M10，API.md 8.6） ===== */
+/* ===== 活动中心（API.md 8.6） ===== */
 
 .campaign-page .show-page__inner {
   max-width: var(--st-page-max);
@@ -3486,7 +3486,7 @@ html.dark .canvas-promo__chip {
   }
 }
 
-/* ===== 关注 / 榜单 / 渠道伙伴（M11 / M12） ===== */
+/* ===== 关注 / 榜单 / 渠道伙伴 ===== */
 .follow-btn {
   display: inline-flex;
   height: 32px;
@@ -4147,7 +4147,7 @@ html.dark .canvas-promo__chip {
   }
 }
 
-/* ===== 设置页 · 团队成员月度额度（F7，API.md 10.5） ===== */
+/* ===== 设置页 · 团队成员月度额度（API.md 10.5） ===== */
 .team-perm {
   display: flex;
   flex-wrap: wrap;
@@ -4248,7 +4248,7 @@ html.dark .canvas-promo__chip {
 
 }
 
-/* ===== 主体库（API.md 10.2 F2）：列表卡片、参考图条、新建弹窗 ===== */
+/* ===== 主体库（API.md 10.2）：列表卡片、参考图条、新建弹窗 ===== */
 .subject-page__hint {
   margin: 0 0 14px;
 }
@@ -4938,7 +4938,7 @@ html.dark .canvas-inspector__cam-clear:hover {
   border-color: var(--st-text-soft);
 }
 
-/* ===== 成片向导：台词语种与字幕 SRT（API.md 10.4 F5） ===== */
+/* ===== 成片向导：台词语种与字幕 SRT（API.md 10.4） ===== */
 .plan-lang {
   display: flex;
   flex-wrap: wrap;
@@ -5001,7 +5001,7 @@ html.dark .canvas-inspector__cam-clear:hover {
   line-height: 1.5;
 }
 
-/* ===== F7 项目批注 + 团队项目（API.md 10.10） ===== */
+/* ===== 项目批注 + 团队项目（API.md 10.10） ===== */
 
 .projects-tabs {
   display: flex;

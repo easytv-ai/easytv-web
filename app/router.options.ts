@@ -1,6 +1,6 @@
 import type { RouterConfig } from '@nuxt/schema'
 
-/** 根路径不再有页面，直接进首页（EasyTV Agent）。各语言前缀同样处理。 */
+/** 根路径没有页面，直接进首页（EasyTV Agent）。各语言前缀同样处理。 */
 const homeRedirects = [
   { path: '/', redirect: '/agent' },
   { path: '/zh-tw', redirect: '/zh-tw/agent' },

@@ -2,7 +2,7 @@
  * 把剧本 / 配方 / 节点上写的模型 id 对到 GET /generation/models 的真 id。
  *
  * 运营定价表里的 id 大小写、分隔符经常和剧本约定（qwen-image-2.0 / Kling-2.5）对不上。
- * 检查器以前只做精确匹配，对不上就回落到上次选的模型——跟练卡片写 Kling，面板却显示 Seedance。
+ * 只做精确匹配的话，对不上就会回落到上次选的模型——跟练卡片写 Kling，面板却显示 Seedance。
  */
 
 export type CatalogModelRef = {

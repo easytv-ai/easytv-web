@@ -22,7 +22,7 @@ export function canvasEdgeFlowCellDelay(index: number) {
   return -(index * CANVAS_EDGE_FLOW_PERIOD) / (CANVAS_EDGE_FLOW_PARTS * CANVAS_EDGE_FLOW_CELLS)
 }
 
-/** 选中节点后所有相关连线共用这一套 dash，不再按像素测长。 */
+/** 选中节点后所有相关连线共用这一套 dash，不按像素测长。 */
 export function canvasEdgeFlowDash() {
   const next = canvasEdgeFlowLayout(1)
   const gap = Math.max(next.gap, 0.001)

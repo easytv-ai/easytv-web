@@ -6,8 +6,8 @@
  * 代码，这里验过的东西在画布里才算数。上面那条控制栏是这个页面自己的，
  * 用来模拟画布会做的事：装场景、看回写、接全景。
  *
- * 路径叫 director-dev 而不是 director：public/director/index.html 曾是 iframe 版
- * 的静态产物，静态资源优先于路由。阶段 6 已经把那份产物删掉，名字保留不动。
+ * 路径叫 director-dev 而不是 director：起名时 public/director/index.html（iframe 版
+ * 的静态产物）占着 /director，静态资源优先于路由。那份产物已删除，名字保留不动。
  * 生产环境：pages:extend 拿掉路由，这里再挂 dev-only，避免漏网。
  */
 import CanvasDirectorSession from '~/components/canvas/CanvasDirectorSession.vue'

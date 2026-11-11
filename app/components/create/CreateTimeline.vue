@@ -10,7 +10,7 @@ import { candidateReviewState, clipEffectiveAssetId, clipSourceDuration, clipUse
  * 成片时间线（API.md 12.2）：镜头排序 / 启用 / 换候选 / 入出点 / 配音方式与音量 / 逐镜字幕 / 画幅与分辨率 / BGM。
  * 时间线单独存服务端（乐观锁），改动 800ms 防抖保存；合成前父组件调用 flush() 拿最终时间线。
  * 片段按 id 区分（API.md 24.3），同一镜头可以复制成多条片段；保存失败保留本地草稿，冲突时由用户选（API.md 24.4）。
- * 第二批（API.md 25.4 ~ 25.6）：候选审片（通过 / 退回）、定版锁、预计时长（含配音延长）、整段低清试听。
+ * 审片与定版（API.md 25.4 ~ 25.6）：候选审片（通过 / 退回）、定版锁、预计时长（含配音延长）、整段低清试听。
  */
 const props = defineProps<{
   canvasId: number

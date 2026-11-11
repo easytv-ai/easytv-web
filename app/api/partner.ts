@@ -1,7 +1,7 @@
 import http from '~/api/http'
 import type { ApiResponse, Partner, PartnerApplyBody, PartnerDashboard, PartnerLanding } from '~/types/creative'
 
-/** 渠道伙伴计划（API.md 9.3，M12） */
+/** 渠道伙伴计划（API.md 9.3） */
 export const partnerApi = {
   /** 申请入驻；已申请过返回当前那一行（可用于「重新申请」） */
   apply(body: PartnerApplyBody): Promise<ApiResponse<Partner>> {

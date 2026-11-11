@@ -31,7 +31,7 @@ const { names: baseTags, load: loadCategories } = useContentCategories('work')
 const PAGE_SIZE = 24
 let keywordTimer: number | undefined
 
-/** 作品语言过滤（F6，GET /work?lang=，API.md 10.7）：'' = 全部 */
+/** 作品语言过滤（GET /work?lang=，API.md 10.7）：'' = 全部 */
 const LANG_FILTERS = ['', 'zh', 'en']
 const activeLang = ref('')
 

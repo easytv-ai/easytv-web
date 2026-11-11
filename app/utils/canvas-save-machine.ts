@@ -118,7 +118,7 @@ export const WIPE_GUARD_MAX_LEFT = 1
 
 /**
  * 画布是不是「意外变空」：上次载入 / 保存时有 ≥3 个节点，这次要存的只剩 ≤1 个。
- * 实测发生过：画布组件被重挂载成空图后，自动保存把 40 个节点的画布覆盖成了 1 个占位节点。
+ * 防的是：画布组件被重挂载成空图后，自动保存把整张画布覆盖成 1 个占位节点。
  * 用户真要清空可以手动保存并确认；自动保存遇到这种情况只暂停不覆盖。
  */
 export function isSuspiciousWipe(baselineNodes: number, nextNodes: number) {

@@ -7,7 +7,7 @@
  *   工具条派生的拉片帧 / 分离音轨 / 重拍节点、用户手加的图等没有 sp 标记的一律不进层
  *   （否则会显示「缺少提示词」，还会被「一键生成全部」带上），只汇总成 `others` 给页面提示。
  * - 一个 sp 标记都没有的老画布 → **按 kind 推断**：image 里被视频引用为首帧的算分镜图，其余算角色图；
- *   video / audio 按 kind 归层，和以前一致。
+ *   video / audio 按 kind 归层。
  */
 
 export type LayerNodeKey = 'character' | 'shot' | 'video' | 'audio'

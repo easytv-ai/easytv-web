@@ -220,7 +220,7 @@ async function load() {
   }
 }
 
-// ---- 审批门禁与分镜图审片（API.md 26.1 / 25.5，复审 G05）----
+// ---- 审批门禁与分镜图审片（API.md 26.1 / 25.5）----
 
 /** 门禁存在时间线里；时间线已定版时不能改 */
 const reviewGate = ref<ReviewGate>('')
@@ -685,7 +685,6 @@ function onPickModel(layer: Layer, value: string | number) {
   emit('update:model', { type, model: id })
 }
 
-/** 单节点下任务；返回 false 表示没有提交（缺提示词 / 缺首帧 / 接口失败） */
 /**
  * 单节点提交结果：
  * - ok 已提交
@@ -878,7 +877,7 @@ async function batchAction(action: BatchAction) {
 /**
  * 批次已经结束时，用当前选中的模型重新提交失败节点。
  * 服务端「重试失败项」会沿用条目里记下的旧模型，不支持音频的模型会一直失败。
- * 批次还在跑时仍走原来的重试。
+ * 批次还在跑时仍走服务端的重试。
  */
 function retryFailed() {
   if (batchActive(batch.value)) {

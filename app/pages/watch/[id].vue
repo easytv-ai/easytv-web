@@ -93,7 +93,7 @@ const hover = ref(false)
 
 const authorName = computed(() => current.value?.author?.nickname || t('创作者'))
 
-// ---- 关注作者（API.md 9.2，M11）：只在客户端补一次作者档案拿 is_following / followers ----
+// ---- 关注作者（API.md 9.2）：只在客户端补一次作者档案拿 is_following / followers ----
 const authorFollowing = ref(false)
 const authorFollowers = ref(0)
 const isMine = computed(() => !!current.value?.user_id && String(current.value.user_id) === getUserId())
@@ -135,7 +135,7 @@ function notify(title: string, color: 'neutral' | 'error' | 'success' = 'neutral
 }
 
 async function loadRail() {
-  // 推荐栏按界面语言过滤（F6，API.md 10.7）：英文界面只推英文作品；中文不传，兼容历史空 lang 数据
+  // 推荐栏按界面语言过滤（API.md 10.7）：英文界面只推英文作品；中文不传，兼容历史空 lang 数据
   const res = await workApi.feed({ page: 1, page_size: 30, lang: workLangForLocale(locale.value) })
   if (res?.success && res.data)
     rail.value = res.data.items
@@ -503,7 +503,7 @@ async function submitReport() {
   }
 }
 
-// ---- 分享弹窗（T29）与分享回流（API.md 8.4）----
+// ---- 分享弹窗与分享回流（API.md 8.4）----
 const shareOpen = ref(false)
 
 function onShare() {

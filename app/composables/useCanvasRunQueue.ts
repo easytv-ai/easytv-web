@@ -12,10 +12,10 @@ import type { GenerationTask } from '~/types/creative'
  *
  * 刷新写法跟画布既有轮询同一套：`startHiddenAwarePoll` + useCanvasJobPolling 的同一个间隔
  * （CANVAS_TASK_POLL_MS），且只在「面板开着」或「还有进行中的任务」时才起；
- * 没有进行中的任务就停表，不再有第二套定时器。同一拍里的重复触发（打开面板 / 手动刷新 /
+ * 没有进行中的任务就停表，不另起第二套定时器。同一拍里的重复触发（打开面板 / 手动刷新 /
  * 取消重试之后）由 load 里的节流合并成一次请求。
  *
- * 不做的事：不加新端点、不改服务端。任务挂的节点被删了只能看不能点（定位由工作区判）。
+ * 任务挂的节点被删了只能看不能点（定位由工作区判）。
  */
 export const RUN_QUEUE_REFRESH_MIN_MS = 2500
 

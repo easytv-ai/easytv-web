@@ -160,7 +160,7 @@ export type TaskType = 'text' | 'image' | 'video' | 'audio'
 export type TaskStatus = 'pending' | 'running' | 'succeeded' | 'failed' | 'cancelled'
 
 /**
- * 模型促销价（API.md 7.1 T18）：GET /generation/models 与 /billing/model-prices 都附带。
+ * 模型促销价（API.md 7.1）：GET /generation/models 与 /billing/model-prices 都附带。
  * 有效期内实际单价取 effective_*，划线价用 points_per_unit / member_points_per_unit；老版本接口没有这些字段时按标准价处理。
  */
 export type ModelPromoFields = {
@@ -733,7 +733,7 @@ export type AuthorProfile = {
   like_total: number
   view_total: number
   mine: boolean
-  /** M11（API.md 9.2）：粉丝数 / 关注数 / 我是否已关注（匿名恒为 false） */
+  /** 关注关系（API.md 9.2）：粉丝数 / 关注数 / 我是否已关注（匿名恒为 false） */
   followers?: number
   following_count?: number
   is_following?: boolean
@@ -1188,7 +1188,7 @@ export type Screenplay = {
   updated_at: number
 }
 
-// ---- 剧集圣经与集目录（API.md 27，复审 G01）----
+// ---- 剧集圣经与集目录（API.md 27）----
 
 export type BibleRelationship = { to: string, relation: string }
 
@@ -1589,7 +1589,7 @@ export type ProductionReport = {
   missing: ProductionMissing[] | null
 }
 
-/** ===== 主体库（API.md 10.2，F2） ===== */
+/** ===== 主体库（API.md 10.2） ===== */
 
 /** 主体类型：角色 / 场景 / 道具 */
 export type SubjectKind = 'character' | 'scene' | 'prop'
@@ -1637,7 +1637,7 @@ export type SubjectGenerateResult = { tasks: GenerationTask[] }
 /** POST /user/subject/:id/sync：参考图任务完成后写回 refs */
 export type SubjectSyncResult = { subject: Subject, refs: SubjectRef[] }
 
-/** ===== 字幕与多语言（API.md 10.4，F5） ===== */
+/** ===== 字幕与多语言（API.md 10.4） ===== */
 
 /** GET /langs 的一项 */
 export type LangOption = { code: string, label: string }
@@ -1661,7 +1661,7 @@ export type DialogueShotsRequest = {
 }
 export type DialogueShotsResult = { screenplay: Screenplay, added: number }
 
-/** ===== 关注与榜单（API.md 9.2，M11） ===== */
+/** ===== 关注与榜单（API.md 9.2） ===== */
 
 /** POST /user/author/:id/follow 的响应 */
 export type FollowToggleResult = {
@@ -1720,7 +1720,7 @@ export type RankSkills = {
   items: RankSkillItem[]
 }
 
-/** ===== 渠道伙伴计划（API.md 9.3，M12） ===== */
+/** ===== 渠道伙伴计划（API.md 9.3） ===== */
 
 /** mcn 机构 / school 培训机构 / kol 达人 / dev 开发者 / other 其它 */
 export type PartnerKind = 'mcn' | 'school' | 'kol' | 'dev' | 'other'

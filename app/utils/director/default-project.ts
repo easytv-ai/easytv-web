@@ -46,8 +46,7 @@ export function formatSceneItemName(prefix: '角色' | '机位', index: number) 
 
 /**
  * 一个能直接用的空场景：一个角色站在原点，一台机位对着他。
- * 上游这里还会读 localStorage 里存过的本地模型，我们的场景要接后端，
- * 那部分留到阶段 6 再处理。
+ * 上游这里还会读 localStorage 里存过的本地模型；我们的场景接后端，这里不读。
  */
 export function createDefaultDirectorProject(): DirectorProject {
   const camera: DirectorCameraShot = {

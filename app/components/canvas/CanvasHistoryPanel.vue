@@ -6,7 +6,7 @@ const { t } = useI18n()
 
 /**
  * 画布版本历史（GET /user/canvas/:id/versions）：自动保存 10 分钟内合并为一条，
- * Ctrl+S / 保存按钮单独记一条。恢复只套回该版本图，不再走后端「恢复前备份」。
+ * Ctrl+S / 保存按钮单独记一条。恢复只套回该版本图，不走后端「恢复前备份」。
  */
 const props = defineProps<{
   open: boolean

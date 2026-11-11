@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * 设置 · 渠道伙伴计划（API.md 9.3，M12）
+ * 设置 · 渠道伙伴计划（API.md 9.3）
  *
  * - GET /user/partner/me：看板（专属码 / 推广链接 / 推广成果 / 最近归属客户）或申请状态
  * - POST /user/partner/apply：提交申请

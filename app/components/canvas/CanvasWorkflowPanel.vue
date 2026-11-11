@@ -69,7 +69,7 @@ function presetPoints(preset: WorkflowPreset) {
     : t('预计 {n} 点', { n: preset.estimatedPoints })
 }
 
-/** 卡片第三行：规格 · 预计点数（两个都缺就返回空串，卡片回到原来的两行式） */
+/** 卡片第三行：规格 · 预计点数（两个都缺就返回空串，卡片只剩两行） */
 function presetLine(preset: WorkflowPreset) {
   return [presetSpec(preset), presetPoints(preset)].filter(Boolean).join(' · ')
 }

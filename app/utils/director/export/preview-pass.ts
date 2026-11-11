@@ -10,7 +10,7 @@ import { Color, MeshDepthMaterial, MeshStandardMaterial, type Camera, type Scene
 export type PreviewOutput = 'color' | 'depth' | 'matte'
 export type PreviewControlOutput = 'depth' | 'matte'
 
-/** 时间轴三档：彩色走原来的截图，深度和白模走这里 */
+/** 时间轴三档：彩色走常规截图，深度和白模走这里 */
 export function previewOutputFromMode(mode: string): PreviewOutput {
   if (mode === 'depth' || mode === 'matte')
     return mode

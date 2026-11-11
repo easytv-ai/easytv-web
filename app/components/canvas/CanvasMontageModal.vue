@@ -11,7 +11,7 @@ import {
 } from '~/utils/canvas-montage'
 
 /**
- * 分镜组拼接（L4）：选中的图片已按阅读顺序排好，这里只定行列、画幅、间距、序号。
+ * 分镜组拼接：选中的图片已按阅读顺序排好，这里只定行列、画幅、间距、序号。
  * 确认后由工作区提交 montage 作业（本地 ffmpeg，免费），结果落成一个新的图片节点。
  */
 const props = defineProps<{

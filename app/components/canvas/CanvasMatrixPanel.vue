@@ -233,7 +233,7 @@ function notify(title: string, color: 'neutral' | 'error' = 'neutral') {
 }
 
 /**
- * 多语言：把源节点的提示词翻成目标语种（POST /user/subtitle/translate，现有接口、30 次/分钟）。
+ * 多语言：把源节点的提示词翻成目标语种（POST /user/subtitle/translate，30 次/分钟）。
  * 任何一种语言翻译失败就整体中止并报原因——不静默回落成原文，免得用户以为出的是外语版。
  */
 async function translatePrompts(): Promise<{ prompts: Record<string, string>, scripts: Record<string, string> } | null> {

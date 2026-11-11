@@ -84,7 +84,7 @@ const {
   },
 })
 
-/** 任务标签：生成任务也在钱包里看（原来的任务中心收到二级页面 /tasks） */
+/** 任务标签：生成任务也在钱包里看（完整的任务中心在二级页面 /tasks） */
 const {
   items: taskItems,
   busy: tasksBusy,

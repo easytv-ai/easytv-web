@@ -2,7 +2,7 @@
  * 导演台场景的存取。
  *
  * 场景直接存进画布节点的 data.scene 里：画布的 graph 是后端原样透传的 JSON，
- * 存在这儿等于白捡了版本历史、只读分享、做同款几件事，不用加任何后端接口。
+ * 存在这儿就自带版本历史、只读分享、做同款，不用加任何后端接口。
  *
  * 代价是 graph 有 2 MB 上限（API.md 1.2），而且这个上限是**整张画布**共用的 ——
  * 一个导演台节点撑爆它，整张画布都保存不了。所以存之前必须把大块头摘掉。
@@ -63,7 +63,7 @@ export function estimateJsonBytes(value: unknown): number {
   return new TextEncoder().encode(JSON.stringify(value)).length
 }
 
-/** 存档的字节数（按 UTF-8 算，中文名字一个字三字节） */
+/** 单个场景存档的字节数，口径同 estimateJsonBytes */
 export function estimateProjectBytes(project: DirectorProject): number {
   return estimateJsonBytes(project)
 }

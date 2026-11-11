@@ -276,7 +276,7 @@ export function assistChangeTitle(change: AssistChange): { key: string, params: 
 
 /**
  * update_prompt 写进节点 data 的补丁。
- * 文本节点显示 / 下游取用的是 data.content，写 data.prompt 用户看不到变化（现存 bug，本方案顺手修）；
+ * 文本节点显示 / 下游取用的是 data.content，写 data.prompt 用户看不到变化；
  * 生成类节点仍是 data.prompt。
  */
 export function updatePromptPatch(change: AssistChange, kind: string): Record<string, unknown> {
@@ -286,7 +286,7 @@ export function updatePromptPatch(change: AssistChange, kind: string): Record<st
 
 /**
  * add_node 写进新节点 data 的补丁（契约 3.2）：prompt 一律写；
- * text 节点的正文写 content（缺省沿用 prompt，与旧行为一致）；model / params 有值才写（AI 选的模型要能落到生成上）。
+ * text 节点的正文写 content（缺省沿用 prompt）；model / params 有值才写（AI 选的模型要能落到生成上）。
  */
 export function addNodeDataPatch(change: AssistChange): Record<string, unknown> {
   const patch: Record<string, unknown> = {}
@@ -348,7 +348,7 @@ export function isChatQuotaExceeded(message?: string | null, data?: ChatQuotaErr
 /**
  * 次数文案：会员 → 「会员 · 不限次」，后台把每日次数配成不限 → 「不限」，
  * 普通用户 → 「今日剩余 n/上限 次」；free=false（按积分口径）返回 null，调用方不展示次数。
- * 次数走一条带插值的词条，各语言才能按自己的语序组织数字（词条已进 7 个语言文件）。
+ * 次数走一条带插值的词条，各语言才能按自己的语序组织数字。
  */
 export function chatQuotaLabel(quota: ChatQuotaView | null | undefined, t: ChatQuotaTranslate): string | null {
   if (!quota || !quota.free)

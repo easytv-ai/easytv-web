@@ -1,5 +1,5 @@
 /**
- * 归因与埋点（T2）：
+ * 归因与埋点：
  * - 首次进站读 utm_source / utm_medium / utm_campaign / ref（或 aff）/ code / pcode 写 cookie easytv_attr（首触不覆盖）
  * - 每次路由切换上报 page_view
  */

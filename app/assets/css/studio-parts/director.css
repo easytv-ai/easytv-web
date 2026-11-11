@@ -2618,7 +2618,7 @@
   font-weight: 600;
 }
 
-/* 短剧第二批（API.md 25）：角色音色、对白条目、本镜人物状态、正反打弹窗 */
+/* 短剧（API.md 25）：角色音色、对白条目、本镜人物状态、正反打弹窗 */
 .plan-editor__row--character {
   grid-template-rows: auto auto;
 }
@@ -3214,7 +3214,7 @@ a.bible-record__title:hover {
   }
 }
 
-/* ===== 智能引用 AutoLink（L1）与 Slash 面板（L2） ===== */
+/* ===== 智能引用 AutoLink 与 Slash 面板 ===== */
 
 .canvas-inspector__ref-icon {
   display: block;
@@ -3593,7 +3593,7 @@ html.dark .canvas-wf__tabs button.is-on {
   background: var(--st-float-border);
 }
 
-/* 配方库：官方预设按场景分组，整段一起滚动（组内 ul 不再各自滚） */
+/* 配方库：官方预设按场景分组，整段一起滚动（组内 ul 不各自滚） */
 .canvas-wf__groups {
   display: flex;
   overflow: visible;
@@ -4075,7 +4075,7 @@ html.dark .canvas-wf__tabs button.is-on {
   font-variant-numeric: tabular-nums;
 }
 
-/* 列表随弹窗一起滚，不再各自锁死高度 */
+/* 列表随弹窗一起滚，不各自锁死高度 */
 .canvas-queue__list {
   display: flex;
   flex: 0 0 auto;

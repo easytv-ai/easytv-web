@@ -2,7 +2,7 @@
 import followApi from '~/api/follow'
 
 /**
- * 关注按钮（API.md 9.2，M11）：未登录先去登录页。关注和取消关注都先二次确认，确认后乐观切换，失败回滚。
+ * 关注按钮（API.md 9.2）：未登录先去登录页。关注和取消关注都先二次确认，确认后乐观切换，失败回滚。
  * 父组件用 v-model 之外的 change 事件同步自己的 following / followers。
  */
 const props = withDefaults(defineProps<{

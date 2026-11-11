@@ -99,7 +99,7 @@ export type PracticeCameraSetup = {
  * 2. 找不到就按 nodeKind 新建，并**在同一拍**写 practiceKey——同一 tick 内必须已落，
  *    否则下一次 scope 定位又找不到它，会出现重复建点；
  * 3. 带 fromKey / fromKind→toKind 的补边；
- * 4. 字段一律写（画布只读，不存在「用户已经写过的字」需要让位，「只补空」那套旗标随之取消）。
+ * 4. 字段一律覆盖写，不做「只补空」：画布只读，不存在需要让位的「用户已经写过的字」。
  */
 export type PracticePrepare =
   /** 放一个该类型的空节点（除 practiceKey 外不写其余字段） */
@@ -507,7 +507,7 @@ export function practiceAutoPreparePlan(
 /**
  * 卡片上「跟练已替你布好这一步」那一行的内容（纯数据，文案由组件过 t()）。
  *
- * 它由宿主**实际执行过的** prepare 反推（session.applied → 这里），不再由剧本静态推导：
+ * 它由宿主**实际执行过的** prepare 反推（session.applied → 这里），不由剧本静态推导：
  * 跟练没写进去的东西（例如主体库为空、模型没解析到）卡片就不上行，没写成功走 session.notice。
  * 所以没有 applied 时给空数组——卡片宁可少一行，也不能写一句跟画布不符的话。
  */

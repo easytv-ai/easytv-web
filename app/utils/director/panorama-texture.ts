@@ -17,7 +17,7 @@ import type { PanoramaProjectionMode } from './schema'
 
 export { BackSide }
 
-/** 全景图的正前方和三的默认朝向差 90 度，不补这一下导入后画面会侧过来 */
+/** 全景图的正前方和 three 的默认朝向差 90 度，不补这一下导入后画面会侧过来 */
 const FORWARD_ALIGNMENT_DEGREES = 90
 
 /** 有全景时地面必须压得很淡，否则会在天空上糊一大片灰 */
@@ -43,7 +43,7 @@ export function getPanoramaRadius(radius: number): number {
 /**
  * 按投影方式配好纹理。
  *
- * equirectangular 交给渲染器当环境贴图，三自己会做球面映射；
+ * equirectangular 交给渲染器当环境贴图，three 自己会做球面映射；
  * backdrop 是我们自己画一个内翻的球，贴图要横向翻一次（repeat.x = -1），
  * 因为从球内侧看出去左右是反的。
  */

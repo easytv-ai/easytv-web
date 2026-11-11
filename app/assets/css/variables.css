@@ -314,7 +314,7 @@ html.dark {
   --ea-shadow-card: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
-/* ── 模型广场页面令牌 --models-*（原 model.css 头部迁入） ── */
+/* ── 模型广场页面令牌 --models-* ── */
 .models-page,
 .models-filter-drawer__panel,
 .model-detail-drawer__panel,
@@ -340,7 +340,7 @@ html.dark {
   --models-text-h2: #0f172a;
   --models-text-body: #334155;
   --models-text-muted: #64748b;
-  /* 中性灰梯队（slate/gray）：收敛原先散落的硬编码 */
+  /* 中性灰梯队（slate/gray） */
   --models-text-faint: #94a3b8;
   --models-border-strong: #cbd5e1;
   --models-bg-soft: #f1f5f9;

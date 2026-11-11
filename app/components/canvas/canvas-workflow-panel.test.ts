@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest'
 /**
  * 工作流面板「官方预设」段的结构断言（vitest 是 node 环境、没有挂载能力，照
  * canvas-inspector-template.test.ts 的做法读源码）。
- * 这里锁的是配方库改造后最容易漏的接线：按场景分组、卡片带规格与点数、emit 不变。
+ * 这里锁的是配方库最容易漏的接线：按场景分组、卡片带规格与点数、emit 不变。
  */
 describe('CanvasWorkflowPanel（官方预设按场景分组）', () => {
   const src = readFileSync(resolve('app/components/canvas/CanvasWorkflowPanel.vue'), 'utf8')

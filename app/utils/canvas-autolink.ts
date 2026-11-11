@@ -1,5 +1,5 @@
 /**
- * 智能引用 AutoLink（L1，API.md 31.2）：提示词里打到与参考素材同名的词时，
+ * 智能引用 AutoLink（API.md 31.2）：提示词里打到与参考素材同名的词时，
  * 就地给出一个引用建议，Tab 确认成 {{ref:素材名}} 标签，Shift+Tab 一次确认整段。
  * 标签文案自带素材名，提交前 expandPromptTokens 会展开成 @素材名，后端不需要知道这套。
  */
@@ -149,7 +149,7 @@ export function matchRefAt(prompt: string, caret: number, refs: RefCandidate[]):
 }
 
 /**
- * 光标前是不是刚打了一个 @ 开头的词（L21：@ 唤起素材）。
+ * 光标前是不是刚打了一个 @ 开头的词（@ 唤起素材）。
  * 只在没有素材能匹配时才用得上——有匹配走 matchRefAt 的建议条。
  * 返回 @ 的位置到光标的范围，确认后整段替换成引用标签。
  */

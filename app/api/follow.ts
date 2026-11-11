@@ -1,7 +1,7 @@
 import http from '~/api/http'
 import type { ApiResponse, FollowToggleResult, FollowedAuthor, PageQuery, Paged, Work } from '~/types/creative'
 
-/** 关注（API.md 9.2，M11） */
+/** 关注（API.md 9.2） */
 export const followApi = {
   /** 关注 / 取关同一个接口幂等切换；关注自己返回「不能关注自己」 */
   toggle(authorId: number): Promise<ApiResponse<FollowToggleResult>> {

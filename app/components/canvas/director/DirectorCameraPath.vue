@@ -5,7 +5,7 @@
  * 把机位记录下来的节点和它们之间的运动段画到导演视角里：节点是小球，
  * 段是折线（贝塞尔段按曲线采样），控制柄是八面体加一条虚引线。
  *
- * 曲线怎么算全在阶段 1 的 camera-path.ts 里，这里只负责画；导演视角下路径点 / 柄可拖。
+ * 曲线怎么算全在 camera-path.ts 里，这里只负责画；导演视角下路径点 / 柄可拖。
  */
 import { computed, shallowRef, watchEffect, onBeforeUnmount } from 'vue'
 import { BufferAttribute, BufferGeometry, Group, LineBasicMaterial, LineSegments, Plane, Raycaster, Vector2, Vector3 } from 'three'

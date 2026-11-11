@@ -621,7 +621,7 @@ html.dark .canvas-edge__flow {
   pointer-events: auto;
 }
 
-/* 空画布的第五个入口：不再落空节点，直接开工作流库拿现成的一条 */
+/* 空画布的第五个入口：不落空节点，直接开工作流库拿现成的一条 */
 .canvas-empty__library {
   display: inline-flex;
   align-items: center;
@@ -994,7 +994,7 @@ html.dark .canvas-empty__icon {
   transition: width var(--st-motion-slow) var(--st-motion-ease);
 }
 
-/* 行区不再自己设高度上限：折叠交给外层 __body 的 grid-template-rows 收放，max-height 会顶住收缩。
+/* 行区不自己设高度上限：折叠交给外层 __body 的 grid-template-rows 收放，max-height 会顶住收缩。
    min-height:0 是 grid 折叠能真的收到 0 的前提（grid 折叠第一大坑） */
 .canvas-practice-list__rows {
   display: grid;
@@ -3615,7 +3615,7 @@ html.dark .canvas-inspector__meta.is-on {
   width: 100%;
   min-height: 56px;
   flex: 1;
-  /* 长提示词不再把面板无限撑高：超出就在输入区内部滚动 */
+  /* 长提示词不能把面板无限撑高：超出就在输入区内部滚动 */
   max-height: min(40vh, 340px);
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -7751,7 +7751,7 @@ html.dark .canvas-brief {
 
 
 
-/* 跟练：从场景卡到八步清单的样式（合流时按选择器补齐） */
+/* 跟练：从场景卡到八步清单的样式 */
 /* ===== 新手跟练（CanvasPracticeTour）：沿用上面那套聚光灯 + 卡片，只补跟练自己的部件 ===== */
 .canvas-guide__head {
   display: flex;
@@ -7981,7 +7981,7 @@ html.dark .canvas-brief {
   animation: practice-tag-in var(--st-motion-slow) var(--st-motion-ease-out);
 }
 
-/* ===== 跟练动效（W5）：时长与缓动一律走 tokens-motion.css 的 --st-motion-* 令牌 =====
+/* ===== 跟练动效：时长与缓动一律走 tokens-motion.css 的 --st-motion-* 令牌 =====
    位置类动效（相机补间 / 聚光跟随 / 卡片避让）由 JS 逐帧写 transform，这里一律不写 transition，
    免得 CSS 跟 rAF 抢同一个属性；这一段只管「状态 → 类名」的过渡与出入场。 */
 
@@ -8137,7 +8137,7 @@ html.dark .canvas-brief {
   margin-top: 0;
 }
 
-/* 列表滚动交给弹窗 body，组区不再自己开一层滚动条 */
+/* 列表滚动交给弹窗 body，组区不自己开滚动条 */
 
 /* 成片角标：一次性淡入（原因见 .cnode__tag-practice 那条注释） */
 @keyframes practice-tag-in {

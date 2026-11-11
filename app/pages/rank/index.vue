@@ -6,7 +6,7 @@ import { formatCount, resolveMediaUrl } from '~/utils/media'
 const { t } = useI18n()
 const { exploreTabs } = useStudioNav()
 
-/** 榜单（API.md 9.2，M11）：作品 / 作者 / 技能三榜，周月切换，匿名可看。 */
+/** 榜单（API.md 9.2）：作品 / 作者 / 技能三榜，周月切换，匿名可看。 */
 definePageMeta({
   layout: 'studio',
   keepalive: true,

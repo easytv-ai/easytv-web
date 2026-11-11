@@ -78,7 +78,7 @@ function practiceBlockedShortcut(event: CanvasShortcutEvent, cmd: boolean) {
 }
 
 /**
- * 画布快捷键路由。早退顺序和原来 onKeydown 一致，只决定走哪条。
+ * 画布快捷键路由：按顺序早退，只决定走哪条。
  */
 export function dispatchCanvasShortcut(event: CanvasShortcutEvent, api: CanvasShortcutApi) {
   const key = event.key

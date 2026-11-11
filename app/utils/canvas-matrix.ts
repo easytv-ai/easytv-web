@@ -247,7 +247,7 @@ function imageParams(source: MatrixSource, platform: MatrixPlatform) {
 }
 
 /**
- * 视频参数：与 Inspector.generatePayload 同形（口播分支对齐 CanvasInspector.vue:645-663）。
+ * 视频参数：与 Inspector.generatePayload 同形（口播分支对齐 CanvasInspector.vue 的 generatePayload）。
  * - 口播节点（data.talking 有台词）：mode 映射成 i2v / reference（正常提交从不让 mode='talking'），
  *   audio 强制 true，带 preset='talking'，提示词由台词拼出来（见 matrixPlan）；
  * - 其余沿用源节点的 videoMode（没写按 i2v）。

@@ -1,7 +1,7 @@
 import http from '~/api/http'
 import type { ApiResponse, RankAuthors, RankPeriod, RankSkills, RankWorks } from '~/types/creative'
 
-/** 榜单（API.md 9.2，M11）：公开，前 20 条 */
+/** 榜单（API.md 9.2）：公开，前 20 条 */
 export const rankApi = {
   /** 作品榜：窗口内点赞数排序，同分看浏览数 */
   works(period: RankPeriod = 'week'): Promise<ApiResponse<RankWorks>> {

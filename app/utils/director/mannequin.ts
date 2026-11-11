@@ -136,7 +136,7 @@ function isMesh(object: Object3D): object is Mesh {
   return 'isMesh' in object && (object as Mesh).isMesh === true
 }
 
-/** 素体包围盒（场景局部坐标），不算以前那张悬浮牌 */
+/** 素体包围盒（场景局部坐标），不算遗留的悬浮形象牌 */
 export function getMannequinBodyBounds(scene: Object3D) {
   scene.updateMatrixWorld(true)
   const world = new Box3()
@@ -313,7 +313,7 @@ function stripLegacyLookPlate(scene: Object3D) {
 }
 
 /**
- * 把形象图贴到素体正面曲面的上半身。背面不再印同一张，也不再单独挂一张牌。
+ * 把形象图贴到素体正面曲面的上半身，背面不印；遗留的悬浮形象牌先摘掉。
  */
 export function setMannequinLookPlate(scene: Object3D, texture: Texture | null) {
   stripLegacyLookPlate(scene)

@@ -129,7 +129,7 @@ export function planCanvasGenerate(input: {
       }
     }
   }
-  // 时长 / 分辨率被面板按模型支持的档位改过：以前是静默改，这里说清楚改成了什么
+  // 时长 / 分辨率被面板按模型支持的档位改过时，明确告诉用户改成了什么，不静默改
   for (const item of payload.spec_adjusted ?? []) {
     if (!item || item.from === item.to)
       continue

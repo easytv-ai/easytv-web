@@ -344,7 +344,7 @@ export function useCanvasGenerate(opts: {
       lang: plan.lang,
       voice: plan.voice,
     }
-    // 把这次用的模型与档位记回节点（L21）：之后再点开还是这套，批量的副本也一起带上，不是空节点
+    // 把这次用的模型与档位记回节点：之后再点开还是这套，批量的副本也一起带上，不是空节点
     Object.assign(node.data, nodeGeneratePatch(plan.model, plan.params))
 
     if (plan.ratio) {

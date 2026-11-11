@@ -1,6 +1,5 @@
 /**
  * 画布上的图片编辑、视频处理条和分镜拼接。
- * 从 CanvasWorkspace 整段搬出，调用名和提交参数保持原样。
  */
 import { computed, nextTick, reactive, ref, watch, type ComputedRef, type Ref } from 'vue'
 import { useStudioAppConfig } from '~/composables/useStudioAppConfig'
@@ -244,7 +243,7 @@ type VideoReverseMaterial = {
 
 /**
  * 视频反推的原料：浏览器抽关键帧 → 上传成图片素材，顺带带回原片时长与像素尺寸。
- * 读不到像素（跨域）时返回 null，不再走服务端 ffmpeg。
+ * 读不到像素（跨域）时返回 null，不回退到服务端 ffmpeg。
  */
 async function collectVideoReverseInputs(src: string): Promise<VideoReverseMaterial | null> {
   notify(t('正在抽取关键帧…'))
@@ -1575,7 +1574,7 @@ async function waitTextTask(taskId: number, seq: number, alive: () => boolean = 
 }
 
 /**
- * 提示词优化（L15）：把当前节点的提示词交给文本模型改写成结构化版本，弹对照由用户决定填回。
+ * 提示词优化：把当前节点的提示词交给文本模型改写成结构化版本，弹对照由用户决定填回。
  * 模型选型与反推提示词同一套（growth.vision_text_model → 已定价看图模型）；走普通文本任务计费。
  */
 async function runPromptOptimize() {
@@ -1786,7 +1785,7 @@ function onGridSplit() {
 
 /**
  * 宫格切分确认：一次 grid_split 作业出 N 片（本地 ffmpeg，免费）。
- * 首版在浏览器里裁，实测 OSS 图片没有 CORS 头读不到像素；拆成 N 个 crop 作业又会撞单用户 3 个的排队上限。
+ * 不在浏览器里裁：OSS 图片没有 CORS 头，读不到像素；也不拆成 N 个 crop 作业：会撞单用户 3 个的排队上限。
  * 作业挂在第一片的位置上，产物回来后第一片落在它身上、其余按原行列摆开，一起打成一组。
  */
 async function onGridSplitConfirm(cells: GridCell[]) {

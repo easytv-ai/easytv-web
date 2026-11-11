@@ -413,7 +413,7 @@ function syncTextStageSize() {
 // 换了新素材（生成 / 替换）后的适配才需要保存。
 const initialImageSrc = imageSrc.value
 const initialVideoSrc = videoSrc.value
-/** 视频元数据里的真实像素。有它就以成片为准，不再用 params.ratio 猜比例。 */
+/** 视频元数据里的真实像素。有它就以成片为准，不用 params.ratio 猜比例。 */
 const videoMeasured = ref<{ width: number, height: number } | null>(null)
 
 function fitStageToMedia(width: number, height: number, dirty: boolean, label = true) {
@@ -572,7 +572,7 @@ watch(
       stageBox.w = width
     if (height)
       stageBox.h = height
-    // 音轨节点以前默认 220 太高，有内容时压到紧凑尺寸
+    // 音轨节点有内容时压到紧凑尺寸
     if (props.data.kind === 'audio' && audioSrc.value) {
       const compact = canvasStageSize('audio') || { w: 280, h: 118 }
       const nextW = Math.max(compact.w, Math.min(stageBox.w || compact.w, 300))

@@ -1,6 +1,6 @@
 /**
  * 跟练在画布上的宿主：开会话、拍快照、按剧本布节点、退出时还原。
- * 会话状态和回放仍在 useCanvasPractice，这里只搬工作区里那一段胶水。
+ * 会话状态和回放仍在 useCanvasPractice，这里只放工作区一侧的胶水。
  *
  * 四条容易静默失效的约定（都不报错，只是整段行为不生效）：
  * - 基线 / viewport / inspectorOpen / historySuspended 必须是 ref：computed 读快照不会变脏，
@@ -159,9 +159,8 @@ export function useCanvasPracticeHost(opts: {
     // Inspector 全程紧凑态：展开成大面板会盖住画布，锚点靠「选中节点 + 紧凑态里的 data-guide」定位
     opts.inspectorOpen.value = false
     practice.start(scriptId)
-    // 不再弹「跟练开始 / 先选一个场景」的通知：文案与选课卡正文逐字重复，而且浏览器验收发现
-    // 这条 toast 正好压在选课卡右上角，把卡头的「退出跟练」按钮整块盖住（选课卡是无锚点兜底定位、
-    // 不吃禁区，躲不开）——宁可少一条重复提示，也要保证卡上的按钮永远点得到。
+    // 不弹「跟练开始 / 先选一个场景」的通知：文案与选课卡正文逐字重复，而且 toast 正好压在
+    // 选课卡右上角，会把卡头的「退出跟练」按钮整块盖住（选课卡是无锚点兜底定位、不吃禁区，躲不开）。
   }
 
   /** 场景选择卡上挑了一条剧本：挂上它并进入第 0 步（沙盒与基线不动，它们按"进跟练那一刻"算） */
@@ -231,7 +230,7 @@ export function useCanvasPracticeHost(opts: {
     practice.next()
   }
 
-  /** 记录一条真正执行过的 prepare：卡片上的「跟练已替你布好这一步」由它反推，不再由剧本静态推导 */
+  /** 记录一条真正执行过的 prepare：卡片上的「跟练已替你布好这一步」由它反推，不由剧本静态推导 */
   function noteApplied(stepId: string, prep: PracticePrepare) {
     if (!stepId)
       return
@@ -358,8 +357,8 @@ export function useCanvasPracticeHost(opts: {
    * 执行一条 prepare（设计 §3.0 的六种）。每条都走同一套动作：
    * 「按 key/kind 定位 → 找不到就建（同一拍写 practiceKey）→ 补边 → 写字段」。
    *
-   * 画布在跟练期间只读，不存在「用户已经写过的字」需要让位，所以字段一律写
-   * （fillEmptyOnly 那套旗标随只读语义一起删了）。写入全部落进沙盒：退出 loadGraph 还原。
+   * 画布在跟练期间只读，不存在「用户已经写过的字」需要让位，所以字段一律写。
+   * 写入全部落进沙盒：退出 loadGraph 还原。
    */
   async function practicePrepareAction(prep: PracticePrepare, stepId: string) {
     if (!session.value.active)
@@ -615,7 +614,7 @@ export function useCanvasPracticeHost(opts: {
   /**
    * 进入某一步：先自动备好 → 再成片卡（收尾步）→ 再替用户选中锚点节点（面板保持紧凑态）→ 最后把锚点带进视野。
    *
-   * inspector-* 锚点不再展开面板：跟练全程只读 + 紧凑态，展开的大面板会盖住画布；
+   * inspector-* 锚点不展开面板：跟练全程只读 + 紧凑态，展开的大面板会盖住画布；
    * 选中节点只是为了让紧凑态 Inspector 里那几个 data-guide 锚点（生成按钮 / 主体 chip / 口播框）挂出来。
    */
   async function enterPracticeStep() {

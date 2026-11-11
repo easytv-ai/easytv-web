@@ -1,5 +1,5 @@
 /**
- * 行业配方库（L3 的"从零起步"入口）：把当期常用、也确实跑得通的节点链固化成配方，
+ * 行业配方库（"从零起步"入口）：把常用、也确实跑得通的节点链固化成配方，
  * 用户点一下就能整块落到画布上照着改。按行业场景分组（顺序见 WORKFLOW_PRESET_GROUPS）：
  * 通用 → 电商商品 → 本地生活 → 课程知识。
  *
@@ -28,7 +28,7 @@
 
 import type { CanvasWorkflowGraph } from '~/utils/canvas-workflow'
 
-/** 场景分组 id：顺序即面板分组顺序（通用放最前，保持原「官方预设」的第一眼位置） */
+/** 场景分组 id：顺序即面板分组顺序（通用放最前，占面板第一眼的位置） */
 export type WorkflowPresetScenario = 'generic' | 'ecom-product' | 'local-life' | 'course-knowledge'
 
 export type WorkflowPresetPlatform = {
@@ -157,7 +157,7 @@ function hdNode(id: string, x: number, y: number, resolution: '1080P' | '2K' | '
   }
 }
 
-/** 分组顺序：通用 → 电商商品 → 本地生活 → 课程知识（通用放最前，保持原「官方预设」的位置） */
+/** 分组顺序：通用 → 电商商品 → 本地生活 → 课程知识 */
 export const WORKFLOW_PRESET_GROUPS: WorkflowPresetGroupMeta[] = [
   {
     scenario: 'generic',

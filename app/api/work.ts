@@ -4,7 +4,7 @@ import type { ApiResponse, AuthorProfile, PageQuery, Paged, Work, WorkComment, W
 /** 作品：API.md 1.5 / 2.1 / 2.2 */
 export const workApi = {
   /** 公开信息流（已发布） */
-  /** lang：按作品语言过滤（F6，API.md 10.7），如 zh / en */
+  /** lang：按作品语言过滤（API.md 10.7），如 zh / en */
   feed(query: PageQuery & { keyword?: string, category?: string, user_id?: number, featured?: 1, lang?: string } = {}): Promise<ApiResponse<Paged<Work>>> {
     return http.get('/work', query)
   },

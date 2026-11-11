@@ -226,7 +226,7 @@ export function useWeChatOpenLogin() {
         expiredPollStreak = 0
         wechatOAuthResolving.value = true
         qrError.value = ''
-        // 不再绑定邮箱：有 token 则直接登录，否则继续按未注册处理
+        // 不绑定邮箱：有 token 则直接登录，否则继续按未注册处理
         const loggedIn = await applyWechatLoginSuccess(data, evidence)
         if (!loggedIn)
           await applyWechatPendingBinding(evidence)
@@ -337,7 +337,7 @@ export function useWeChatOpenLogin() {
     return true
   }
 
-  /** 微信扫码后该微信号未注册：不再走绑定邮箱，提示用手机号登录 */
+  /** 微信扫码后该微信号未注册：不走绑定邮箱，提示用手机号登录 */
   async function applyWechatPendingBinding(evidence: string): Promise<boolean> {
     const trimmed = String(evidence ?? '').trim()
     if (!trimmed)
@@ -581,7 +581,7 @@ export function useWeChatOpenLogin() {
       // iframe 二次 load = 已跳到后端 callback；立刻盖住二维码区，避免短暂露出裂图
       bindQrIframeConfirmOverlay(containerId)
 
-      // 登录与绑定都靠父页轮询；iframe 内 callback 不再把 evidence 抛到顶层 URL
+      // 登录与绑定都靠父页轮询；iframe 内 callback 不把 evidence 抛到顶层 URL
       startLoginStatusPolling(state)
     }
     catch {

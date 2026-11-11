@@ -51,7 +51,7 @@ describe('timeline utils', () => {
     expect(unusableClips(tl, shots).map(c => c.node_id)).toEqual(['video-2'])
   })
 
-  // 复审 D04：同一素材可以作为两个剪辑片段出现
+  // API.md 24.3：同一素材可以作为两个剪辑片段出现
   it('duplicateClip 同一 node 再插一条，id 独立、入出点可各自改', () => {
     const list = [clip('video-1', { in: 0, out: 1 }), clip('video-2')]
     const next = duplicateClip(list, 0)
@@ -77,7 +77,7 @@ describe('timeline utils', () => {
     expect(next[1]).toBe(list[1])
   })
 
-  // 复审 D05 / 24.4：冲突与普通失败分开处理；25.6 定版锁单独一类
+  // API.md 24.4：冲突与普通失败分开处理；25.6 定版锁单独一类
   it('timelineSaveOutcome 区分成功 / 冲突 / 定版 / 其它失败', () => {
     expect(timelineSaveOutcome({ success: true })).toBe('ok')
     expect(timelineSaveOutcome({ success: false, message: '时间线已在其他地方修改，请刷新后再保存' })).toBe('conflict')

@@ -3,7 +3,7 @@ import type { ApiResponse, GenerationModel, GenerationModelDetail, GenerationTas
 
 /** 生成任务：API.md 1.4 / 2.1 */
 export const taskApi = {
-  /** 可用模型（匿名）。Inspector 的模型下拉应改为读取此接口。 */
+  /** 可用模型（匿名）；Inspector 的模型下拉读这个接口。 */
   models(): Promise<ApiResponse<GenerationModel[]>> {
     return http.get('/generation/models')
   },
@@ -25,7 +25,7 @@ export const taskApi = {
     canvas_id?: number
     node_id?: string
     project_id?: number
-    /** 使用的技能（API.md 1.6）：type=text 时服务端注入该技能的执行契约，并按 T26 给作者记分成 */
+    /** 使用的技能（API.md 1.6）：type=text 时服务端注入该技能的执行契约，并给作者记分成 */
     skill_id?: number
     /** 引用主体（API.md 10.2），最多 4 个：服务端把主体参考图并入 inputs 并把 look 追加到提示词 */
     subject_ids?: number[]

@@ -13,7 +13,7 @@ import {
 } from '~/utils/canvas-grid-split'
 
 /**
- * 宫格切分（L4）：盖在图片节点上的一层，拖分割线定每一片的边界。
+ * 宫格切分：盖在图片节点上的一层，拖分割线定每一片的边界。
  * 确认后把切片的归一化 rect 交给工作区，由它逐片提交 crop 作业（本地 ffmpeg，免费）。
  */
 const props = withDefaults(defineProps<{

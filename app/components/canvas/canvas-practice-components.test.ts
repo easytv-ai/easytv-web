@@ -3,7 +3,7 @@ import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
 /**
- * 跟练升级的契约测试（W7）：vitest 是 node 环境、不挂组件，照仓库既有做法读源码做字符串 / 正则断言。
+ * 跟练的契约测试：vitest 是 node 环境、不挂组件，照仓库既有做法读源码做字符串 / 正则断言。
  *
  * 口径以 docs/跟练课程与交互升级.md 为准，逐条对应 §八「契约测试要点」1–7：
  * 导出名与接口 / 事件名 / 类名与结构 / 动效机制的存在性 / 只读闸 / 删除清单的反向断言 / 接口交接点。
@@ -175,7 +175,7 @@ describe('导出名与接口（§八.1、§五「保留的符号」）', () => {
     expect(src).toMatch(/\bdone: string\[\]/)
     expect(src).toMatch(/\bapplied: PracticeApplied\[\]/)
     expect(src).toMatch(/\bnotice: string/)
-    // 回放在飞：Tour 的「跳过这一步」据此禁用（W2/W3 的接口交接，§3.0 底栏三态③）
+    // 回放在飞：Tour 的「跳过这一步」据此禁用（接口交接，§3.0 底栏三态③）
     expect(src).toMatch(/\breplayBusy: boolean/)
     // 领回放的口径是「节点 kind + practiceKey」：多镜 / 多规格剧本按 byKey 各演各的
     expect(src).toContain('practiceReplayFor(')
@@ -221,7 +221,7 @@ describe('CanvasPracticeTour（props / emit / 结构）（§八.2、§八.3、§
   })
 
   it('动效机制：聚光 / 卡片由常驻 rAF + 平滑趋近驱动（§6.2），旧的轮询测量不再出现', () => {
-    // 旧实现是 400ms 的 setInterval 轮询：只要还有轮询测量就没落到 rAF 上
+    // 测量只能走 rAF：出现 setInterval 就说明还有轮询测量
     expect(src).not.toContain('setInterval(')
     expect(src).toContain('useGuideOverlay(')
     expect(src).toContain('requestAnimationFrame(')
@@ -239,7 +239,7 @@ describe('CanvasPracticeTour（props / emit / 结构）（§八.2、§八.3、§
     expect(src).toContain("t('跳过这一步')")
     expect(src).toContain("t('继续')")
     expect(src).toContain("t('完成，退出并还原画布')")
-    // 结束卡的三按钮（canvas-guide__finish）整块已删
+    // 不设结束卡的三按钮（canvas-guide__finish）
     expect(src).not.toContain('canvas-guide__finish')
   })
 

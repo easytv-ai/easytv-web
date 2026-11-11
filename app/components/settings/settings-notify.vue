@@ -74,7 +74,7 @@ function toggleEmail(enabled: boolean) {
   void savePrefs({ disabled_types: disabled, email_enabled: enabled })
 }
 
-/** 接口 label/desc 会改措辞；按 type 固定文案，避免英文界面漏翻 */
+/** 按 type 固定的文案（理由见文件头） */
 const PREF_LABEL: Record<string, string> = {
   work: '作品审核',
   comment: '评论',

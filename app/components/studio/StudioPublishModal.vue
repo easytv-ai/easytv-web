@@ -135,7 +135,7 @@ async function submit() {
       // 开源创作过程（API.md 7.1）：观众可「做同款」，来源画布即发布时所在画布
       source_canvas_id: props.canvasId && form.openSource ? props.canvasId : undefined,
       open_source: props.canvasId ? (form.openSource ? 1 : 0) : undefined,
-      // 作品语种（F6，API.md 10.7）：后端要求前端按界面语言传，英文界面发 en
+      // 作品语种（API.md 10.7）：后端要求前端按界面语言传，英文界面发 en
       lang: workLangForLocale(locale.value),
     })
     if (!res?.success || !res.data) {

@@ -2,8 +2,8 @@
 /**
  * 场景属性面板（复刻自 open-director 的 ScenePanel.tsx，MIT）。
  *
- * 上游为四个数字框各维护了一份字符串草稿加一个 useEffect 同步（占了小一百行），
- * 那套活我们的 DirectorNumberInput 在组件内部已经做了，这里直接给数值。
+ * 数字框的字符串草稿由 DirectorNumberInput 在组件内部维护（上游是在面板里
+ * 逐个维护草稿并用 useEffect 同步），这里直接给数值。
  */
 import { computed } from 'vue'
 import { useDirectorStore } from '~/utils/director/use-director-store'

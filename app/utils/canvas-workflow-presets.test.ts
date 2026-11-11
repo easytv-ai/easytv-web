@@ -20,7 +20,7 @@ const MENU_KINDS = new Set(CANVAS_NODE_ITEMS.map(item => item.kind as string))
 const MODEL_ALLOWLIST = new Set(['qwen-image-2.0', 'qwen-image-edit', 'Kling-2.5'])
 /** 结果字段：下游节点不该带（模板是配方不是成品） */
 const RESULT_FIELDS = ['content', 'assetId', 'previewUrl', 'taskId', 'taskStatus', 'taskProgress', 'taskError']
-/** 场景分组顺序：通用放最前，保持原「官方预设」的第一眼位置 */
+/** 场景分组顺序：通用放最前，占面板第一眼的位置 */
 const SCENARIO_ORDER = ['generic', 'ecom-product', 'local-life', 'course-knowledge']
 /** 口播配方要能跑，Kling-2.5 必须在生产清单里带 native_audio（配方文案里写明了这个前提） */
 const TALKING_RECIPES = ['local-talking-first-frame', 'local-two-shot-talking', 'course-talking-shorts']
@@ -277,7 +277,7 @@ describe('配方分组与面板顺序', () => {
       expect(group.label.trim(), group.scenario).not.toBe('')
       expect(group.note.trim(), group.scenario).not.toBe('')
     }
-    // 通用组排最前，说明要覆盖现在组里的配方，不再写成「零素材从零起步」
+    // 通用组排最前；说明要覆盖组里现有的配方，不能写成「零素材从零起步」
     expect(groups[0]!.scenario).toBe('generic')
     expect(groups[0]!.note).toContain('首尾帧')
     expect(groups[0]!.note).toContain('出片后再高清')

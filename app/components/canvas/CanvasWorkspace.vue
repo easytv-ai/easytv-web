@@ -554,9 +554,8 @@ const showRetakeStrip = computed(() => {
   return Boolean(node && selectedNodes.value.length === 1 && isContentNode(node) && isRetakeNode(node.data) && !canvasLocked.value && !nodeLocked(node))
 })
 /**
- * 画布舞台自身尺寸 / 屏幕位置变化（窗口 resize、侧栏开合）时用它触发面板 computed 重算。
- * canvasFlowPaneRect() 读的是 getBoundingClientRect，本身不响应式，
- * 这里用 ResizeObserver 观察舞台元素，变化时 bump 一下，让依赖它的面板位置重新计算。
+ * 画布舞台尺寸 / 屏幕位置变化（窗口 resize、侧栏开合）时由 ResizeObserver bump 一下，
+ * 触发依赖它的面板位置 computed 重算：canvasFlowPaneRect() 读的是 getBoundingClientRect，本身不响应式。
  */
 const flowPaneRectTick = ref(0)
 const hdPanelStyle = computed(() => {
@@ -1816,7 +1815,7 @@ async function composeBrief(opts?: BriefComposeOpts) {
 /**
  * 空画布起步卡在跟练里会露出来（选场景卡与 welcome 步都没有 prepare，画布确实是空的），
  * 卡片上的固定预设卡点一下会真的 addNodeAtCenter 落一个不在基线里的节点——先给只读提示再早退。
- * （§四 #23 原先判断「跟练中必有节点」，对空画布开场不成立，这里补闸。）
+ * 不能假设「跟练中必有节点」：空画布开场时不成立。
  */
 function onEmptyStart(item: CanvasEmptyStart) {
   if (practiceBlocked())
@@ -2273,7 +2272,7 @@ function practiceBlocked() {
   return true
 }
 
-/** 分镜节点上的多条提示词，拆成右侧一镜一条视频。生成仍走原来的单条视频。 */
+/** 分镜节点上的多条提示词，拆成右侧一镜一条视频。生成仍走单条视频那条路径。 */
 function expandStoryboard(nodeId: string) {
   if (practiceBlocked() || props.readonly || canvasLocked.value)
     return false
@@ -2574,12 +2573,12 @@ const textPickOpen = ref(false)
 const textPickMode = ref<'skill' | 'template' | 'prompt'>('skill')
 const helpOpen = ref(false)
 const presetOpen = ref(false)
-/** 宫格与故事板预设（L6）：需要参考图的那几条在没有上游图时不列出来 */
+/** 宫格与故事板预设：需要参考图的那几条在没有上游图时不列出来 */
 const gridOpen = ref(false)
-/** 宫格切分（L4）：拖分割线把一张宫格图拆成切片 */
+/** 宫格切分：拖分割线把一张宫格图拆成切片 */
 const gridSplitOpen = ref(false)
 const gridSplitNodeId = ref('')
-/** 提示词优化（L15）：文本任务改写后弹对照，用户决定填回 */
+/** 提示词优化：文本任务改写后弹对照，用户决定填回 */
 const optimizeOpen = ref(false)
 const optimizeBusy = ref(false)
 const optimizeNodeId = ref('')
@@ -2590,7 +2589,7 @@ const optimizeModel = ref('')
 /** 这次改写预计扣的积分（按文本模型单价估），弹窗里给用户看一眼 */
 const optimizePoints = ref(0)
 
-/** 分镜组拼接（L4）：多选的图片按阅读顺序拼成一张宫格图 */
+/** 分镜组拼接：多选的图片按阅读顺序拼成一张宫格图 */
 const montageOpen = ref(false)
 const montageSources = computed<MontageSource[]>(() => {
   const picked = selectedNodes.value.filter(isContentNode).filter(node => node.data.kind === 'image' && Number(node.data.assetId) > 0)
@@ -2685,11 +2684,11 @@ const gridItems = computed(() => {
   return gridPresetsFor(hasRef).map(item => ({ id: item.id, label: t(item.label), hint: t(item.hint), meta: item.ratio }))
 })
 const camLibOpen = ref(false)
-/** 风格库（L5，API.md 34）：选一个运营配好的整体风格，生成时片段接在提示词末尾 */
+/** 风格库（API.md 34）：选一个运营配好的整体风格，生成时片段接在提示词末尾 */
 const styleLibOpen = ref(false)
 /** 风格库这次是给谁选的：空 = 当前节点，extend = 续写弹窗，chat = 对话栏 */
 const stylePickFor = ref<'' | 'extend' | 'chat'>('')
-/** 我的风格（L18，API.md 34.5）：编辑弹窗由工作区托管，风格库弹窗留在底下 */
+/** 我的风格（API.md 34.5）：编辑弹窗由工作区托管，风格库弹窗留在底下 */
 const styleEditOpen = ref(false)
 const styleEditTarget = ref<Style | null>(null)
 const styleEditPreset = ref<StylePreset | null>(null)
@@ -2896,9 +2895,9 @@ function refNameOfUrl(url: string) {
 }
 
 /**
- * 智能引用候选（L1，API.md 31.2）：顺序与 buildTaskInputs 里的参考顺序一致，
- * 提示词里打到素材名就能 Tab 引用，@ 选回来的素材也靠它落标签（L21）。
- * 09-22 拆组件时这段和 :refs 绑定一起丢了，AutoLink 因此一直没候选——别再丢第二次。
+ * 智能引用候选（API.md 31.2）：顺序与 buildTaskInputs 里的参考顺序一致，
+ * 提示词里打到素材名就能 Tab 引用，@ 选回来的素材也靠它落标签。
+ * 这段和模板里的 :refs 绑定缺一不可：丢了 AutoLink 就没有候选。
  */
 const inspectorRefs = computed<RefCandidate[]>(() => {
   const node = selected.value
@@ -2942,7 +2941,7 @@ function graphOriginPoint() {
   return { x: right + 80, y: top }
 }
 
-// ===== 工作流模板（L3，API.md 31.1）=====
+// ===== 工作流模板（API.md 31.1）=====
 const workflowPanelOpen = ref(false)
 const workflowSaving = ref(false)
 /** 存完一条就让面板重新拉列表 */
@@ -4120,7 +4119,7 @@ function onSelAction(name: string) {
     runImageEdit: name => { void runImageEdit(name) },
     saveWorkflow: () => { void saveWorkflow() },
     // 走到这儿说明按钮发了个没人接的动作（漏收尾的入口）：如实说「暂不可用」，
-    // 原来那句「请先选择节点」会把真实原因盖掉。dev 下把动作名打出来，便于定位漏接的按钮。
+    // 说「请先选择节点」会把真实原因盖掉。dev 下把动作名打出来，便于定位漏接的按钮。
     fallback: () => {
       if (import.meta.dev)
         console.warn('[canvas] 未处理的选区动作：', name)
@@ -5300,7 +5299,7 @@ function onStyleEditSaved(style: Style) {
 }
 
 /**
- * 从当前图定风格（L18，API.md 34.5）：让看图文本模型只输出一段风格描述，
+ * 从当前图定风格（API.md 34.5）：让看图文本模型只输出一段风格描述，
  * 回填到保存表单（名字取片段开头、封面取节点图、留痕来源资产）。
  * 模型选型与反推提示词 / 提示词优化同一套；走普通文本任务计费。
  */

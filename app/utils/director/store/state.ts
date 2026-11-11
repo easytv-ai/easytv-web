@@ -1,16 +1,12 @@
 /**
  * 导演台状态的形状与快照工具（复刻自 open-director 的 store/directorStore.ts，MIT）。
  *
- * 架构上有一个关键取舍：**状态保持不可变**。
+ * 关键取舍：**状态保持不可变**，用 `ref<DirectorState>` 整体替换，不用 reactive 直接改属性。
  *
- * 上游用 zustand，每个动作都是 `set(state => ({ ...state, project: ... }))`，
- * 撤销栈直接存旧对象的引用，判断"这次操作有没有真的改动"靠整体比较。
- * 搬到 Vue 时可以改成 reactive 直接改属性，但那样撤销、批量合并、去重这几百行
- * 逻辑都得重写，而它们恰好是 785 行上游测试覆盖得最密的部分。
- *
- * 所以这里用 `ref<DirectorState>` 整体替换：Vue 对 ref 的整体替换照样触发更新，
- * 场景数据也就几十个对象，整体替换的开销可以忽略。换来的是撤销语义和上游完全一致，
- * 测试能原样搬过来当安全网。
+ * - 上游（zustand）每个动作都是 `set(state => ({ ...state, project: ... }))`，撤销栈直接存
+ *   旧对象的引用，"有没有真的改动"靠整体比较。保持不可变，撤销、批量合并、去重的语义
+ *   就和上游完全一致，上游那批测试能原样搬过来当安全网。
+ * - Vue 对 ref 的整体替换照样触发更新；场景数据也就几十个对象，开销可以忽略。
  */
 import type { DirectorCameraShot, DirectorObject, DirectorProject, ViewMode, ViewportAspectRatio } from '../schema'
 import { createDefaultDirectorProject } from '../default-project'

@@ -97,7 +97,7 @@ watch(() => practiceSession.value.seq, () => {
   draftName.value = snap.draftName
   savedName.value = snap.savedName
   boundProjectId.value = snap.projectId
-  // 退出只有「还原」一条路（结束卡不再有真跑 / 留画布 / 存模板三条走法）：
+  // 退出只有「还原」一条路（结束卡没有真跑 / 留画布 / 存模板这类走法）：
   // 保存机也还原——跟练前是"有未保存改动"就继续保持脏，跟练本身不算改动
   saveMachine.value = snap.machine
 })
@@ -947,7 +947,7 @@ async function onOpenDirector(nodeId: string) {
   if (!nodeId)
     return
   if (!readonly.value) {
-    // 已存过的画布只在有改动时存（不再每次进导演台都记一条手动版本快照）；新草稿要先建出来
+    // 已存过的画布只在有改动时存（不为每次进导演台都记一条手动版本快照）；新草稿要先建出来
     await save(!canvasId.value)
     if (saveMachine.value.conflict || saveState.value === 'error')
       return

@@ -53,7 +53,7 @@ export type CanvasNodeData = {
   params?: Record<string, unknown>
   /** 分镜节点上的多条镜头提示词，拆开后各自成为一条视频 */
   storyboardShots?: import('~/utils/canvas-storyboard').StoryboardShot[]
-  /** 宫格切分（L4）的作业壳：源节点的位置尺寸与每片的归一化矩形，产物回来按它摆到源节点右侧 */
+  /** 宫格切分的作业壳：源节点的位置尺寸与每片的归一化矩形，产物回来按它摆到源节点右侧 */
   gridSplit?: {
     source: { x: number, y: number, w: number, h: number }
     cells: Array<{ index: number, row: number, col: number, x: number, y: number, w: number, h: number }>
@@ -112,7 +112,7 @@ export type CanvasNodeData = {
   taskError?: string
   /** 新手跟练的成片卡：收尾步留在画布中央的那张（节点上带「跟练成片」角标，退出跟练随快照消失） */
   practiceShowcase?: boolean
-  /** 视频高清节点参数（tag=高清 时使用）。interp / slowmo 只兼容旧画布，面板不再展示 */
+  /** 视频高清节点参数（tag=高清 时使用）。interp / slowmo 只兼容旧画布，面板不展示 */
   hdParams?: {
     model: string
     resolution: '1080P' | '2K' | '4K'
@@ -328,8 +328,8 @@ export function cloneContentNodeData(data: CanvasNodeData, extra?: Partial<Canva
 export const CAMERA_MOVE_VIDEO = PLACEHOLDER_VIDEO_URL
 
 /**
- * 有独立预览的运镜。本地片子已去掉，画面都走 CAMERA_MOVE_VIDEO。
- * 留在这张表里的运镜不再套 CSS 动作示意。
+ * 有独立预览的运镜：画面走 CAMERA_MOVE_VIDEO（没有本地片子），
+ * 在这张表里的运镜不套 CSS 动作示意。
  */
 const CAMERA_MOVE_OWN_VIDEO: Record<string, string> = {
   static: 'fixed.mp4',
@@ -438,7 +438,7 @@ export function cameraMoveHasOwnVideo(id?: string) {
   return Boolean(resolved && CAMERA_MOVE_OWN_VIDEO[resolved])
 }
 
-/** 运镜预览地址。本地片子已去掉，一律用同一条远程视频占位。 */
+/** 运镜预览地址：没有本地片子，一律用同一条远程视频占位。 */
 export function cameraMoveVideoUrl(_id?: string) {
   return CAMERA_MOVE_VIDEO
 }

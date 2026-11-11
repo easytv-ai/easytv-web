@@ -151,7 +151,7 @@ const scriptGroups = computed(() => PRACTICE_LEVELS
 
 /** 硬 / 软禁区，每 8 帧重收一次：菜单是点开的，只能靠周期性测量让卡片自己让位 */
 const zones = ref<GuideZones>({ hard: [], soft: [] })
-/** 卡片真实尺寸：ResizeObserver 量，替掉以前写死的 340×250 */
+/** 卡片真实尺寸：ResizeObserver 量，量到之前用默认宽 × 250 占位 */
 const cardSize = ref<GuideCardSize>({ width: GUIDE_CARD_WIDTH, height: 250 })
 const cardEl = ref<HTMLElement | null>(null)
 
@@ -170,8 +170,8 @@ function queryRects(selector: string): GuideRect[] {
 
 /**
  * 硬禁区：弹出的菜单 / 弹层、常驻的跟练清单（z-index 都比引导浮层低，卡片压住就真的点不到里面），
- * 以及通知 toast。toast 是浏览器验收发现的：进跟练时那条「先选一个场景…」的通知正好落在选课卡右上角，
- * 把卡头的「退出跟练」按钮整块盖住（elementFromPoint 命中 toast 标题），用户连退都退不出来。
+ * 以及通知 toast：进跟练时那条「先选一个场景…」的通知正好落在选课卡右上角，
+ * 把卡头的「退出跟练」按钮整块盖住（elementFromPoint 命中 toast 标题），用户退不出来。
  * 量 toast 只能量到「项」：外层 region 高度 0、ol[data-slot=viewport] 宽度 0，只有 li 有真实矩形；
  * 用 aria 前缀（运行时实测的 Nuxt UI 默认标签）+ 结构（该 ol 里只有 toast li）两条一起兜。
  */

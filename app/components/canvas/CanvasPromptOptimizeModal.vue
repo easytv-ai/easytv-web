@@ -2,7 +2,7 @@
 import type { OptimizeApplyMode } from '~/utils/canvas-prompt-optimize'
 
 /**
- * 提示词优化（L15）的对照弹窗：左边原文、右边改写，用户决定替换、追加还是放弃。
+ * 提示词优化的对照弹窗：左边原文、右边改写，用户决定替换、追加还是放弃。
  * 改写中时右边先占位；失败时 error 非空、右边显示原因并只留「关闭」。
  */
 const props = defineProps<{

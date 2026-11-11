@@ -16,7 +16,7 @@ const emit = defineEmits<{
 }>()
 
 const RECENT_KEY = 'easytv-camera-move-recent'
-/** 收藏（L21）：点星进「收藏」页，与「最近」同一套读写 */
+/** 收藏：点星进「收藏」页，与「最近」同一套读写 */
 const FAV_KEY = 'easytv-camera-move-fav'
 const MAX_RECENT = 12
 /**

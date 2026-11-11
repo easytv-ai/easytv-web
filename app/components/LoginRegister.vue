@@ -34,7 +34,7 @@ import { useToast } from '#imports'
 const { t, locale } = useI18n()
 
 /**
- * 海外站（F6，API.md 10.7）：短信验证码只支持 +86，非中文界面走邮箱登录 / 邮箱注册，
+ * 海外站（API.md 10.7）：短信验证码只支持 +86，非中文界面走邮箱登录 / 邮箱注册，
  * 不显示手机号表单，并补上「注册 / 忘记密码」入口（中文界面行为不变）。
  */
 const isZhLocale = computed(() => String(locale.value ?? '').toLowerCase().startsWith('zh'))

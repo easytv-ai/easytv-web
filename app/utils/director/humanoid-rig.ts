@@ -1,8 +1,8 @@
 /**
  * 导入模型的人形骨骼识别，以及 Mixamo / VRM / 通用人形的摆姿势。
  *
- * UE4 素体（Bip001）继续走 mannequin-rig 里对过的局部欧拉角。
- * 其他骨架的骨骼朝向各不相同，不能把那套正负号搬过来。这里改用静止姿态下
+ * UE4 素体（Bip001）走 mannequin-rig 里对过的局部欧拉角。
+ * 其他骨架的骨骼朝向各不相同，不能把那套正负号搬过来，这里用静止姿态下
  * 算出来的角色坐标系：右、上、前。轴向和正负号以 humanoid-rig.test.ts 为准。
  */
 import { Quaternion, Vector3, type Bone, type Object3D } from 'three'

@@ -59,8 +59,8 @@ export function useCanvasAgentSettings() {
     if (!import.meta.client)
       return
     try {
-      // 只写类型里的字段：旧版本在同一个 key 里存过对话模型（model），
-      // 对话模型已改为平台统一配置，这里不再回写，顺手把遗留键清掉。
+      // 只写类型里的字段：老数据在同一个 key 里可能还带着对话模型（model）；
+      // 对话模型由平台统一配置，这里不回写，顺手把遗留键清掉。
       localStorage.setItem(CANVAS_AGENT_SETTINGS_KEY, JSON.stringify({
         insertReply: settings.value.insertReply,
         assistOn: settings.value.assistOn,

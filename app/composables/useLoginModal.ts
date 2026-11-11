@@ -11,7 +11,7 @@ import {
   type LoginModalTab,
 } from '~/utils/login-modal'
 
-/** 全局登录弹窗：停在当前页，不再进入 /login。 */
+/** 全局登录弹窗：停在当前页，不跳转 /login。 */
 export function useLoginModal() {
   const route = useRoute()
   const open = useState(LOGIN_MODAL_OPEN, () => false)

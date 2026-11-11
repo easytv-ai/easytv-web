@@ -162,7 +162,7 @@ describe('画布接线', () => {
 
   it('提交任务的路径都通知队列（画布内提交后角标立刻出现）', () => {
     const workspace = read(WORKSPACE)
-    // 所有提交路径共用的轮询入口被包了一层：先通知队列，再走原来的 pollTask / pollMediaJob
+    // 所有提交路径共用的轮询入口被包了一层：先通知队列，再走 pollTask / pollMediaJob
     expect(workspace).toContain('pollTask: pollTaskRaw')
     expect(workspace).toContain('pollMediaJob: pollMediaJobRaw')
     expect(workspace).toMatch(/function pollTask\(nodeId: string, taskId: number\) \{\s*runQueueNotify\.submitted\(\)\s*pollTaskRaw\(nodeId, taskId\)/)

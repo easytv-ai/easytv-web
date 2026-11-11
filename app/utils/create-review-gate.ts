@@ -2,7 +2,7 @@ import type { GenerationBatch, GenerationBatchItem, ReviewGate, Shot, ShotReview
 import { candidateReviewState, type CandidateReviewState } from './timeline'
 
 /**
- * 审批门禁（API.md 26.1，复审 G05）与图片节点审片的纯逻辑，向导第 3 步 CreateLayers 用。
+ * 审批门禁（API.md 26.1）与图片节点审片的纯逻辑，向导第 3 步 CreateLayers 用。
  *
  * - 门禁存在时间线 `timeline.review_gate`：'' 关闭 / rejected 退回即拦 / approved 分镜图通过才放行；
  * - 图片候选的审片结论从 `GET /user/canvas/:id/shots` 的 `shots[].image.candidates[].review` 读（角色图候选不在镜头视图里，只审分镜图）；

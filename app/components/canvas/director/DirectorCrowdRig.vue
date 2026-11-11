@@ -4,7 +4,7 @@
  *
  * 群众本身是一个个独立对象，整组拖动靠的是这里：一个空 group 放在全组的锚点上，
  * gizmo 挂在它身上，拖完把这个 group 的变换交给 updateCrowdTransform，
- * 由它按相对偏移分发给每个成员（那套绕锚点旋转的数学在阶段 1 已经写好并测过）。
+ * 由它按相对偏移分发给每个成员（绕锚点旋转的数学在那边，已单独测过）。
  */
 import { shallowRef } from 'vue'
 import { TransformControls } from '@tresjs/cientos'

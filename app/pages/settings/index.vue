@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * 设置已改为弹窗（StudioSettingsModal）。保留 /settings?tab= 兼容旧链接、站外通知与登录回跳：
+ * 设置是弹窗（StudioSettingsModal），没有独立页面。/settings?tab= 只为兼容旧链接、站外通知与登录回跳：
  * 打开对应标签的设置弹窗，再回到首页。
  */
 import { resolveSettingsTab } from '~/composables/useSettingsModal'

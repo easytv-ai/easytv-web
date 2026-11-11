@@ -5,7 +5,7 @@
  * three 会碰 window，整块必须 client-only —— 调用方用 <ClientOnly> 包住，
  * 别直接挂在 SSR 页面里。
  *
- * 场景内容来自注入的 store（阶段 1 搬好的数据层），这里只负责画。
+ * 场景内容来自注入的 store，这里只负责画。
  */
 import { onBeforeUnmount, shallowRef, watch } from 'vue'
 import type { PerspectiveCamera } from 'three'
@@ -54,10 +54,10 @@ const studioLook = computed(() =>
 
 const sceneClearColor = computed(() => props.clearColor ?? studioLook.value.sky)
 
-/*
- * 导演视角的初始位置。要能同时看到原点的角色和默认机位（在 z≈7.2 处）——
- * 之前用 [4.5, 3.2, 5.5] 看向原点，机位和视线夹角约 68 度、远在 45 度视场之外，
- * 场景里明明有机位却一个都看不见。
+/**
+ * 导演视角的初始位置：要能同时看到原点的角色和默认机位（在 z≈7.2 处）。
+ * 不能离原点太近：从 [4.5, 3.2, 5.5] 看向原点时，机位和视线夹角约 68 度、
+ * 远在 45 度视场之外，场景里有机位却一个都看不见。
  */
 const CAMERA_POSITION: [number, number, number] = [9, 5.5, 11]
 const CAMERA_TARGET: [number, number, number] = [0, 1, 3]

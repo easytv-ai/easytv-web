@@ -23,7 +23,7 @@ import {
   type PracticeStep,
 } from '~/utils/canvas-practice'
 
-/** 宿主实际执行过的一条 prepare（卡片上的「跟练已替你布好这一步」由它反推，不再由剧本静态推导） */
+/** 宿主实际执行过的一条 prepare（卡片上的「跟练已替你布好这一步」由它反推，不由剧本静态推导） */
 export type PracticeApplied = {
   /** 是在进哪一步时执行的（自动计划会把前面欠着的步也一起补上，所以它未必等于「当前步」） */
   stepId: string
@@ -50,7 +50,7 @@ export type PracticeSession = {
   applied: PracticeApplied[]
   /**
    * 回放是否在飞：卡片底栏的「跳过这一步」据此禁用（回放悬在半空时跳过，产物会落到已经翻页的画布上）。
-   * W3 的 Tour 读 session.replayBusy，所以它是会话字段而不是宿主内部变量。
+   * Tour 读 session.replayBusy，所以它是会话字段而不是宿主内部变量。
    */
   replayBusy: boolean
   /** 现场解析不到前提时的如实说明（主体库为空 / 清单里没有带原生出声的模型），卡片上以提示行显示 */
@@ -90,7 +90,7 @@ export function useCanvasPractice(opts: {
 
   /**
    * 停掉在飞的回放。除了清计时器，还要把节点复位——
-   * 跳步（新清单把跳步做成了显眼入口）时节点会停在 taskStatus='running'，
+   * 跳步时节点会停在 taskStatus='running'，
    * 生成入口会以「该节点正在生成中」直接挡下，这一步在跟练里就再也跑不完了。
    */
   function stopReplay() {

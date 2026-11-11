@@ -210,8 +210,8 @@ function defaultModel(kind: string) {
   const type = taskTypeOf(kind)
   const fromApi = apiModelsFor(kind)
   // 节点自带的模型优先（跟练 / 配方 / AI 建图写下来的 data.model）。
-  // 清单 id 大小写对不上就模糊匹配；对不上也绝不改用上次选的——
-  // 以前精确匹配失败会落到 easytv-canvas-last-model，卡片写 Kling 面板却是 Seedance。
+  // 清单 id 大小写对不上就模糊匹配；对不上也绝不回落到上次选的（easytv-canvas-last-model）：
+  // 否则卡片写 Kling、面板却是 Seedance。
   const wanted = String(props.model || '').trim()
   if (wanted) {
     const hit = resolveCatalogModel(wanted, generationModels.value, { type, preferPriced: true })
@@ -261,7 +261,7 @@ const props = withDefaults(defineProps<{
   videoMode?: string
   /** 口播预设（API.md 24.9），存在节点 data.talking 上 */
   talking?: TalkingData | null
-  /** 可被智能引用的参考素材（L1，API.md 31.2），顺序与提交时的参考顺序一致 */
+  /** 可被智能引用的参考素材（API.md 31.2），顺序与提交时的参考顺序一致 */
   refs?: RefCandidate[]
   /**
    * 节点上带下来的模型（data.model，API.md 32：AI 建图 / 工作流模板写入）。
@@ -418,9 +418,8 @@ const models = computed<readonly ModelOption[]>(() => {
     return apiModelsFor(props.kind, hasNativeAudio)
   if (hasRefVideo.value)
     return apiModelsFor(props.kind, hasVideoReference)
-  // 模型一律以 GET /generation/models 为准：以前这里兜过一组写死的 gvlm / lib-image / v2，
-  // 那些 id 线上并不存在（或未定价），选中后提交只会拿到「模型未定价」。空列表就如实空着，
-  // 由 noModels 拦住提交并提示联系运营开通。
+  // 模型只认 GET /generation/models 的返回，不设本地兜底：写死的 id 线上不存在或未定价，
+  // 选中后提交只会拿到「模型未定价」。空列表就如实空着，由 noModels 拦住提交并提示联系运营开通。
   return apiModelsFor(props.kind)
 })
 /** 一个可用模型都没有：模型选择器显示占位，提交前拦一道 */
@@ -594,7 +593,7 @@ const videoResItems = computed(() => {
 })
 /**
  * 档位被模型「改掉」的记录（API.md 39.5）：用户选过 / 节点上存着的时长、分辨率，当前模型不支持时会落到第一档。
- * 以前是静默改，现在记下从哪档改到哪档，提交时由 planCanvasGenerate 提示一次。
+ * 不静默改：记下从哪档改到哪档，提交时由 planCanvasGenerate 提示一次。
  * 面板默认值（用户没选过）被换掉不算——那不是「改了你的选择」。
  */
 const specChosen = {
@@ -891,7 +890,7 @@ function insertCameraMove(id: string) {
   promptInputRef.value?.insertCameraMove(id)
 }
 
-// ===== Slash 快捷入口（L2）=====
+// ===== Slash 快捷入口 =====
 const slashQuery = ref<string | null>(null)
 const slashIndex = ref(0)
 const slashOpen = computed({
@@ -983,7 +982,7 @@ function toggleExpand() {
   emit('update:expanded', !props.expanded)
 }
 
-/** 把模型列表里当前选中项滚到中间：留白上下，滚动条不再贴底难看 */
+/** 把模型列表里当前选中项滚到中间：上下留白，滚动条不贴底 */
 function scrollModelMenuToSelected() {
   const container = modelMenuRef.value
   if (!container)
@@ -1014,7 +1013,7 @@ function toggleModel() {
 watch(modelId, (id) => {
   if (!id)
     return
-  // 选中哪个模型才调哪个模型详情，不再把整张列表的详情都拉一遍
+  // 只拉选中模型的详情，不把整张列表的详情都拉一遍
   void loadModelDetail(id).then(() => {
     modelDetailTick.value += 1
   })
@@ -1034,7 +1033,7 @@ function toggleSpec() {
   specMenu.value = !specMenu.value
 }
 
-/** 把面板选中的模型写回节点，生成和估价都跟这一份走，不再只记在 localStorage */
+/** 把面板选中的模型写回节点；生成和估价都以节点上这一份为准 */
 function applyModel(id: string, opts?: { persist?: boolean, remember?: boolean }) {
   if (!id)
     return
@@ -1528,7 +1527,7 @@ const placeholder = computed(() => {
           :readonly="writeBlocked"
           @input="onInput"
         />
-        <!-- Slash 面板（L2）：打 "/" 唤起当前节点能用的能力 -->
+        <!-- Slash 面板：打 "/" 唤起当前节点能用的能力 -->
         <div v-if="slashOpen" class="canvas-inspector__slash nowheel" @pointerdown.stop @wheel.stop>
           <p>{{ t('快捷能力，↑↓ 选择，回车确认') }}</p>
           <button
