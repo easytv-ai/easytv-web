@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { EdgeLabelRenderer, getBezierPath, useVueFlow } from '@vue-flow/core'
 import type { EdgeProps } from '@vue-flow/core'
+import { CANVAS_NODE_VIEW_KEY, EMPTY_CANVAS_NODE_VIEW } from '~/utils/canvas-node-view'
 
 const { t } = useI18n()
 
 const props = defineProps<EdgeProps>()
-const { getSelectedNodes, removeEdges } = useVueFlow('easytv-canvas')
+const { removeEdges } = useVueFlow('easytv-canvas')
+const nodeView = inject(CANVAS_NODE_VIEW_KEY, shallowRef(EMPTY_CANVAS_NODE_VIEW))
 
 const hovered = ref(false)
 const showCut = ref(false)
@@ -26,9 +28,10 @@ const pathInfo = computed(() => getBezierPath({
 
 const path = computed(() => pathInfo.value[0])
 
-const isLive = computed(() =>
-  getSelectedNodes.value.some(node => node.id === props.source || node.id === props.target),
-)
+const isLive = computed(() => {
+  const selected = nodeView.value.selected
+  return Boolean(selected[props.source] || selected[props.target])
+})
 
 function clientToPath(event: MouseEvent) {
   const el = hitRef.value

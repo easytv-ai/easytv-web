@@ -302,6 +302,27 @@ html.canvas-is-interacting .cnode__stage {
   box-shadow: none;
 }
 
+html.canvas-is-interacting .vue-flow__transformationpane,
+html.canvas-is-interacting .vue-flow__viewport {
+  will-change: transform;
+}
+
+html.canvas-is-interacting .vue-flow__node,
+html.canvas-is-interacting .vue-flow__edge {
+  pointer-events: none;
+}
+
+html.canvas-is-interacting .vue-flow__node {
+  contain: layout style;
+}
+
+html.canvas-is-interacting .vue-flow__edges,
+html.canvas-is-interacting .cnode-player,
+html.canvas-is-interacting .cnode__media,
+html.canvas-is-interacting video {
+  pointer-events: none;
+}
+
 .canvas-align {
   position: absolute;
   inset: 0;
@@ -401,6 +422,10 @@ html.dark .canvas-edge.is-live .canvas-edge__line {
   animation: canvas-edge-flow var(--edge-period, 5s) linear infinite;
 }
 
+html.canvas-is-interacting .canvas-edge__flow-g.is-run .canvas-edge__flow {
+  animation-play-state: paused;
+}
+
 @keyframes canvas-edge-flow {
   from {
     stroke-dashoffset: 0;
@@ -432,17 +457,9 @@ html.dark .canvas-edge.is-live .canvas-edge__line {
 
 .canvas-edge__flow.is-cell {
   stroke-width: var(--edge-cell, 3.6px);
-  stroke-linecap: butt;
-  stroke-linejoin: miter;
+  stroke-linecap: round;
+  stroke-opacity: 0.92;
 }
-
-.canvas-edge__flow.is-cell-0 { stroke-opacity: 0.14; }
-.canvas-edge__flow.is-cell-1 { stroke-opacity: 0.26; }
-.canvas-edge__flow.is-cell-2 { stroke-opacity: 0.38; }
-.canvas-edge__flow.is-cell-3 { stroke-opacity: 0.52; }
-.canvas-edge__flow.is-cell-4 { stroke-opacity: 0.66; }
-.canvas-edge__flow.is-cell-5 { stroke-opacity: 0.82; }
-.canvas-edge__flow.is-cell-6 { stroke-opacity: 1; }
 
 html.dark .canvas-edge__flow {
   stroke: #a78bfa;

@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { ossVideoSnapshotUrl } from '~/utils/canvas-video-frame'
+
 const props = defineProps<{
   src: string
   mutedForced?: boolean
@@ -28,6 +30,10 @@ const cropStyle = computed(() => {
 const { t } = useI18n()
 const wrapRef = ref<HTMLElement | null>(null)
 const videoRef = ref<HTMLVideoElement | null>(null)
+const posterRef = ref<HTMLImageElement | null>(null)
+const hydrated = ref(Boolean(props.alwaysOn))
+const poster = computed(() => ossVideoSnapshotUrl(props.src, 0.04, 400))
+let sizeProbe: HTMLVideoElement | null = null
 const playing = ref(false)
 const currentTime = ref(0)
 const duration = ref(0)
@@ -76,7 +82,55 @@ function publishMeta() {
     emit('meta', { width, height })
 }
 
+function publishSize(width: number, height: number) {
+  if (width > 0 && height > 0)
+    emit('meta', { width, height })
+}
+
+function onPosterLoad(event: Event) {
+  const img = event.target as HTMLImageElement
+  publishSize(img.naturalWidth, img.naturalHeight)
+}
+
+function emitPosterSize() {
+  const img = posterRef.value
+  if (img?.complete)
+    publishSize(img.naturalWidth, img.naturalHeight)
+}
+
+function disposeSizeProbe() {
+  if (!sizeProbe)
+    return
+  sizeProbe.removeAttribute('src')
+  sizeProbe.load()
+  sizeProbe = null
+}
+
+function probeVideoSize() {
+  if (hydrated.value || sizeProbe)
+    return
+  const probe = document.createElement('video')
+  probe.preload = 'metadata'
+  probe.muted = true
+  probe.playsInline = true
+  probe.src = props.src
+  sizeProbe = probe
+  probe.addEventListener('loadedmetadata', () => {
+    publishSize(probe.videoWidth, probe.videoHeight)
+    disposeSizeProbe()
+  }, { once: true })
+}
+
+function hydratePlayer() {
+  hydrated.value = true
+  disposeSizeProbe()
+}
+
 async function togglePlay() {
+  if (!hydrated.value) {
+    hydratePlayer()
+    await nextTick()
+  }
   const video = videoRef.value
   if (!video)
     return
@@ -135,9 +189,12 @@ function onWrapClick() {
 onMounted(() => {
   document.addEventListener('fullscreenchange', onFsChange)
   publishMeta()
+  nextTick(emitPosterSize)
+  probeVideoSize()
 })
 onUnmounted(() => {
   document.removeEventListener('fullscreenchange', onFsChange)
+  disposeSizeProbe()
   if (document.fullscreenElement === (wrapRef.value as unknown as Element | null))
     void document.exitFullscreen().catch(() => {})
 })
@@ -148,13 +205,23 @@ onUnmounted(() => {
     ref="wrapRef"
     class="cnode-player"
     :class="{ 'is-on': showChrome, 'is-playing': playing, nodrag: alwaysOn, nopan: alwaysOn, nowheel: alwaysOn }"
-    @pointerenter="hovering = true"
+    @pointerenter="hovering = true; hydratePlayer()"
     @pointerleave="hovering = false"
     @pointerdown="alwaysOn ? $event.stopPropagation() : undefined"
     @click="onWrapClick"
     @dblclick.stop
   >
+    <img
+      v-if="!hydrated && poster"
+      ref="posterRef"
+      class="cnode-player__video"
+      :src="poster"
+      alt=""
+      draggable="false"
+      @load="onPosterLoad"
+    >
     <video
+      v-if="hydrated"
       ref="videoRef"
       class="cnode-player__video"
       :class="{ 'is-crop': cropStyle }"

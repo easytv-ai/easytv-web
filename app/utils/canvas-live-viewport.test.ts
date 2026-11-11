@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { canvasLiveHudTransform, sameCanvasLiveViewport } from './canvas-live-viewport'
+import { canvasLiveHudTransform, canvasPaneTransform, sameCanvasLiveViewport } from './canvas-live-viewport'
 
 describe('canvasLiveHudTransform', () => {
   const origin = { left: 100, top: 50 }
@@ -31,6 +31,11 @@ describe('canvasLiveHudTransform', () => {
       { x: 3, y: 4, zoom: 1 },
       origin,
     )).toBe('')
+  })
+
+  it('世界层 transform 与 Vue Flow 同格式', () => {
+    expect(canvasPaneTransform({ x: 24, y: -8, zoom: 1 })).toBe('translate(24px, -8px) scale(1)')
+    expect(canvasPaneTransform({ x: 0, y: 0, zoom: 2 })).toBe('translate(0px, 0px) scale(2)')
   })
 
   it('视口相等比较', () => {

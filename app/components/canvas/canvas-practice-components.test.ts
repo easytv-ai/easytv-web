@@ -479,8 +479,9 @@ describe('CanvasWorkspace（只读闸与接口交接）（§八.4、§八.5、§
     expect(ws).toContain('@move-start="onFlowMoveStart"')
     expect(functionBody(ws, 'onNodeClick')).toContain('practiceCamera.cancel()')
     expect(functionBody(ws, 'onNodeDragStart')).toContain('practiceCamera.cancel()')
-    // Ctrl/⌘+滚轮被 Workspace 捕获阶段截走，Vue Flow 的 move-start 收不到，得自己取消补间
-    expect(functionBody(ws, 'onWindowWheel')).toContain('practiceCamera.cancel()')
+    // 滚轮平移/缩放都走捕获阶段，Vue Flow 的 move-start 收不到，pulseLiveViewport 里取消补间
+    expect(functionBody(ws, 'pulseLiveViewport')).toContain('practiceCamera.cancel()')
+    expect(functionBody(ws, 'onWindowWheel')).toContain('pulseLiveViewport()')
     expect(ws).toContain('@move-start')
   })
 

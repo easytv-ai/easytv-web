@@ -1,38 +1,23 @@
 <script setup lang="ts">
 import type { NodeProps } from '@vue-flow/core'
 import { useVueFlow } from '@vue-flow/core'
-import { collapseLayoutForKids, groupThumbOf, isNodeLocked, type CanvasFlowNode, type CanvasGroupData, type GroupThumb } from '~/utils/canvas-group'
+import { type CanvasGroupData, type GroupThumb } from '~/utils/canvas-group'
 import { CANVAS_CHANGE_KEY } from '~/utils/canvas-change'
+import { CANVAS_NODE_VIEW_KEY, CANVAS_ZOOM_KEY, EMPTY_CANVAS_NODE_VIEW } from '~/utils/canvas-node-view'
 
 const props = defineProps<NodeProps<CanvasGroupData>>()
-const { getNodes, updateNode, viewport } = useVueFlow('easytv-canvas')
+const { updateNode } = useVueFlow('easytv-canvas')
+const nodeView = inject(CANVAS_NODE_VIEW_KEY, shallowRef(EMPTY_CANVAS_NODE_VIEW))
+const readZoom = inject(CANVAS_ZOOM_KEY, () => 1)
 const canvasChange = inject(CANVAS_CHANGE_KEY, null)
-const groupLocked = computed(() => {
-  const self = getNodes.value.find(node => node.id === props.id) as CanvasFlowNode | undefined
-  return isNodeLocked(self || { id: props.id, data: props.data, parentNode: props.parentNodeId } as CanvasFlowNode, getNodes.value as CanvasFlowNode[])
-})
-
-const thumbLayout = computed(() => {
-  const kids = getNodes.value.filter(node => node.parentNode === props.id)
-  return collapseLayoutForKids(kids, props.data.layout)
-})
+const groupLocked = computed(() => Boolean(nodeView.value.locked[props.id]))
+const groupView = computed(() => nodeView.value.groups[props.id])
+const thumbLayout = computed(() => groupView.value?.layout || props.data.layout)
+const thumbs = computed(() => groupView.value?.thumbs || props.data.thumbs || [])
 
 type Corner = 'tl' | 'tr' | 'bl' | 'br'
 
 const posterMiss = ref<Record<string, boolean>>({})
-
-const thumbs = computed(() => {
-  const live = getNodes.value
-    .filter(node => node.parentNode === props.id)
-    .sort((a, b) => {
-      if (thumbLayout.value === 'col')
-        return a.position.y === b.position.y ? a.position.x - b.position.x : a.position.y - b.position.y
-      return a.position.x === b.position.x ? a.position.y - b.position.y : a.position.x - b.position.x
-    })
-    .map(node => groupThumbOf(node as CanvasFlowNode))
-  const saved = props.data.thumbs || []
-  return live.some(item => item.media || item.text) ? live : (saved.length ? saved : live)
-})
 
 function thumbImage(item: GroupThumb) {
   if (item.poster && !posterMiss.value[item.id])
@@ -56,7 +41,7 @@ function onResize(event: PointerEvent, corner: Corner) {
   el.setPointerCapture(event.pointerId)
 
   function onMove(move: PointerEvent) {
-    const z = viewport.value.zoom || 1
+    const z = readZoom()
     const dx = (move.clientX - startX) / z
     const dy = (move.clientY - startY) / z
     let w = startW
@@ -118,16 +103,11 @@ function onResize(event: PointerEvent, corner: Corner) {
           v-if="thumbImage(item)"
           :src="thumbImage(item)"
           alt=""
+          loading="lazy"
+          decoding="async"
           draggable="false"
           @error="posterMiss[item.id] = true"
         >
-        <video
-          v-else-if="item.media && item.video"
-          :src="`${item.media}#t=0.1`"
-          muted
-          playsinline
-          preload="auto"
-        />
         <i v-else-if="item.text">{{ item.text }}</i>
       </span>
     </div>

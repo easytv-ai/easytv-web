@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { CANVAS_EDGE_FLOW_CELLS, CANVAS_EDGE_THICKNESS, canvasEdgeFlowCellDelay, canvasEdgeFlowLayout, canvasEdgeFlowSpeed } from './canvas-edge-flow'
+import { readFileSync } from 'node:fs'
+import { CANVAS_EDGE_FLOW_CELLS, CANVAS_EDGE_THICKNESS, canvasEdgeFlowCellDelay, canvasEdgeFlowDash, canvasEdgeFlowLayout, canvasEdgeFlowSpeed } from './canvas-edge-flow'
 
 describe('canvasEdgeFlowLayout', () => {
   it('空线没有光斑', () => {
@@ -37,5 +38,24 @@ describe('canvasEdgeFlowLayout', () => {
     expect(canvasEdgeFlowCellDelay(0)).toBe(0)
     expect(canvasEdgeFlowCellDelay(1)).toBeCloseTo(-5 / 49, 8)
     expect(canvasEdgeFlowCellDelay(6)).toBeCloseTo(-30 / 49, 8)
+  })
+
+  it('选中流动用单位路径 dash，不按像素测长', () => {
+    const dash = canvasEdgeFlowDash()
+    const layout = canvasEdgeFlowLayout(1)
+    expect(dash.wrap).toBe(`${layout.slugLen} ${Math.max(layout.gap, 0.001)}`)
+    expect(dash.cycle).toBe(-1)
+    expect(dash.thickness).toBe(CANVAS_EDGE_THICKNESS)
+  })
+})
+
+describe('CanvasEdgeFlow', () => {
+  it('一条线只画三层光带，不测 getTotalLength、不叠 7 格 path', () => {
+    const src = readFileSync(new URL('../components/canvas/CanvasEdgeFlow.vue', import.meta.url), 'utf8')
+    expect(src).toContain('pathLength')
+    expect(src).toContain('canvasEdgeFlowDash')
+    expect(src).not.toContain('getTotalLength')
+    expect(src).not.toContain('CELL_INDEXES')
+    expect(src).not.toContain('is-cell-')
   })
 })

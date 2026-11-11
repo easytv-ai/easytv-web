@@ -39,6 +39,20 @@ export function canvasLiveHudTransform(
   return `translate(${tx}px, ${ty}px) scale(${scale})`
 }
 
+/** 与 Vue Flow 世界层同一条 transform，滚轮平移直接写 DOM，不经过 setViewport。 */
+export function canvasPaneTransform(vp: CanvasLiveViewport) {
+  const zoom = vp.zoom || 1
+  return `translate(${vp.x}px, ${vp.y}px) scale(${zoom})`
+}
+
+export function applyCanvasPaneTransform(el: HTMLElement | null, vp: CanvasLiveViewport) {
+  if (!el)
+    return
+  el.style.transformOrigin = '0 0'
+  el.style.transform = canvasPaneTransform(vp)
+  el.style.willChange = 'transform'
+}
+
 export function applyCanvasLiveHud(
   el: HTMLElement | null,
   transform: string,

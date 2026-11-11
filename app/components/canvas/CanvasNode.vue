@@ -6,7 +6,6 @@ import {
   canvasFitMediaSize,
   canvasMediaSizeClose,
   canvasNodeIcon,
-  canvasKindIndex,
   canvasStageSize,
   hdNodeTag,
   isAudioTrackNode,
@@ -28,8 +27,8 @@ import CanvasFramePanel from '~/components/canvas/CanvasFramePanel.vue'
 import { CANVAS_CHANGE_KEY } from '~/utils/canvas-change'
 import { CANVAS_STALE_KEY } from '~/utils/canvas-upstream'
 import { practiceSessionDefault, type PracticeSession } from '~/composables/useCanvasPractice'
-import { displayedClickToImage, emptyMarkPick, type CanvasMarkElement, type CanvasMarkPick } from '~/utils/canvas-mark'
-import { absPosition, isNodeLocked, nodeSize, type CanvasFlowNode } from '~/utils/canvas-group'
+import { displayedClickToImage, emptyMarkPick, type CanvasMarkPick } from '~/utils/canvas-mark'
+import { CANVAS_NODE_VIEW_KEY, CANVAS_ZOOM_KEY, EMPTY_CANVAS_NODE_VIEW } from '~/utils/canvas-node-view'
 import { CANVAS_STORYBOARD_KEY, storyboardShotsOf, STORYBOARD_MAX, type StoryboardShot } from '~/utils/canvas-storyboard'
 
 const { t } = useI18n()
@@ -37,7 +36,9 @@ const { t } = useI18n()
 const { langLabel } = useLangs()
 
 const props = defineProps<NodeProps<CanvasNodeData>>()
-const { updateNode, updateNodeData, updateNodeInternals, viewport, nodes, findNode } = useVueFlow('easytv-canvas')
+const { updateNode, updateNodeData, updateNodeInternals } = useVueFlow('easytv-canvas')
+const nodeView = inject(CANVAS_NODE_VIEW_KEY, shallowRef(EMPTY_CANVAS_NODE_VIEW))
+const readZoom = inject(CANVAS_ZOOM_KEY, () => 1)
 const textRef = ref<HTMLTextAreaElement | null>(null)
 const mediaRef = ref<HTMLImageElement | null>(null)
 const stagePreset = computed(() => canvasStageSize(props.data.kind) ?? { w: 252, h: 220, minW: 160, minH: 140 })
@@ -73,10 +74,7 @@ watch(() => storyboardShots.value.map(item => `${item.id}\n${item.prompt}\n${ite
 const practiceSession = useState<PracticeSession>('canvas-practice', practiceSessionDefault)
 /** 跟练进行中：上传 / 替换看起来就能点，点了才弹只读提示。这里直接禁用。 */
 const practiceLocked = computed(() => practiceSession.value.active)
-const nodeLocked = computed(() => {
-  const self = findNode(props.id) as CanvasFlowNode | undefined
-  return isNodeLocked(self || { id: props.id, data: props.data } as CanvasFlowNode, nodes.value as CanvasFlowNode[])
-})
+const nodeLocked = computed(() => Boolean(nodeView.value.locked[props.id]))
 /** 跟练或节点（含父组）锁定：卡片上的写入入口一起冻住 */
 const writeFrozen = computed(() => practiceLocked.value || nodeLocked.value)
 const isMediaCard = computed(() => isStage.value && !isText.value)
@@ -149,28 +147,7 @@ const imagePreviewOpen = ref(false)
 const markPickOn = computed(() => canvasMarkPick.value.open)
 const markAnalyzing = computed(() => markPickOn.value && canvasMarkPick.value.analyzingId === props.id)
 const markAble = computed(() => markPickOn.value && isImage.value && Boolean(imageSrc.value))
-const markBoxes = computed(() => {
-  if (!markPickOn.value)
-    return []
-  const baseline = new Set(canvasMarkPick.value.baselineIds ?? [])
-  const out: Array<{ id: string, name: string, box: CanvasMarkElement['box'] }> = []
-  for (const node of nodes.value) {
-    const items = ((node.data as any)?.markElements ?? []) as CanvasMarkElement[]
-    for (const item of items) {
-      if (item.sourceNodeId !== props.id)
-        continue
-      // 上一轮留下的框不画，只显示本轮新点的
-      if (baseline.has(item.id))
-        continue
-      out.push({
-        id: item.id,
-        name: item.name,
-        box: item.box,
-      })
-    }
-  }
-  return out
-})
+const markBoxes = computed(() => nodeView.value.marks[props.id] ?? [])
 
 function markBoxStyle(box: CanvasMarkElement['box']) {
   return {
@@ -288,7 +265,7 @@ const kindNo = computed(() => {
     return 0
   if (isHd.value || isRetake.value || isFramePull.value || isDepthMotion.value || isCrop.value || isAudioTrack.value || isSilent.value || isFrameCapture.value)
     return 0
-  return canvasKindIndex(nodes.value, props.id, kind)
+  return nodeView.value.kindNo[props.id] || 0
 })
 const stageSize = computed(() => {
   if (!isStage.value)
@@ -413,14 +390,8 @@ function applyStageSize(w: number, h: number, syncFlow = true) {
 
 /** 文本节点以节点记录的宽高为准，避免 markdown 预览异步测量把卡片撑歪 */
 function textStageTarget() {
-  const node = findNode(props.id)
-  const style = node && typeof node.style === 'object' && node.style
-    ? node.style as Record<string, string | number>
-    : null
-  const styleW = Number.parseFloat(String(style?.width ?? ''))
-  const styleH = Number.parseFloat(String(style?.height ?? ''))
-  const w = Number(node?.width) || (Number.isFinite(styleW) ? styleW : 0) || stagePreset.value.w
-  const h = Number(node?.height) || (Number.isFinite(styleH) ? styleH : 0) || stagePreset.value.h
+  const w = Number(props.dimensions?.width) || Number(props.width) || stagePreset.value.w
+  const h = Number(props.dimensions?.height) || Number(props.height) || stagePreset.value.h
   return {
     w: w > 0 ? w : stagePreset.value.w,
     h: h > 0 ? h : stagePreset.value.h,
@@ -526,7 +497,7 @@ function onResizeStart(event: PointerEvent) {
   el.setPointerCapture(event.pointerId)
 
   function onMove(move: PointerEvent) {
-    const z = viewport.value.zoom || 1
+    const z = readZoom()
     const w = Math.max(stagePreset.value.minW, startW + (move.clientX - startX) / z)
     const h = Math.max(stagePreset.value.minH, startH + (move.clientY - startY) / z)
     applyStageSize(w, h, false)
@@ -804,6 +775,8 @@ onMounted(() => {
           class="cnode__media"
           :src="imageSrc"
           alt=""
+          loading="lazy"
+          decoding="async"
           draggable="false"
           @load="onMediaLoad"
         >

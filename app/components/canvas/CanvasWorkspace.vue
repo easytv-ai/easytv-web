@@ -3,6 +3,13 @@ import { ConnectionLineType, ConnectionMode, Position, SelectionMode, VueFlow, g
 import { Background } from '@vue-flow/background'
 import type { Connection, Edge, EdgeChange, NodeChange, NodeDragEvent, NodeMouseEvent } from '@vue-flow/core'
 import { CANVAS_CHANGE_KEY } from '~/utils/canvas-change'
+import {
+  CANVAS_NODE_VIEW_KEY,
+  CANVAS_ZOOM_KEY,
+  EMPTY_CANVAS_NODE_VIEW,
+  buildCanvasNodeView,
+  canvasNodeViewStamp,
+} from '~/utils/canvas-node-view'
 import { CANVAS_STORYBOARD_KEY, storyboardExpandPlan, storyboardShotsOf } from '~/utils/canvas-storyboard'
 import { pickImageEditModel, pickVisionTextModel, preferredImageModel } from '~/utils/image-input'
 import { hasNativeAudio } from '~/utils/canvas-talking'
@@ -101,13 +108,18 @@ import { composeClipDuration, composeGuessAspect, composeOrder, composeReady, ty
 import { isMergeResult, MergeVideoError, mergeShotIndex, mergeVideoOrder } from '~/utils/canvas-video-merge'
 import { canvasMergeRunning, flushMergeUploads, publishMergeProgress, trackMergeUpload } from '~/utils/canvas-merge-state'
 import { probeMediaDuration } from '~/utils/canvas-video-frame'
+import { canvasViewportSettled } from '~/utils/canvas-viewport-tween'
 import { subtitleSourceNodes } from '~/utils/timeline'
 import { parseStyleExtract, styleExtractInstruction } from '~/utils/canvas-style-extract'
 import { dedupeRefNames, type RefCandidate } from '~/utils/canvas-autolink'
 import {
   CANVAS_MAX_ZOOM,
   CANVAS_MIN_ZOOM,
+  CANVAS_WHEEL_IDLE_MS,
   canvasViewportAtFlowPoint,
+  canvasWheelPanDelta,
+  canvasWheelPanFollow,
+  canvasWheelPanTarget,
   canvasWheelZoomDelta,
   clampCanvasZoom,
 } from '~/utils/canvas-wheel-zoom'
@@ -136,6 +148,7 @@ import { snapNodeAlign, type AlignGuide } from '~/utils/canvas-align'
 import { canvasCenterFlowPoint, canvasClampMenu, canvasOrganizePositions } from '~/utils/canvas-viewport'
 import {
   applyCanvasLiveHud,
+  applyCanvasPaneTransform,
   canvasLiveHudTransform,
   copyCanvasLiveViewport,
   sameCanvasLiveViewport,
@@ -288,6 +301,10 @@ const liveHudRef = ref<HTMLElement | null>(null)
 let liveHudStart: CanvasLiveViewport | null = null
 let liveHudOrigin = { left: 0, top: 0 }
 let liveHudWheelIdle = 0
+let wheelPanRaf = 0
+let wheelPanLastTs = 0
+let wheelPanShown: CanvasLiveViewport | null = null
+let wheelPanTarget: CanvasLiveViewport | null = null
 
 const nodes = ref<CanvasFlowNode[]>([])
 const edges = ref<Edge[]>([])
@@ -777,17 +794,73 @@ function beginLiveViewport() {
   document.documentElement.classList.add('canvas-is-interacting')
 }
 
+function canvasTransformPane() {
+  return document.querySelector('.canvas-flow .vue-flow__transformationpane') as HTMLElement | null
+}
+
+function paintWheelPan(shown: CanvasLiveViewport) {
+  applyCanvasPaneTransform(canvasTransformPane(), shown)
+  if (!liveHudStart)
+    return
+  applyCanvasLiveHud(
+    liveHudRef.value,
+    canvasLiveHudTransform(liveHudStart, shown, liveHudOrigin),
+    true,
+  )
+}
+
+function tickWheelPan(now: number) {
+  if (!wheelPanShown || !wheelPanTarget)
+    return
+  const dt = wheelPanLastTs ? Math.min(32, now - wheelPanLastTs) : 16
+  wheelPanLastTs = now
+  wheelPanShown = canvasWheelPanFollow(wheelPanShown, wheelPanTarget, dt)
+  paintWheelPan(wheelPanShown)
+  if (canvasViewportSettled(wheelPanShown, wheelPanTarget)) {
+    wheelPanRaf = 0
+    return
+  }
+  wheelPanRaf = requestAnimationFrame(tickWheelPan)
+}
+
+function commitWheelPan() {
+  if (wheelPanRaf) {
+    cancelAnimationFrame(wheelPanRaf)
+    wheelPanRaf = 0
+  }
+  const next = wheelPanTarget || wheelPanShown
+  wheelPanTarget = null
+  wheelPanShown = null
+  wheelPanLastTs = 0
+  if (!next)
+    return
+  applyCanvasPaneTransform(canvasTransformPane(), next)
+  setViewport({ x: next.x, y: next.y, zoom: next.zoom || 1 })
+}
+
+function pulseLiveViewport() {
+  practiceCamera.cancel()
+  beginLiveViewport()
+  window.clearTimeout(liveHudWheelIdle)
+  liveHudWheelIdle = window.setTimeout(() => {
+    liveHudWheelIdle = 0
+    endLiveViewport()
+  }, CANVAS_WHEEL_IDLE_MS)
+}
+
 function endLiveViewport() {
   if (liveHudWheelIdle) {
     window.clearTimeout(liveHudWheelIdle)
     liveHudWheelIdle = 0
   }
+  commitWheelPan()
   liveHudStart = null
   applyCanvasLiveHud(liveHudRef.value, '', false)
   document.documentElement.classList.remove('canvas-is-interacting')
   const next = copyCanvasLiveViewport(viewport.value)
   if (!sameCanvasLiveViewport(committedViewport.value, next))
     committedViewport.value = next
+  refreshCanvasNodeView()
 }
 
 function onFlowMoveStart() {
@@ -801,18 +874,18 @@ function onFlowMoveEnd() {
 
 watch(
   () => [viewport.value.x, viewport.value.y, viewport.value.zoom] as const,
-  () => {
+  (next) => {
+    const live = { x: next[0], y: next[1], zoom: next[2] || 1 }
     if (liveHudStart) {
       applyCanvasLiveHud(
         liveHudRef.value,
-        canvasLiveHudTransform(liveHudStart, copyCanvasLiveViewport(viewport.value), liveHudOrigin),
+        canvasLiveHudTransform(liveHudStart, live, liveHudOrigin),
         true,
       )
       return
     }
-    const next = copyCanvasLiveViewport(viewport.value)
-    if (!sameCanvasLiveViewport(committedViewport.value, next))
-      committedViewport.value = next
+    if (!sameCanvasLiveViewport(committedViewport.value, live))
+      committedViewport.value = live
   },
 )
 
@@ -2457,6 +2530,21 @@ let chatPickHandler: ((assets: Asset[]) => void) | null = null
 
 const canvasMarkPick = useState<CanvasMarkPick>('canvas-mark-pick', emptyMarkPick)
 const canvasMarkTap = useState<{ seq: number, nodeId: string, x: number, y: number } | null>('canvas-mark-tap', () => null)
+const canvasNodeView = shallowRef(EMPTY_CANVAS_NODE_VIEW)
+function refreshCanvasNodeView() {
+  canvasNodeView.value = buildCanvasNodeView(nodes.value, canvasMarkPick.value)
+}
+watch(
+  () => canvasNodeViewStamp(nodes.value, canvasMarkPick.value),
+  () => {
+    if (liveHudStart)
+      return
+    refreshCanvasNodeView()
+  },
+  { immediate: true },
+)
+provide(CANVAS_NODE_VIEW_KEY, canvasNodeView)
+provide(CANVAS_ZOOM_KEY, () => viewport.value.zoom || 1)
 /** 原片时长（秒），悬浮条估复刻扣分用 */
 const viralSourceSeconds = ref(0)
 /** 用户在悬浮条上手动选的参数；空串 / 0 = 自动（跟原片） */
@@ -3443,6 +3531,7 @@ function onNodeDragStop() {
   dragAlignOthers = null
   dragAlignKey = ''
   alignGuides.value = []
+  refreshCanvasNodeView()
   pushHistory()
 }
 
@@ -3629,31 +3718,47 @@ function onUserZoomDraft() {
  * 浏览器就去改页面缩放。捕获阶段拦下来，整张画布（含节点）都按指针位置缩放。
  */
 function onWindowWheel(event: WheelEvent) {
-  if (!(event.ctrlKey || event.metaKey) || document.fullscreenElement)
+  if (document.fullscreenElement)
     return
   const el = event.target instanceof Element ? event.target : null
-  if (!el?.closest('.canvas-workspace'))
+  if (event.ctrlKey || event.metaKey) {
+    if (!el?.closest('.canvas-workspace'))
+      return
+    event.preventDefault()
+    event.stopImmediatePropagation()
+    if (!event.deltaY)
+      return
+    // 捕获阶段截走事件后 Vue Flow 的 @move-start 收不到：跟练的相机补间若在飞，
+    // 不在这里取消的话它会每帧把用户刚缩的 zoom 写回补间起点（§6.3「打断与取消」的滚轮一路）
+    pulseLiveViewport()
+    const current = viewport.value
+    const zoom = current.zoom || 1
+    const nextZoom = clampCanvasZoom(zoom * 2 ** canvasWheelZoomDelta(event, isMac.value))
+    if (Math.abs(nextZoom - zoom) < 1e-6)
+      return
+    const flowPoint = screenToFlowCoordinate({ x: event.clientX, y: event.clientY })
+    setViewport(canvasViewportAtFlowPoint({ ...current, zoom }, flowPoint, nextZoom))
+    return
+  }
+  if (!canvasWheelPanTarget(event.target))
     return
   event.preventDefault()
   event.stopImmediatePropagation()
-  if (!event.deltaY)
+  const delta = canvasWheelPanDelta(event)
+  if (!delta.x && !delta.y)
     return
-  // 捕获阶段截走事件后 Vue Flow 的 @move-start 收不到：跟练的相机补间若在飞，
-  // 不在这里取消的话它会每帧把用户刚缩的 zoom 写回补间起点（§6.3「打断与取消」的滚轮一路）
-  practiceCamera.cancel()
-  beginLiveViewport()
-  window.clearTimeout(liveHudWheelIdle)
-  liveHudWheelIdle = window.setTimeout(() => {
-    liveHudWheelIdle = 0
-    endLiveViewport()
-  }, 120)
-  const current = viewport.value
-  const zoom = current.zoom || 1
-  const nextZoom = clampCanvasZoom(zoom * 2 ** canvasWheelZoomDelta(event, isMac.value))
-  if (Math.abs(nextZoom - zoom) < 1e-6)
+  pulseLiveViewport()
+  if (!wheelPanShown || !wheelPanTarget) {
+    const current = copyCanvasLiveViewport(viewport.value)
+    wheelPanShown = current
+    wheelPanTarget = copyCanvasLiveViewport(current)
+    wheelPanLastTs = 0
+  }
+  wheelPanTarget.x += delta.x
+  wheelPanTarget.y += delta.y
+  if (wheelPanRaf)
     return
-  const flowPoint = screenToFlowCoordinate({ x: event.clientX, y: event.clientY })
-  setViewport(canvasViewportAtFlowPoint({ ...current, zoom }, flowPoint, nextZoom))
+  wheelPanRaf = requestAnimationFrame(tickWheelPan)
 }
 
 function toggleHideEdges() {
@@ -6373,8 +6478,7 @@ const styleLibValue = computed(() => {
       :snap-to-grid="snapOn"
       :snap-grid="SNAP_GRID"
       :zoom-on-scroll="false"
-      :pan-on-scroll="true"
-      :pan-on-scroll-speed="0.85"
+      :pan-on-scroll="false"
       :zoom-on-pinch="true"
       :zoom-activation-key-code="['Control', 'Meta']"
       :prevent-scrolling="true"
@@ -6391,7 +6495,7 @@ const styleLibValue = computed(() => {
       :connection-mode="ConnectionMode.Strict"
       :is-valid-connection="isValidConnection"
       :connection-line-type="ConnectionLineType.Bezier"
-      :only-render-visible-elements="true"
+      :only-render-visible-elements="false"
       class="canvas-flow"
       :class="{
         'is-pan': isPanning,
