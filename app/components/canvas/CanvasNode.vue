@@ -390,8 +390,8 @@ function applyStageSize(w: number, h: number, syncFlow = true) {
 
 /** 文本节点以节点记录的宽高为准，避免 markdown 预览异步测量把卡片撑歪 */
 function textStageTarget() {
-  const w = Number(props.dimensions?.width) || Number(props.width) || stagePreset.value.w
-  const h = Number(props.dimensions?.height) || Number(props.height) || stagePreset.value.h
+  const w = Number(props.dimensions?.width) || stagePreset.value.w
+  const h = Number(props.dimensions?.height) || stagePreset.value.h
   return {
     w: w > 0 ? w : stagePreset.value.w,
     h: h > 0 ? h : stagePreset.value.h,

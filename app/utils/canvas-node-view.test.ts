@@ -95,11 +95,13 @@ describe('buildCanvasNodeView', () => {
       data: { kind: 'video', label: '', content: 'https://cdn.example/a.mp4', prompt: '', mode: 'idle' },
     })
     const view = buildCanvasNodeView([group, kid])
-    expect(view.groups.g.layout).toBe('row')
-    expect(view.groups.g.thumbs).toHaveLength(1)
-    expect(view.groups.g.thumbs[0].id).toBe('v1')
-    expect(view.groups.g.thumbs[0].video).toBe(true)
-    expect(view.groups.g.thumbs[0].media).toContain('a.mp4')
+    const grouped = view.groups.g
+    expect(grouped).toBeDefined()
+    expect(grouped?.layout).toBe('row')
+    expect(grouped?.thumbs).toHaveLength(1)
+    expect(grouped?.thumbs[0]?.id).toBe('v1')
+    expect(grouped?.thumbs[0]?.video).toBe(true)
+    expect(grouped?.thumbs[0]?.media).toContain('a.mp4')
   })
 })
 
