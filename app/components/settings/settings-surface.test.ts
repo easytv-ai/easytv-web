@@ -17,6 +17,13 @@ describe('设置弹窗产品面', () => {
     expect(tabs).toContain("export type SettingsTab = 'profile'")
   })
 
+  it('消息中心标题栏有全部已读文字按钮', () => {
+    const src = readFileSync('app/components/studio/StudioInbox.vue', 'utf8')
+    expect(src).toContain('inbox-panel__mark-all')
+    expect(src).toContain("t('inbox.markAll')")
+    expect(src).not.toContain('i-lucide-check-check')
+  })
+
   it('站内不再跳 /settings 页面，统一打开设置弹窗', () => {
     for (const file of [
       'app/components/studio/StudioUserMenu.vue',

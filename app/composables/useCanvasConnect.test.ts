@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { ref } from 'vue'
 import type { CanvasFlowNode } from '~/utils/canvas-group'
-import { canvasIsAutoConnectedPrompt, useCanvasConnect } from './useCanvasConnect'
+import { canvasFollowPromptFromText, canvasIsAutoConnectedPrompt, useCanvasConnect } from './useCanvasConnect'
 
 describe('canvasIsAutoConnectedPrompt', () => {
   it('只认连线自动写入的提示词', () => {
@@ -40,6 +40,30 @@ function makeStore(prompt: string, upstreamText = '一段上游文本') {
 }
 
 const link = { source: 'text-1', target: 'image-1', sourceHandle: 'out', targetHandle: 'in' }
+
+describe('canvasFollowPromptFromText', () => {
+  it('下游提示词整段换成当前正文，不拼接旧文', () => {
+    expect(canvasFollowPromptFromText('一段上游文本', '一段上游文本', '改过的文本', '改过的文本')).toBe('改过的文本')
+    expect(canvasFollowPromptFromText('用户写的\n\n一段上游文本', '一段上游文本', '改过的文本', '改过的文本')).toBe('改过的文本')
+    expect(canvasFollowPromptFromText('完全手写的提示词', '一段上游文本', '改过的文本', '改过的文本')).toBe('改过的文本')
+    expect(canvasFollowPromptFromText('一段上游文本', '一段上游文本', '一段上游文本加一句', '一段上游文本加一句')).toBe('一段上游文本加一句')
+  })
+
+  it('已经是当前正文时不再写一次', () => {
+    expect(canvasFollowPromptFromText('改过的文本', '一段上游文本', '改过的文本', '改过的文本')).toBeNull()
+  })
+})
+
+describe('followConnectedText', () => {
+  it('文本改了之后图片提示词跟着换成新正文', () => {
+    const { connect, promptOf, nodes } = makeStore('一段上游文本')
+    connect.linkNodes(link, { mode: 'append' })
+    expect(promptOf()).toBe('一段上游文本')
+    ;(nodes.value[0]!.data as { content: string }).content = '改过的文本'
+    connect.followConnectedText('text-1', '一段上游文本', '改过的文本')
+    expect(promptOf()).toBe('改过的文本')
+  })
+})
 
 describe('linkNodes 追加模式', () => {
   it('下游提示词为空：直接填上游文本', () => {

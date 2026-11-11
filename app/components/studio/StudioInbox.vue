@@ -106,7 +106,7 @@ function onItemClick(n: Notification) {
 }
 
 async function onMarkAllRead() {
-  if (!unreadCount.value)
+  if (!hasUnread.value)
     return
   for (const n of notifications.value)
     stampRead(n)
@@ -156,6 +156,8 @@ function toggleExpand(id: string) {
   expanded.value = expanded.value === id ? null : id
 }
 
+const hasUnread = computed(() => unreadCount.value > 0 || notifications.value.some(n => !n.read_at))
+
 const TYPE_LABEL: Record<Notification['type'], string> = {
   work: '作品',
   task: '生成',
@@ -204,14 +206,12 @@ onUnmounted(() => {
             </div>
             <div class="inbox-panel__tools">
               <button
-                v-if="unreadCount"
                 type="button"
-                class="inbox-panel__prefs"
-                :aria-label="t('inbox.markAll')"
+                class="inbox-panel__mark-all"
+                :disabled="!hasUnread"
                 @click="onMarkAllRead"
               >
-                <UIcon name="i-lucide-check-check" class="size-4" />
-                <span class="canvas-tip canvas-tip--down">{{ t('inbox.markAll') }}</span>
+                {{ t('inbox.markAll') }}
               </button>
               <button type="button" class="inbox-panel__prefs" :aria-label="t('通知偏好')" @click="gotoNotifyPrefs">
                 <UIcon name="i-lucide-settings-2" class="size-4" />

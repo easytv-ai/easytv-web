@@ -1191,6 +1191,30 @@
   opacity: 0.7;
 }
 
+.inbox-panel__mark-all {
+  height: 32px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: var(--st-muted);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.inbox-panel__mark-all:hover:not(:disabled) {
+  background: var(--st-hover);
+  color: var(--st-text);
+}
+
+.inbox-panel__mark-all:disabled {
+  opacity: 0.38;
+  cursor: default;
+}
+
 .inbox-panel__prefs {
   position: relative;
   display: inline-flex;

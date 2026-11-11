@@ -310,6 +310,7 @@ const nodes = ref<CanvasFlowNode[]>([])
 const edges = ref<Edge[]>([])
 const laterConnect = {
   syncConnectedPrompt: (_id: string, _force?: boolean) => {},
+  followConnectedText: (_id: string, _prev: string, _next: string) => {},
 }
 const laterText = {
   nodePlainText: canvasNodePlainText,
@@ -410,6 +411,7 @@ watch(() => [menu.value?.source, menu.value?.target], async ([source, target]) =
   }
 }, { flush: 'post' })
 
+const lastTextPlain = new Map<string, string>()
 watch(
   () => {
     const texts: string[] = []
@@ -428,6 +430,21 @@ watch(
     return `${texts.join('\x1f')}#${images.join('\x1f')}#${links.join('|')}`
   },
   () => {
+    const seen = new Set<string>()
+    for (const node of nodes.value) {
+      if (!isContentNode(node) || node.data.kind !== 'text')
+        continue
+      seen.add(node.id)
+      const next = laterText.nodePlainText(node)
+      const prev = lastTextPlain.get(node.id)
+      lastTextPlain.set(node.id, next)
+      if (prev !== undefined && prev !== next)
+        laterConnect.followConnectedText(node.id, prev, next)
+    }
+    for (const id of [...lastTextPlain.keys()]) {
+      if (!seen.has(id))
+        lastTextPlain.delete(id)
+    }
     for (const edge of edges.value) {
       laterConnect.syncConnectedPrompt(edge.target)
       laterConnect.syncConnectedPrompt(edge.source)
@@ -1200,6 +1217,7 @@ const {
 const {
   connectedTextPrompt,
   syncConnectedPrompt,
+  followConnectedText,
   detachLinkedRef,
   linkNodes,
   isValidConnection,
@@ -1216,6 +1234,7 @@ const {
   onPromptAppended: () => notify(t('已把上游文本追加到提示词末尾，Ctrl+Z 可撤销')),
 })
 laterConnect.syncConnectedPrompt = syncConnectedPrompt
+laterConnect.followConnectedText = followConnectedText
 
 const {
   nextId,

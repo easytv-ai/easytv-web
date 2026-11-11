@@ -32,8 +32,6 @@ export function useStudioInbox() {
   }
 
   async function markAllRead() {
-    if (!unreadCount.value)
-      return
     const res = await notificationApi.read()
     if (res?.success)
       unreadCount.value = Number(res.data?.unread_count) || 0

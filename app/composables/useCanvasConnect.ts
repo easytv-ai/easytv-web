@@ -12,6 +12,15 @@ export function canvasIsAutoConnectedPrompt(text: string) {
 }
 
 /**
+ * 上游文本一改，下游提示词整段换成当前正文（不把新旧拼在一起）。
+ */
+export function canvasFollowPromptFromText(prompt: string, _prev: string, _next: string, joined: string) {
+  const current = String(prompt || '').trim()
+  const filled = String(joined || '').trim()
+  return current === filled ? null : filled
+}
+
+/**
  * 连线后同步提示词 / 参考图，以及把选中节点按顺序串起来。
  */
 export function useCanvasConnect(opts: {
@@ -191,6 +200,29 @@ export function useCanvasConnect(opts: {
     return result
   }
 
+  /** 文本节点正文变了：连着的图 / 视频提示词按 canvasFollowPromptFromText 跟着改 */
+  function followConnectedText(textId: string, prev: string, next: string) {
+    for (const mediaId of neighborIds(textId)) {
+      const media = opts.findNode(mediaId)
+      if (!media || !isContentNode(media))
+        continue
+      const kind = media.data.kind
+      if (kind !== 'image' && kind !== 'video' && kind !== 'director')
+        continue
+      const patched = canvasFollowPromptFromText(
+        String(media.data.prompt || ''),
+        prev,
+        next,
+        connectedTextPrompt(mediaId),
+      )
+      if (patched === null)
+        continue
+      if (patched === String(media.data.prompt || '').trim())
+        continue
+      opts.updateNodeData(mediaId, { prompt: patched })
+    }
+  }
+
   /**
    * 连一条线并同步两端提示词。缺省 force（程序化自动连线：上游文本直接盖下游提示词）；
    * 手拖连线等用户手势传 `{ mode: 'append' }`，用户写过的提示词只追加不盖；
@@ -275,6 +307,7 @@ export function useCanvasConnect(opts: {
     attachConnectedImages,
     detachLinkedRef,
     syncConnectedPrompt,
+    followConnectedText,
     linkNodes,
     isValidConnection,
     connectSelected,
