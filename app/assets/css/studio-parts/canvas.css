@@ -317,9 +317,9 @@ html.canvas-is-interacting video {
   pointer-events: none;
 }
 
-/* 视频在播会每帧弄脏父层。滚动时单独成层，卡片纹理只做平移。 */
-html.canvas-is-interacting video,
-html.canvas-is-interacting canvas {
+/* 卡片里的视频单独成层，别动导演台 / 裁切那些 canvas。 */
+html.canvas-is-interacting .cnode-player video,
+html.canvas-is-interacting .cnode__media video {
   transform: translateZ(0);
 }
 

@@ -165,6 +165,8 @@ import {
   canvasCullPlan,
   canvasFlowViewRect,
   revealCanvasCullDom,
+  type CanvasCullEdge,
+  type CanvasCullInput,
   type CanvasCullRect,
 } from '~/utils/canvas-viewport-cull'
 import CanvasEmpty from '~/components/canvas/CanvasEmpty.vue'
@@ -890,7 +892,7 @@ function buildCull(vp: CanvasLiveViewport) {
     if (id)
       pins.add(id)
   }
-  const boxes = canvasAbsBoxes(nodes.value.map((node) => {
+  const boxes = canvasAbsBoxes(nodes.value.map((node): CanvasCullInput => {
     const size = nodeSize(node)
     return {
       id: node.id,
@@ -903,11 +905,14 @@ function buildCull(vp: CanvasLiveViewport) {
       skip: Boolean(node.hidden),
     }
   }))
-  const edgeList = edges.value.map(edge => ({
-    id: edge.id,
-    source: edge.source,
-    target: edge.target,
-  }))
+  const edgeList: CanvasCullEdge[] = []
+  for (const edge of edges.value) {
+    edgeList.push({
+      id: edge.id,
+      source: edge.source,
+      target: edge.target,
+    })
+  }
   const margin = Math.max(view.width, view.height) * CANVAS_CULL_MARGIN_SCREENS
   return {
     boxes,

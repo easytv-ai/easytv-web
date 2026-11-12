@@ -57,7 +57,7 @@ describe('流动只画在一层上', () => {
     expect(edge).toContain('setCanvasEdgeFlowLive')
     expect(edge).not.toContain('<CanvasEdgeFlow')
     expect(layer).toContain('canvas-edge-flow-layer')
-    expect(layer).toContain('vue-flow__transformationpane')
+    expect(layer).toContain('.canvas-flow .vue-flow__transformationpane')
     expect(css).toContain('html.canvas-is-interacting .canvas-edge-flow-layer {\n  display: none;')
     expect(css).toContain('html.canvas-is-interacting .canvas-edge__flow-g.is-run .canvas-edge__flow {\n  animation: none;')
     expect(css).not.toContain('.vue-flow__transformationpane {\n  transform-origin: 0 0;\n  will-change: transform;')

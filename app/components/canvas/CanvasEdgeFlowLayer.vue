@@ -12,7 +12,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <Teleport v-if="ready" to=".vue-flow__transformationpane">
+  <Teleport v-if="ready" to=".canvas-flow .vue-flow__transformationpane">
     <svg v-show="paths.length" class="canvas-edge-flow-layer" aria-hidden="true">
       <g
         class="canvas-edge__flow-g is-run"

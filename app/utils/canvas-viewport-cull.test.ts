@@ -83,6 +83,7 @@ describe('裁剪不卸载节点', () => {
     expect(ws).toContain(':only-render-visible-elements="false"')
     expect(ws).toContain('revealCull(')
     expect(ws).toContain('scheduleRevealCull(')
+    expect(ws).toContain('const edgeList: CanvasCullEdge[] = []')
     expect(ws).toContain('applyCanvasCullDom')
     expect(ws).toContain('content-visibility')
     expect(css).not.toContain('html.canvas-is-interacting .vue-flow__edges')
