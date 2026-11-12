@@ -2,6 +2,7 @@
 import { EdgeLabelRenderer, getBezierPath, useVueFlow } from '@vue-flow/core'
 import type { EdgeProps } from '@vue-flow/core'
 import { CANVAS_NODE_VIEW_KEY, EMPTY_CANVAS_NODE_VIEW } from '~/utils/canvas-node-view'
+import { setCanvasEdgeFlowLive } from '~/utils/canvas-edge-flow-live'
 
 const { t } = useI18n()
 
@@ -32,6 +33,10 @@ const isLive = computed(() => {
   const selected = nodeView.value.selected
   return Boolean(selected[props.source] || selected[props.target])
 })
+
+watch(() => (isLive.value ? path.value : ''), (d) => {
+  setCanvasEdgeFlowLive(props.id, d || null)
+}, { immediate: true })
 
 function clientToPath(event: MouseEvent) {
   const el = hitRef.value
@@ -144,6 +149,7 @@ watch(() => pathInfo.value, (info) => {
 }, { immediate: true })
 
 onUnmounted(() => {
+  setCanvasEdgeFlowLive(props.id, null)
   window.clearTimeout(leaveTimer)
   window.clearTimeout(cutTimer)
   if (cutMoveRaf)
@@ -162,7 +168,6 @@ onUnmounted(() => {
   >
     <path ref="hitRef" class="canvas-edge__hit" :d="path" fill="none" />
     <path class="canvas-edge__line" :d="path" fill="none" />
-    <CanvasEdgeFlow v-if="isLive" :d="path" />
     <EdgeLabelRenderer>
       <div
         v-if="showCut"

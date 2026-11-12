@@ -49,6 +49,21 @@ describe('canvasEdgeFlowLayout', () => {
   })
 })
 
+describe('流动只画在一层上', () => {
+  it('单条边不再各自挂流动层，选中路径汇进同一张 SVG', () => {
+    const edge = readFileSync(new URL('../components/canvas/CanvasEdge.vue', import.meta.url), 'utf8')
+    const layer = readFileSync(new URL('../components/canvas/CanvasEdgeFlowLayer.vue', import.meta.url), 'utf8')
+    const css = readFileSync(new URL('../assets/css/studio-parts/canvas.css', import.meta.url), 'utf8').replace(/\r\n/g, '\n')
+    expect(edge).toContain('setCanvasEdgeFlowLive')
+    expect(edge).not.toContain('<CanvasEdgeFlow')
+    expect(layer).toContain('canvas-edge-flow-layer')
+    expect(layer).toContain('vue-flow__transformationpane')
+    expect(css).toContain('html.canvas-is-interacting .canvas-edge-flow-layer {\n  display: none;')
+    expect(css).toContain('html.canvas-is-interacting .canvas-edge__flow-g.is-run .canvas-edge__flow {\n  animation: none;')
+    expect(css).not.toContain('.vue-flow__transformationpane {\n  transform-origin: 0 0;\n  will-change: transform;')
+  })
+})
+
 describe('CanvasEdgeFlow', () => {
   it('一条线只画三层光带，不测 getTotalLength、不叠 7 格 path', () => {
     const src = readFileSync(new URL('../components/canvas/CanvasEdgeFlow.vue', import.meta.url), 'utf8')

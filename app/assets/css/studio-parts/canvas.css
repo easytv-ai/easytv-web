@@ -289,6 +289,10 @@
   background: var(--st-canvas);
 }
 
+.canvas-flow .vue-flow__transformationpane {
+  transform-origin: 0 0;
+}
+
 .canvas-live-hud {
   position: fixed;
   inset: 0;
@@ -298,12 +302,7 @@
   transform-origin: 0 0;
 }
 
-html.canvas-is-interacting .cnode__stage {
-  box-shadow: none;
-}
-
-html.canvas-is-interacting .vue-flow__transformationpane,
-html.canvas-is-interacting .vue-flow__viewport {
+html.canvas-is-interacting .vue-flow__transformationpane {
   will-change: transform;
 }
 
@@ -312,15 +311,16 @@ html.canvas-is-interacting .vue-flow__edge {
   pointer-events: none;
 }
 
-html.canvas-is-interacting .vue-flow__node {
-  contain: layout style;
-}
-
-html.canvas-is-interacting .vue-flow__edges,
 html.canvas-is-interacting .cnode-player,
 html.canvas-is-interacting .cnode__media,
 html.canvas-is-interacting video {
   pointer-events: none;
+}
+
+/* 视频在播会每帧弄脏父层。滚动时单独成层，卡片纹理只做平移。 */
+html.canvas-is-interacting video,
+html.canvas-is-interacting canvas {
+  transform: translateZ(0);
 }
 
 .canvas-align {
@@ -422,8 +422,32 @@ html.dark .canvas-edge.is-live .canvas-edge__line {
   animation: canvas-edge-flow var(--edge-period, 5s) linear infinite;
 }
 
+/* 滚动时整层拿掉。visibility 藏不住：描边还在画面层里，一平移就和卡片一起重画。 */
+html.canvas-is-interacting .canvas-edge-flow-layer {
+  display: none;
+}
+
 html.canvas-is-interacting .canvas-edge__flow-g.is-run .canvas-edge__flow {
-  animation-play-state: paused;
+  animation: none;
+}
+
+/* 选中流动画在节点层下面、灰线上面。滚动时整层隐藏，避免描边动画把画面层弄脏。 */
+.canvas-edge-flow-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.canvas-flow .vue-flow__edge-labels {
+  z-index: 2;
+}
+
+.canvas-flow .vue-flow__nodes {
+  z-index: 3;
 }
 
 @keyframes canvas-edge-flow {

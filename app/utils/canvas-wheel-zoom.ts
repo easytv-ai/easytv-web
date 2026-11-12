@@ -7,8 +7,10 @@ export const CANVAS_MAX_ZOOM = 8
 export const CANVAS_WHEEL_PAN_SPEED = 0.85
 /** 滚轮/触控板停手后再提交 HUD，惯性滚动期间保持交互态 */
 export const CANVAS_WHEEL_IDLE_MS = 180
-/** 滚轮步进跟手半衰期：刻度滚轮会滑一下，触控板像素流几乎一帧跟上 */
+/** 鼠标滚轮 / 行模式：一步很大，滑一下再停，避免一格跳一截 */
 export const CANVAS_WHEEL_PAN_HALF_LIFE_MS = 28
+/** 触控板像素流：本帧直接落到累计目标，不再叠一层滞后 */
+export const CANVAS_WHEEL_PAN_PIXEL_HALF_LIFE_MS = 0
 const CANVAS_WHEEL_NO_PAN = '.nowheel, textarea, input, select, [contenteditable="true"]'
 
 export type CanvasViewport = { x: number, y: number, zoom: number }
@@ -42,6 +44,22 @@ export function canvasWheelPanDelta(
     x: -dx * unit * speed,
     y: dy ? -dy * unit * speed : 0,
   }
+}
+
+/**
+ * 触控板是小步连发（间隔很短）；Windows 上鼠标滚轮也报像素模式，但一步就一百多、而且孤立。
+ * 连发走直落，孤立大步才用半衰期。
+ */
+export function canvasWheelPanHalfLife(
+  event: { deltaX: number, deltaY: number, deltaMode: number },
+  gapMs: number,
+) {
+  if (event.deltaMode !== 0)
+    return CANVAS_WHEEL_PAN_HALF_LIFE_MS
+  const mag = Math.hypot(event.deltaX || 0, event.deltaY || 0)
+  if (mag >= 80 && gapMs > 40)
+    return CANVAS_WHEEL_PAN_HALF_LIFE_MS
+  return CANVAS_WHEEL_PAN_PIXEL_HALF_LIFE_MS
 }
 
 /** 当前视口向滚轮目标做一帧指数趋近，和抓手拖动一样只改坐标、不碰 Vue。 */

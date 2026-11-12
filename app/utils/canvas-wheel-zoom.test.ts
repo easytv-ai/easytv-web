@@ -3,10 +3,13 @@ import { readFileSync } from 'node:fs'
 import {
   CANVAS_MAX_ZOOM,
   CANVAS_MIN_ZOOM,
+  CANVAS_WHEEL_PAN_HALF_LIFE_MS,
+  CANVAS_WHEEL_PAN_PIXEL_HALF_LIFE_MS,
   CANVAS_WHEEL_PAN_SPEED,
   canvasViewportAtFlowPoint,
   canvasWheelPanDelta,
   canvasWheelPanFollow,
+  canvasWheelPanHalfLife,
   canvasWheelZoomDelta,
   clampCanvasZoom,
 } from './canvas-wheel-zoom'
@@ -62,6 +65,15 @@ describe('canvasWheelPanDelta', () => {
     expect(next.x).toBeGreaterThan(0)
     expect(next.x).toBeLessThan(100)
     expect(next.y).toBe(0)
+  })
+
+  it('触控板小步连发直落，孤立的大步才滑', () => {
+    expect(canvasWheelPanHalfLife({ deltaX: 0, deltaY: 12, deltaMode: 0 }, 8)).toBe(CANVAS_WHEEL_PAN_PIXEL_HALF_LIFE_MS)
+    expect(canvasWheelPanHalfLife({ deltaX: 0, deltaY: 120, deltaMode: 0 }, 8)).toBe(CANVAS_WHEEL_PAN_PIXEL_HALF_LIFE_MS)
+    expect(canvasWheelPanHalfLife({ deltaX: 0, deltaY: 120, deltaMode: 0 }, 80)).toBe(CANVAS_WHEEL_PAN_HALF_LIFE_MS)
+    expect(canvasWheelPanHalfLife({ deltaX: 0, deltaY: 3, deltaMode: 1 }, 8)).toBe(CANVAS_WHEEL_PAN_HALF_LIFE_MS)
+    const snapped = canvasWheelPanFollow({ x: 0, y: 0, zoom: 1 }, { x: 40, y: 0, zoom: 1 }, 16, 0)
+    expect(snapped.x).toBe(40)
   })
 })
 

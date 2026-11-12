@@ -116,9 +116,11 @@ import {
   CANVAS_MAX_ZOOM,
   CANVAS_MIN_ZOOM,
   CANVAS_WHEEL_IDLE_MS,
+  CANVAS_WHEEL_PAN_HALF_LIFE_MS,
   canvasViewportAtFlowPoint,
   canvasWheelPanDelta,
   canvasWheelPanFollow,
+  canvasWheelPanHalfLife,
   canvasWheelPanTarget,
   canvasWheelZoomDelta,
   clampCanvasZoom,
@@ -154,6 +156,17 @@ import {
   sameCanvasLiveViewport,
   type CanvasLiveViewport,
 } from '~/utils/canvas-live-viewport'
+import {
+  CANVAS_CULL_MARGIN_SCREENS,
+  CANVAS_CULL_REVEAL_PAD,
+  applyCanvasCullDom,
+  canvasAbsBoxes,
+  canvasCullNeedsReveal,
+  canvasCullPlan,
+  canvasFlowViewRect,
+  revealCanvasCullDom,
+  type CanvasCullRect,
+} from '~/utils/canvas-viewport-cull'
 import CanvasEmpty from '~/components/canvas/CanvasEmpty.vue'
 import CanvasToolsRail from '~/components/canvas/CanvasToolsRail.vue'
 import CanvasDock from '~/components/canvas/CanvasDock.vue'
@@ -303,6 +316,8 @@ let liveHudOrigin = { left: 0, top: 0 }
 let liveHudWheelIdle = 0
 let wheelPanRaf = 0
 let wheelPanLastTs = 0
+let wheelPanEventAt = 0
+let wheelPanHalfLife = CANVAS_WHEEL_PAN_HALF_LIFE_MS
 let wheelPanShown: CanvasLiveViewport | null = null
 let wheelPanTarget: CanvasLiveViewport | null = null
 
@@ -804,14 +819,20 @@ function flowToClient(x: number, y: number) {
 }
 
 function beginLiveViewport() {
-  if (!liveHudStart)
+  if (!liveHudStart) {
     liveHudStart = copyCanvasLiveViewport(viewport.value)
-  liveHudOrigin = canvasFlowPaneRect()
+    // 舞台矩形在一次手势里不变，别在每个滚轮事件上读布局
+    liveHudOrigin = canvasFlowPaneRect()
+  }
   document.documentElement.classList.add('canvas-is-interacting')
 }
 
+let paneEl: HTMLElement | null = null
 function canvasTransformPane() {
-  return document.querySelector('.canvas-flow .vue-flow__transformationpane') as HTMLElement | null
+  if (paneEl?.isConnected)
+    return paneEl
+  paneEl = document.querySelector('.canvas-flow .vue-flow__transformationpane') as HTMLElement | null
+  return paneEl
 }
 
 function paintWheelPan(shown: CanvasLiveViewport) {
@@ -825,12 +846,169 @@ function paintWheelPan(shown: CanvasLiveViewport) {
   )
 }
 
+/**
+ * 视口外卡片用 content-visibility 跳过绘制，组件不卸载。
+ * 平移中只补画即将进入的区域，停稳后再把离开的卡片藏掉。
+ */
+let cullPrepared: CanvasCullRect | null = null
+let lastCullKey = ''
+let cullTimer = 0
+let revealTimer = 0
+let revealPending: CanvasLiveViewport | null = null
+let nodeDragging = false
+
+function cullViewSize() {
+  return {
+    width: dimensions.value.width || 0,
+    height: dimensions.value.height || 0,
+  }
+}
+
+function buildCull(vp: CanvasLiveViewport) {
+  const view = cullViewSize()
+  if (view.width < 10 || view.height < 10)
+    return null
+  const pins = new Set<string>()
+  for (const node of nodes.value) {
+    if (node.selected)
+      pins.add(node.id)
+  }
+  const extra = [
+    gridSplitNodeId.value,
+    cropNodeId.value,
+    eraseNodeId.value,
+    mattingNodeId.value,
+    viralNodeId.value,
+    extendStripNodeId.value,
+    clipStripNodeId.value,
+    splitStripNodeId.value,
+    lightNodeId.value,
+    angleNodeId.value,
+    pending.value?.nodeId || '',
+  ]
+  for (const id of extra) {
+    if (id)
+      pins.add(id)
+  }
+  const boxes = canvasAbsBoxes(nodes.value.map((node) => {
+    const size = nodeSize(node)
+    return {
+      id: node.id,
+      parentId: node.parentNode,
+      x: node.position.x,
+      y: node.position.y,
+      w: size.w,
+      h: size.h,
+      pin: pins.has(node.id),
+      skip: Boolean(node.hidden),
+    }
+  }))
+  const edgeList = edges.value.map(edge => ({
+    id: edge.id,
+    source: edge.source,
+    target: edge.target,
+  }))
+  const margin = Math.max(view.width, view.height) * CANVAS_CULL_MARGIN_SCREENS
+  return {
+    boxes,
+    edges: edgeList,
+    sizes: new Map(boxes.map(box => [box.id, { w: box.w, h: box.h }])),
+    rect: canvasFlowViewRect(vp, view, margin),
+    plan: canvasCullPlan(boxes, edgeList, vp, view, margin),
+  }
+}
+
+function revealCull(vp: CanvasLiveViewport) {
+  if (nodeDragging)
+    return
+  const view = cullViewSize()
+  if (view.width < 10 || view.height < 10)
+    return
+  const margin = Math.max(view.width, view.height) * CANVAS_CULL_MARGIN_SCREENS
+  if (cullPrepared && !canvasCullNeedsReveal(cullPrepared, vp, view, CANVAS_CULL_REVEAL_PAD))
+    return
+  const built = buildCull(vp)
+  const root = document.querySelector('.canvas-flow')
+  if (!built || !root)
+    return
+  const shownNodes = new Set<string>()
+  for (const box of built.boxes) {
+    if (!built.plan.hiddenNodes.has(box.id))
+      shownNodes.add(box.id)
+  }
+  const shownEdges = new Set<string>()
+  for (const edge of built.edges) {
+    if (!built.plan.hiddenEdges.has(edge.id))
+      shownEdges.add(edge.id)
+  }
+  revealCanvasCullDom(root, shownNodes, shownEdges)
+  cullPrepared = built.rect
+  lastCullKey = ''
+}
+
+function fullCull(vp: CanvasLiveViewport) {
+  if (liveHudStart || nodeDragging)
+    return
+  const built = buildCull(vp)
+  const root = document.querySelector('.canvas-flow')
+  if (!built || !root)
+    return
+  const key = `${built.plan.hiddenNodes.size}:${[...built.plan.hiddenNodes].sort().join('\0')}\n${[...built.plan.hiddenEdges].sort().join('\0')}`
+  if (key === lastCullKey)
+    return
+  if (!applyCanvasCullDom(root, built.plan, built.sizes))
+    return
+  lastCullKey = key
+  cullPrepared = built.rect
+}
+
+/** 补画不要跟平移写在同一帧，否则样式一改，刚缓存的画面层就废了。 */
+function scheduleRevealCull(vp: CanvasLiveViewport) {
+  revealPending = vp
+  if (revealTimer)
+    return
+  revealTimer = window.setTimeout(() => {
+    revealTimer = 0
+    const next = revealPending
+    revealPending = null
+    if (!next || !liveHudStart)
+      return
+    revealCull(next)
+  }, 48)
+}
+
+function scheduleFullCull() {
+  if (typeof window === 'undefined')
+    return
+  window.clearTimeout(cullTimer)
+  cullTimer = window.setTimeout(() => {
+    cullTimer = 0
+    if (liveHudStart || nodeDragging) {
+      scheduleFullCull()
+      return
+    }
+    fullCull(committedViewport.value)
+  }, 240)
+}
+
+watch(() => nodes.value.length, () => {
+  lastCullKey = ''
+  scheduleFullCull()
+})
+
+watch(() => [dimensions.value.width, dimensions.value.height] as const, () => {
+  if ((dimensions.value.width || 0) < 10 || (dimensions.value.height || 0) < 10)
+    return
+  scheduleFullCull()
+})
+
 function tickWheelPan(now: number) {
   if (!wheelPanShown || !wheelPanTarget)
     return
   const dt = wheelPanLastTs ? Math.min(32, now - wheelPanLastTs) : 16
   wheelPanLastTs = now
-  wheelPanShown = canvasWheelPanFollow(wheelPanShown, wheelPanTarget, dt)
+  wheelPanShown = canvasWheelPanFollow(wheelPanShown, wheelPanTarget, dt, wheelPanHalfLife)
+  scheduleRevealCull(wheelPanShown)
   paintWheelPan(wheelPanShown)
   if (canvasViewportSettled(wheelPanShown, wheelPanTarget)) {
     wheelPanRaf = 0
@@ -869,6 +1047,11 @@ function endLiveViewport() {
     window.clearTimeout(liveHudWheelIdle)
     liveHudWheelIdle = 0
   }
+  if (revealTimer) {
+    window.clearTimeout(revealTimer)
+    revealTimer = 0
+    revealPending = null
+  }
   commitWheelPan()
   liveHudStart = null
   applyCanvasLiveHud(liveHudRef.value, '', false)
@@ -877,6 +1060,8 @@ function endLiveViewport() {
   if (!sameCanvasLiveViewport(committedViewport.value, next))
     committedViewport.value = next
   refreshCanvasNodeView()
+  revealCull(committedViewport.value)
+  scheduleFullCull()
 }
 
 function onFlowMoveStart() {
@@ -898,10 +1083,14 @@ watch(
         canvasLiveHudTransform(liveHudStart, live, liveHudOrigin),
         true,
       )
+      scheduleRevealCull(live)
       return
     }
-    if (!sameCanvasLiveViewport(committedViewport.value, live))
+    if (!sameCanvasLiveViewport(committedViewport.value, live)) {
       committedViewport.value = live
+      revealCull(live)
+      scheduleFullCull()
+    }
   },
 )
 
@@ -2549,7 +2738,12 @@ let chatPickHandler: ((assets: Asset[]) => void) | null = null
 const canvasMarkPick = useState<CanvasMarkPick>('canvas-mark-pick', emptyMarkPick)
 const canvasMarkTap = useState<{ seq: number, nodeId: string, x: number, y: number } | null>('canvas-mark-tap', () => null)
 const canvasNodeView = shallowRef(EMPTY_CANVAS_NODE_VIEW)
+let canvasNodeViewStampSeen = ''
 function refreshCanvasNodeView() {
+  const stamp = canvasNodeViewStamp(nodes.value, canvasMarkPick.value)
+  if (stamp === canvasNodeViewStampSeen)
+    return
+  canvasNodeViewStampSeen = stamp
   canvasNodeView.value = buildCanvasNodeView(nodes.value, canvasMarkPick.value)
 }
 watch(
@@ -2558,6 +2752,7 @@ watch(
     if (liveHudStart)
       return
     refreshCanvasNodeView()
+    scheduleFullCull()
   },
   { immediate: true },
 )
@@ -3451,6 +3646,7 @@ function onNodeClick({ event, node }: NodeMouseEvent) {
 }
 
 function onNodeDragStart() {
+  nodeDragging = true
   practiceCamera.cancel()
   alignGuides.value = []
   dragAlignOthers = null
@@ -3549,7 +3745,9 @@ function onNodeDragStop() {
   dragAlignOthers = null
   dragAlignKey = ''
   alignGuides.value = []
+  nodeDragging = false
   refreshCanvasNodeView()
+  scheduleFullCull()
   pushHistory()
 }
 
@@ -3687,6 +3885,7 @@ function onKeyup(event: KeyboardEvent) {
 }
 
 function onWindowBlur() {
+  nodeDragging = false
   endSpacePan(false)
 }
 
@@ -3766,6 +3965,9 @@ function onWindowWheel(event: WheelEvent) {
   if (!delta.x && !delta.y)
     return
   pulseLiveViewport()
+  const wheelAt = performance.now()
+  wheelPanHalfLife = canvasWheelPanHalfLife(event, wheelPanEventAt ? wheelAt - wheelPanEventAt : Number.POSITIVE_INFINITY)
+  wheelPanEventAt = wheelAt
   if (!wheelPanShown || !wheelPanTarget) {
     const current = copyCanvasLiveViewport(viewport.value)
     wheelPanShown = current
@@ -3823,6 +4025,7 @@ onMounted(() => {
   }
   void loadMediaActions()
   resumePolling()
+  scheduleFullCull()
 })
 
 onUnmounted(() => {
@@ -3842,6 +4045,11 @@ onUnmounted(() => {
   window.removeEventListener('blur', onWindowBlur)
   window.removeEventListener('wheel', onWindowWheel, true)
   endLiveViewport()
+  window.clearTimeout(cullTimer)
+  window.clearTimeout(revealTimer)
+  cullTimer = 0
+  revealTimer = 0
+  revealPending = null
   if (flowPaneResizeObserver) {
     flowPaneResizeObserver.disconnect()
     flowPaneResizeObserver = null
@@ -6555,6 +6763,8 @@ const styleLibValue = computed(() => {
         color="var(--st-dot)"
       />
     </VueFlow>
+
+    <CanvasEdgeFlowLayer />
 
     <svg v-if="alignLines.length" class="canvas-align" aria-hidden="true">
       <line

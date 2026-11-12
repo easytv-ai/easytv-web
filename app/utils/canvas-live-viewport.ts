@@ -48,9 +48,10 @@ export function canvasPaneTransform(vp: CanvasLiveViewport) {
 export function applyCanvasPaneTransform(el: HTMLElement | null, vp: CanvasLiveViewport) {
   if (!el)
     return
-  el.style.transformOrigin = '0 0'
+  const origin = el.style.transformOrigin
+  if (origin !== '0 0' && origin !== '0px 0px')
+    el.style.transformOrigin = '0 0'
   el.style.transform = canvasPaneTransform(vp)
-  el.style.willChange = 'transform'
 }
 
 export function applyCanvasLiveHud(
