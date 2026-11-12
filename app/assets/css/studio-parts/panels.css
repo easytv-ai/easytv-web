@@ -2970,14 +2970,21 @@ html.dark .canvas-inspector__chip.is-on:hover {
   height: 40px;
   align-items: center;
   justify-content: center;
+  padding: 0;
   overflow: hidden;
   border: 1px solid var(--st-border);
   border-radius: 10px;
   background: var(--st-hover);
   color: var(--st-muted);
+  cursor: pointer;
 }
 
-.canvas-chat__attach-thumb-hit img {
+.canvas-chat__attach-thumb-hit:disabled {
+  cursor: default;
+}
+
+.canvas-chat__attach-thumb-hit img,
+.canvas-chat__attach-thumb-hit video {
   display: block;
   width: 100%;
   height: 100%;

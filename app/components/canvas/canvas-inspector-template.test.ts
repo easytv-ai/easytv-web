@@ -38,7 +38,7 @@ describe('CanvasInspector 提示词输入区', () => {
   it('没有可用模型时不画假的模型下拉', () => {
     const src = readFileSync(resolve('app/components/canvas/CanvasInspector.vue'), 'utf8')
     expect(src).toContain('v-if="!noModels" class="canvas-inspector__model"')
-    expect(src).toContain(':disabled="noModels || talkingNoModel || submitting || locked"')
+    expect(src).toContain(':disabled="noModels || talkingNoModel || submitting || locked || sendLocked"')
   })
 
   it('音频语种和音色写回节点 params，选中时再读回来', () => {

@@ -5902,6 +5902,25 @@ const {
   dropNode: id => laterFns.dropNode(id),
 })
 
+/** 检查器生成键转圈：提交中、跟练回放中、节点在跑。成功后不转圈，改走 sendLocked */
+const inspectorSubmitting = computed(() => {
+  if (generating.value || practiceSession.value.replayBusy)
+    return true
+  const node = selected.value
+  if (!node || !isContentNode(node))
+    return false
+  const status = String(node.data.taskStatus || '')
+  return status === 'pending' || status === 'running'
+})
+
+/** 跟练已经成功：生成键禁用但不转圈（失败演练仍能再点） */
+const inspectorSendLocked = computed(() => {
+  if (!practiceLocked.value)
+    return false
+  const node = selected.value
+  return Boolean(node && isContentNode(node) && String(node.data.taskStatus || '') === 'succeeded')
+})
+
 laterFns.dropNode = dropNode
 laterFns.groupNodeList = groupNodeList
 laterFns.joinGroup = joinGroup
@@ -5924,6 +5943,8 @@ function isDerivedNode(data: CanvasNodeData) {
 function requestGenerate(trigger: RerollTrigger, payload?: GeneratePayload) {
   // 询问面板开着：这次生成等面板的确认，别让 ⌘Enter 再从旁边漏一条出去
   if (rerollAsk.value)
+    return
+  if (inspectorSubmitting.value || inspectorSendLocked.value)
     return
   const node = selected.value || undefined
   if (node && isContentNode(node) && !props.readonly && !canvasLocked.value && !generating.value) {
@@ -6939,7 +6960,8 @@ const styleLibValue = computed(() => {
       :talking="selected && isContentNode(selected) ? selected.data.talking ?? null : null"
       :model="selected && isContentNode(selected) ? selected.data.model || '' : ''"
       :params="selected && isContentNode(selected) ? selected.data.params ?? null : null"
-      :submitting="generating"
+      :submitting="inspectorSubmitting"
+      :send-locked="inspectorSendLocked"
       :candidates="selectedCandidates"
       :candidate-current="selectedCandidateCurrent"
       :candidates-disabled="selectedCandidatesDisabled"

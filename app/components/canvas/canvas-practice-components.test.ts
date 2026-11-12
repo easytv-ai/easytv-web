@@ -180,6 +180,9 @@ describe('导出名与接口（§八.1、§五「保留的符号」）', () => {
     // 领回放的口径是「节点 kind + practiceKey」：多镜 / 多规格剧本按 byKey 各演各的
     expect(src).toContain('practiceReplayFor(')
     expect(src).toContain('practiceKey')
+    const replayBody = functionBody(src, 'replaySubmit')
+    expect(replayBody).toContain('if (flying)')
+    expect(replayBody).toMatch(/taskStatus[\s\S]{0,80}succeeded/)
   })
 })
 
@@ -280,14 +283,17 @@ describe('CanvasPracticeTour（props / emit / 结构）（§八.2、§八.3、§
   })
 
   it('场景选择卡按 level 分组（入门 / 进阶 / 高阶），副标题按 §九 改文案', () => {
-    expect(src).toContain('PRACTICE_SCRIPTS')
-    expect(src).toContain('PRACTICE_LEVELS')
-    expect(src).toContain('scriptGroups')
-    expect(src).toMatch(/emit\('pickScript', item\.id\)/)
-    expect(src).toContain('canvas-guide__scenes')
-    expect(src).toContain('t(group.label)')
-    expect(src).toContain("t('跟练场景：{name}'")
-    expect(src).toContain("t('每条都是从易到难的一条链：跟练替你布好、你点生成看回放。全程不调模型、不花点数；中途随时可以退出，退出会把画布还原成现在的样子。')")
+    const pick = source('app/components/canvas/CanvasPracticePick.vue')
+    expect(src).toContain('<CanvasPracticePick')
+    expect(src).toContain("@pick=\"emit('pickScript', $event)\"")
+    expect(pick).toContain('PRACTICE_SCRIPTS')
+    expect(pick).toContain('PRACTICE_LEVELS')
+    expect(pick).toContain("emit('pick', item.id)")
+    expect(pick).toContain('canvas-practice-pick__card')
+    expect(pick).toContain("t('canvas.practice.kicker')")
+    expect(pick).toContain("t('跟练场景：{name}'")
+    expect(pick).toContain('expertOpen')
+    expect(pick).not.toContain('每条都是从易到难的一条链')
   })
 
   it('清单挂载与避让：session.done 传下去、清单进 HARD 禁区、折叠判定只跟 Inspector 求交', () => {
@@ -296,6 +302,8 @@ describe('CanvasPracticeTour（props / emit / 结构）（§八.2、§八.3、§
     expect(src).toContain(':collapsed="listFolded"')
     expect(src).toContain(':style="listStyle"')
     expect(src).toMatch(/HARD_ZONE_SELECTORS = \[[^\]]*'\.canvas-practice-list'/)
+    expect(src).toContain('[data-guide="chat"]')
+    expect(src).toContain('[data-guide="inspector"]')
     expect(src).toContain('guideRectOverlap')
     expect(src).toContain("queryRects('[data-guide=\"inspector\"]')")
     expect(src).toContain('listHeight')
@@ -489,6 +497,18 @@ describe('CanvasWorkspace（只读闸与接口交接）（§八.4、§八.5、§
     expect(ws).toMatch(/<CanvasSelBar\s+v-if="[^"]*!practiceLocked/)
   })
 
+  it('跟练生成键：回放中 / 节点在跑转圈；已经成功只禁用不转圈，失败演练仍能再点', () => {
+    expect(ws).toContain(':submitting="inspectorSubmitting"')
+    expect(ws).toContain(':send-locked="inspectorSendLocked"')
+    expect(ws).toContain('practiceSession.value.replayBusy')
+    expect(ws).toContain("status === 'pending' || status === 'running'")
+    expect(ws).toContain('const inspectorSendLocked = computed')
+    expect(ws).toContain("node.data.taskStatus || '') === 'succeeded'")
+    const inspector = source('app/components/canvas/CanvasInspector.vue')
+    expect(inspector).toContain('submitting || locked || sendLocked')
+    expect(inspector).toContain("submitting ? 'i-lucide-loader-circle'")
+  })
+
   it('readonly 透传：Inspector / SmartEdit 跟练期间只读；loadGraph 保留 keepHistory', () => {
     expect(ws).toContain(':readonly="practiceLocked"')
     expect(ws).toMatch(/function loadGraph\(graph: CanvasGraph \| null \| undefined, opts: \{ keepHistory\?: boolean \} = \{\}\)/)
@@ -586,8 +606,29 @@ describe('只读闸的跨文件对端（§八.3、§八.5、§四 #10/#12/#13）
 describe('canvas 页面（沙盒与对话栏）（§四 #15/#21、§八.5）', () => {
   const page = source(INDEX_PAGE)
 
-  it('对话栏跟练期间不渲染（CanvasChat 零跟练感知，唯一能拦住它真提交的位置）', () => {
-    expect(page).toContain('chatOpen && !practiceSession.active')
+  it('对话栏跟练期间仍展开，往画布落内容仍走跟练闸', () => {
+    expect(page).not.toContain('chatOpen && !practiceSession.active')
+    expect(page).toContain('v-if="chatOpen"')
+    expect(functionBody(page, 'onChatInsertText')).toContain('blockedByPractice()')
+    expect(functionBody(page, 'onChatInsertImages')).toContain('blockedByPractice()')
+    expect(functionBody(page, 'onChatInsertAudios')).toContain('blockedByPractice()')
+  })
+
+  it('画布外点跟练先选课，带剧本 id 进画布直接开练', () => {
+    expect(page).toContain('function consumePracticeQuery()')
+    expect(page).toContain('findPracticeScript(raw)')
+    expect(page).toContain('practiceScript.value = scriptId')
+    expect(page).toContain('practiceWanted.value = true')
+    expect(page).toContain('consumePracticeQuery()')
+    const menu = source('app/components/studio/StudioUserMenu.vue')
+    expect(menu).toContain('practicePickOpen.value = true')
+    expect(menu).toContain('function pickPractice(')
+    expect(menu).toContain('query: { practice: scriptId }')
+    expect(menu).toContain('<CanvasPracticePick')
+    const host = source(HOST)
+    expect(host).toContain('wantedScript.value')
+    expect(host).toContain('if (scriptId)')
+    expect(host).toContain('void nextTick(() => enterPracticeStep())')
   })
 
   it('导入画布文件被跟练闸拦下（整张替换画布会毁掉沙盒语义）', () => {

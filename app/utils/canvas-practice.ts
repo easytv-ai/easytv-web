@@ -490,9 +490,9 @@ export function practiceAutoPreparePlan(
   view: PracticeGraphView,
 ): PracticePrepare[] {
   const plan: PracticePrepare[] = []
-  if (!steps.length)
+  if (!steps.length || targetIndex < 0)
     return plan
-  const end = Math.min(Math.max(0, targetIndex), steps.length - 1)
+  const end = Math.min(targetIndex, steps.length - 1)
   for (let index = 0; index <= end; index++) {
     const step = steps[index]
     if (!step)
@@ -725,10 +725,11 @@ export const PRACTICE_CAM_PROMPT = '主角在便利店收银台前接过咖啡�
 /** 3D 预演：prompt 只写画面，运镜由导出认路径后写进节点 */
 export const PRACTICE_PREVIEW_PROMPT = '主角走过天台边缘，城市灯光在身后。'
 
-/** 正文固定开场句（三条，全剧本共用）：开场步 / 首次点生成那步 / 其余步各一句 */
-const PRACTICE_BODY_ENTER = '跟练不会真的调模型、不花点数；退出会把画布还原成进来那一刻。'
-const PRACTICE_BODY_FIRST_RUN = '回放放的是跟练自带的示例素材，不是按你这句提示词真生成的。'
-const PRACTICE_BODY_READY = '跟练已经替你把这一步布好了，你只要点生成看回放。'
+/** 正文固定开场句：演示步 / 第一次点生成 / 之后点生成 / 收尾 各一句 */
+const PRACTICE_BODY_SHOW = '跟练已经替你布好，先看画布上这一步。'
+const PRACTICE_BODY_FIRST_RUN = '点右下角生成。不扣点，播的是跟练示例。'
+const PRACTICE_BODY_RUN = '点右下角生成，不扣点。'
+const PRACTICE_BODY_DONE = '退出会还原画布。'
 
 /** 正文 = 固定开场句 + 本步要点（要点 ≤60 字；整段中文原文即 i18n 键） */
 function practiceBody(opening: string, point: string) {
@@ -736,39 +737,33 @@ function practiceBody(opening: string, point: string) {
 }
 
 /** 点生成那步在面板上点哪里（单产物步骤共用的"等你动手"） */
-const PRACTICE_RUN_HINT = '在面板点生成，看回放'
+const PRACTICE_RUN_HINT = '点右下角生成'
 
 // ---- 3.1 入门：图片 + 视频节点（最小骨架） ----
 const IMAGE_VIDEO_STEPS: PracticeStep[] = [
   {
-    id: 'welcome',
-    title: '跟练一遍：图片怎么变成视频',
-    summary: '不调模型、不花点数，退出即还原',
-    body: practiceBody(PRACTICE_BODY_ENTER, '这条链只有两个节点：图片定住画面，视频节点吃它当首帧。'),
-  },
-  {
     id: 'add-image',
-    title: '先放一个图片节点',
-    summary: '放一个图片节点（出图的起点）',
-    body: practiceBody(PRACTICE_BODY_READY, '左边工具条的加号、空画布中间的入口都能加节点；这一步先放图片。'),
-    anchor: 'tools',
+    title: '先放图片节点',
+    summary: '出图的起点',
+    body: practiceBody(PRACTICE_BODY_SHOW, '这条链两个节点：图片定住画面，视频稍后吃它当首帧。'),
+    anchor: 'node:image',
     gate: { kind: 'node', nodeKind: 'image', atLeast: 1 },
     prepare: { kind: 'add-node', nodeKind: 'image' },
   },
   {
     id: 'add-video',
-    title: '再加一个视频节点，连上图片',
-    summary: '视频节点连上图片，当首帧',
-    body: practiceBody(PRACTICE_BODY_READY, '从图片节点右侧的圆点拖到视频节点上，那张图就成了视频的首帧。'),
-    anchor: 'tools',
+    title: '接上视频节点',
+    summary: '图片当首帧',
+    body: practiceBody(PRACTICE_BODY_SHOW, '图片已经连上视频：上游那张图就是视频的首帧。'),
+    anchor: 'node:video',
     gate: { kind: 'edge', fromKind: 'image', toKind: 'video' },
     prepare: { kind: 'add-connect', fromKind: 'image', toKind: 'video' },
   },
   {
     id: 'run-image',
-    title: '点生成，看图片回放',
-    summary: '点生成，看图片回放',
-    body: practiceBody(PRACTICE_BODY_FIRST_RUN, '提示词与出图模型都替你写好了：qwen-image-2.0，16:9、2K、std。'),
+    title: '点生成看出图',
+    summary: '不扣点',
+    body: practiceBody(PRACTICE_BODY_FIRST_RUN, '模型是 qwen-image-2.0，16:9、2K。'),
     anchor: 'inspector-run',
     gate: { kind: 'result', nodeKind: 'image' },
     gateHint: PRACTICE_RUN_HINT,
@@ -783,9 +778,9 @@ const IMAGE_VIDEO_STEPS: PracticeStep[] = [
   },
   {
     id: 'run-video',
-    title: '点生成，看图动起来',
-    summary: '选 Kling-2.5，出 5 秒片',
-    body: practiceBody(PRACTICE_BODY_READY, '视频节点配好 Kling-2.5、5 秒、1080P；第一次点生成会先演一遍失败态。'),
+    title: '点生成看出片',
+    summary: '第一次会演失败',
+    body: practiceBody(PRACTICE_BODY_RUN, '视频用 Kling-2.5、5 秒；第一次先演失败，再点一次就成功。'),
     anchor: 'inspector-run',
     gate: { kind: 'result', nodeKind: 'video' },
     gateHint: PRACTICE_RUN_HINT,
@@ -801,9 +796,9 @@ const IMAGE_VIDEO_STEPS: PracticeStep[] = [
   },
   {
     id: 'done',
-    title: '这条链就是「图生视频」',
-    summary: '成片卡留在画布中央（退出即还原）',
-    body: practiceBody(PRACTICE_BODY_READY, '图定住画面，视频节点吃上游那张图当首帧；退出跟练画布就还原。'),
+    title: '图生视频就是这条链',
+    summary: '退出即还原',
+    body: practiceBody(PRACTICE_BODY_DONE, '图定住画面，视频吃上游那张图当首帧。'),
     anchor: 'node:video',
     showcase: {
       nodeKind: 'video',
@@ -818,25 +813,19 @@ const IMAGE_VIDEO_STEPS: PracticeStep[] = [
 // ---- 3.2 进阶：角色一致性（主体引用） ----
 const CHARACTER_STEPS: PracticeStep[] = [
   {
-    id: 'welcome',
-    title: '跟练一遍：让同一个人出现在每条片里',
-    summary: '让同一位角色出现在每条片里',
-    body: practiceBody(PRACTICE_BODY_ENTER, '角色一致靠两件事：同一份角色设定，和同一个角色主体版本。'),
-  },
-  {
     id: 'write-role',
     title: '写一句角色设定',
-    summary: '写一句角色设定（文本节点）',
-    body: practiceBody(PRACTICE_BODY_READY, '角色设定写成文本节点：外貌、发型、服装、气质，越具体越稳。'),
-    anchor: 'tools',
+    summary: '写成文本节点',
+    body: practiceBody(PRACTICE_BODY_SHOW, '角色一致靠同一份设定：外貌、发型、服装写进文本节点。'),
+    anchor: 'node:text',
     gate: { kind: 'prompt', nodeKind: 'text' },
     prepare: { kind: 'add-text', content: PRACTICE_ROLE_SCRIPT },
   },
   {
     id: 'cast-image',
     title: '定妆图：引用角色主体',
-    summary: '定妆图：引用角色主体',
-    body: practiceBody(PRACTICE_BODY_READY, '主体引用会自动把角色参考图并进任务，再补一段角色描述。'),
+    summary: '同一角色参考图',
+    body: practiceBody(PRACTICE_BODY_SHOW, '主体引用会自动把角色参考图并进任务，再补一段角色描述。'),
     anchor: 'inspector-subject',
     gate: { kind: 'subject', nodeKind: 'image', key: 'cast-image' },
     prepare: {
@@ -852,7 +841,7 @@ const CHARACTER_STEPS: PracticeStep[] = [
   {
     id: 'run-image',
     title: '点生成，看定妆图回放',
-    summary: '点生成，看定妆图回放',
+    summary: '不扣点',
     body: practiceBody(PRACTICE_BODY_FIRST_RUN, '定妆图是 9:16、2K，五官按角色设定锁死。'),
     anchor: 'inspector-run',
     gate: { kind: 'result', nodeKind: 'image', key: 'cast-image' },
@@ -862,8 +851,8 @@ const CHARACTER_STEPS: PracticeStep[] = [
   {
     id: 'cast-video',
     title: '出镜片：同一位角色进视频',
-    summary: '出镜片：同一位角色进视频',
-    body: practiceBody(PRACTICE_BODY_READY, '视频节点也引同一个角色主体：两次出片才是同一个人。'),
+    summary: '仍引同一主体',
+    body: practiceBody(PRACTICE_BODY_SHOW, '视频节点也引同一个角色主体：两次出片才是同一个人。'),
     anchor: 'inspector-subject',
     gate: { kind: 'subject', nodeKind: 'video', key: 'cast-video' },
     prepare: {
@@ -881,8 +870,8 @@ const CHARACTER_STEPS: PracticeStep[] = [
   {
     id: 'run-video',
     title: '点生成，看角色出片',
-    summary: '点生成，看角色出片',
-    body: practiceBody(PRACTICE_BODY_READY, '出片拿定妆图当首帧；第一次点生成会先演一遍失败态。'),
+    summary: '第一次会演失败',
+    body: practiceBody(PRACTICE_BODY_RUN, '出片拿定妆图当首帧；第一次点生成会先演失败。'),
     anchor: 'inspector-run',
     gate: { kind: 'result', nodeKind: 'video', key: 'cast-video' },
     gateHint: PRACTICE_RUN_HINT,
@@ -891,8 +880,8 @@ const CHARACTER_STEPS: PracticeStep[] = [
   {
     id: 'done',
     title: '角色一致性的三个要点',
-    summary: '角色一致性的三个要点',
-    body: practiceBody(PRACTICE_BODY_READY, '要点：角色设定落成文本、两次都引同一主体、主体版本别换。'),
+    summary: '设定、主体、版本',
+    body: practiceBody(PRACTICE_BODY_DONE, '要点：角色设定落成文本、两次都引同一主体、主体版本别换。'),
     anchor: 'node:video',
     showcase: {
       nodeKind: 'video',
@@ -907,16 +896,10 @@ const CHARACTER_STEPS: PracticeStep[] = [
 // ---- 3.3 进阶：场景延续（一景两镜） ----
 const SCENE_STEPS: PracticeStep[] = [
   {
-    id: 'welcome',
-    title: '跟练一遍：同一场景，两个景别',
-    summary: '同一场景，两个景别',
-    body: practiceBody(PRACTICE_BODY_ENTER, '一张场景首帧扇出两条片：近景前推、全景右摇。'),
-  },
-  {
     id: 'scene-image',
     title: '场景首帧：引用场景主体',
-    summary: '场景首帧：引用场景主体',
-    body: practiceBody(PRACTICE_BODY_READY, '场景主体写进节点后，两条视频都带同一份场景参考。'),
+    summary: '近景和全景共用',
+    body: practiceBody(PRACTICE_BODY_SHOW, '一张场景首帧扇出两条片：近景前推、全景右摇。'),
     anchor: 'inspector-subject',
     gate: { kind: 'subject', nodeKind: 'image', key: 'scene-image' },
     prepare: {
@@ -943,7 +926,7 @@ const SCENE_STEPS: PracticeStep[] = [
     id: 'near-shot',
     title: '近景镜：首帧 + 前推',
     summary: '近景镜：首帧 + 前推',
-    body: practiceBody(PRACTICE_BODY_READY, '运镜是结构、prompt 只写动作：前推已经在节点上选好了。'),
+    body: practiceBody(PRACTICE_BODY_SHOW, '运镜是结构、prompt 只写动作：前推已经在节点上选好了。'),
     anchor: 'tools',
     gate: { kind: 'node', nodeKind: 'video', atLeast: 1, key: 'near' },
     prepare: {
@@ -963,7 +946,7 @@ const SCENE_STEPS: PracticeStep[] = [
     id: 'far-shot',
     title: '全景镜：首帧 + 右摇',
     summary: '全景镜：首帧 + 右摇',
-    body: practiceBody(PRACTICE_BODY_READY, '同一张首帧再连一条视频节点，只改运镜与规格。'),
+    body: practiceBody(PRACTICE_BODY_SHOW, '同一张首帧再连一条视频节点，只改运镜与规格。'),
     anchor: 'tools',
     gate: { kind: 'node', nodeKind: 'video', atLeast: 1, key: 'far' },
     prepare: {
@@ -983,7 +966,7 @@ const SCENE_STEPS: PracticeStep[] = [
     id: 'run-videos',
     title: '两个镜头各点一次生成',
     summary: '两个镜头各点一次生成',
-    body: practiceBody(PRACTICE_BODY_READY, '两条片各点一次生成：先演一次失败态，再点一次就成功。'),
+    body: practiceBody(PRACTICE_BODY_RUN, '两条片各点一次生成：先演一次失败，再点一次就成功。'),
     anchor: 'inspector-run',
     gate: { kind: 'result', nodeKind: 'video', atLeast: 2 },
     gateHint: '两个镜头各点一次生成',
@@ -999,8 +982,8 @@ const SCENE_STEPS: PracticeStep[] = [
   {
     id: 'done',
     title: '一景两镜的三个要点',
-    summary: '一景两镜的三个要点',
-    body: practiceBody(PRACTICE_BODY_READY, '要点：一张首帧扇出多条片、规格各自落参数、场景主体共享。'),
+    summary: '一张图两条片',
+    body: practiceBody(PRACTICE_BODY_DONE, '要点：一张首帧扇出多条片、规格各自落参数、场景主体共享。'),
     anchor: 'node:video',
     showcase: {
       nodeKind: 'video',
@@ -1015,17 +998,11 @@ const SCENE_STEPS: PracticeStep[] = [
 // ---- 3.4 进阶：多镜头分镜（一脚本两镜） ----
 const STORYBOARD_STEPS: PracticeStep[] = [
   {
-    id: 'welcome',
-    title: '跟练一遍：一个脚本拆两个镜头',
-    summary: '一个脚本拆两个镜头',
-    body: practiceBody(PRACTICE_BODY_ENTER, '每条镜头各自一条「图片 → 视频」链，互不串提示词。'),
-  },
-  {
     id: 'script',
     title: '写成两个镜头的脚本',
-    summary: '写成两个镜头的脚本',
-    body: practiceBody(PRACTICE_BODY_READY, '分镜脚本写成文本节点，两个镜头各占一句。'),
-    anchor: 'tools',
+    summary: '各占一句',
+    body: practiceBody(PRACTICE_BODY_SHOW, '每条镜头各自一条图片到视频链，提示词互不串。'),
+    anchor: 'node:text',
     gate: { kind: 'prompt', nodeKind: 'text', key: 'script' },
     prepare: { kind: 'add-text', key: 'script', content: PRACTICE_SHOT_SCRIPT },
   },
@@ -1033,7 +1010,7 @@ const STORYBOARD_STEPS: PracticeStep[] = [
     id: 'shot-1',
     title: '镜头一：首帧图',
     summary: '镜头一：便利店里的首帧',
-    body: practiceBody(PRACTICE_BODY_READY, '镜头一首帧：景别、主体位置与光线都写在提示词里。'),
+    body: practiceBody(PRACTICE_BODY_SHOW, '镜头一首帧：景别、主体位置与光线都写在提示词里。'),
     anchor: 'tools',
     gate: { kind: 'node', nodeKind: 'image', atLeast: 1, key: 's1-image' },
     prepare: {
@@ -1050,7 +1027,7 @@ const STORYBOARD_STEPS: PracticeStep[] = [
     id: 'shot-2',
     title: '镜头二：首帧图',
     summary: '镜头二：雨后街道的首帧',
-    body: practiceBody(PRACTICE_BODY_READY, '镜头二首帧另起一句，不跟镜头一串提示词。'),
+    body: practiceBody(PRACTICE_BODY_SHOW, '镜头二首帧另起一句，不跟镜头一串提示词。'),
     anchor: 'tools',
     gate: { kind: 'node', nodeKind: 'image', atLeast: 1, key: 's2-image' },
     prepare: {
@@ -1067,7 +1044,7 @@ const STORYBOARD_STEPS: PracticeStep[] = [
     id: 'chain-1',
     title: '镜头一：接上出片节点',
     summary: '镜头一：接上出片节点',
-    body: practiceBody(PRACTICE_BODY_READY, '每条镜头的连线各自独立，两条链的提示词互不影响。'),
+    body: practiceBody(PRACTICE_BODY_SHOW, '每条镜头的连线各自独立，两条链的提示词互不影响。'),
     anchor: 'tools',
     gate: { kind: 'edge', fromKind: 'image', toKind: 'video', fromKey: 's1-image', toKey: 's1-video' },
     prepare: {
@@ -1085,7 +1062,7 @@ const STORYBOARD_STEPS: PracticeStep[] = [
     id: 'chain-2',
     title: '镜头二：接上出片节点',
     summary: '镜头二：接上出片节点',
-    body: practiceBody(PRACTICE_BODY_READY, '镜头二同样接一条视频节点：一镜一条链的结构。'),
+    body: practiceBody(PRACTICE_BODY_SHOW, '镜头二同样接一条视频节点：一镜一条链的结构。'),
     anchor: 'tools',
     gate: { kind: 'edge', fromKind: 'image', toKind: 'video', fromKey: 's2-image', toKey: 's2-video' },
     prepare: {
@@ -1120,7 +1097,7 @@ const STORYBOARD_STEPS: PracticeStep[] = [
     id: 'run-videos',
     title: '两条链各点一次生成',
     summary: '两条链各点一次生成',
-    body: practiceBody(PRACTICE_BODY_READY, '两条链各点一次生成：多镜头就是多节点。分镜节点可以一次写下多条提示词，再拆成各段视频。'),
+    body: practiceBody(PRACTICE_BODY_RUN, '两条链各点一次生成：多镜头就是多节点。'),
     anchor: 'inspector-run',
     gate: { kind: 'result', nodeKind: 'video', atLeast: 2 },
     gateHint: '两条链各点一次生成',
@@ -1136,8 +1113,8 @@ const STORYBOARD_STEPS: PracticeStep[] = [
   {
     id: 'done',
     title: '分镜的三个要点',
-    summary: '分镜的三个要点',
-    body: practiceBody(PRACTICE_BODY_READY, '要点：一镜一条链、提示词互不串。分镜节点负责写多镜，生成仍是一镜一条视频。'),
+    summary: '一镜一条链',
+    body: practiceBody(PRACTICE_BODY_DONE, '要点：一镜一条链、提示词互不串。分镜节点写多镜，生成仍是一镜一条视频。'),
     anchor: 'node:video',
     showcase: {
       nodeKind: 'video',
@@ -1152,17 +1129,11 @@ const STORYBOARD_STEPS: PracticeStep[] = [
 // ---- 3.5 高阶：口播与音频（台词 + 音频轨） ----
 const TALKING_STEPS: PracticeStep[] = [
   {
-    id: 'welcome',
-    title: '跟练一遍：让画面自己说话',
-    summary: '让画面自己说话',
-    body: practiceBody(PRACTICE_BODY_ENTER, '口播是台词、语气、景别三件套；音频节点承载旁白或配乐。'),
-  },
-  {
     id: 'host-image',
     title: '讲师首帧',
-    summary: '讲师首帧：半身正面看镜头',
-    body: practiceBody(PRACTICE_BODY_READY, '口播片的首帧就是讲师定妆图：竖版、右侧留字幕位。'),
-    anchor: 'tools',
+    summary: '半身正面看镜头',
+    body: practiceBody(PRACTICE_BODY_SHOW, '口播是台词、语气、景别；先放讲师定妆图，竖版留字幕位。'),
+    anchor: 'node:image',
     gate: { kind: 'node', nodeKind: 'image', atLeast: 1, key: 'host-image' },
     prepare: {
       kind: 'image-setup',
@@ -1187,7 +1158,7 @@ const TALKING_STEPS: PracticeStep[] = [
     id: 'talking-video',
     title: '换成口播：台词、语气、景别',
     summary: '换成口播：台词、语气、景别',
-    body: practiceBody(PRACTICE_BODY_READY, '台词字数就是时长（中文 3.5 字/秒 + 1 秒收尾），自动落档。'),
+    body: practiceBody(PRACTICE_BODY_SHOW, '台词字数就是时长（中文 3.5 字/秒 + 1 秒收尾），自动落档。'),
     anchor: 'inspector-talking',
     gate: { kind: 'talking', nodeKind: 'video', key: 'talk' },
     prepare: {
@@ -1207,7 +1178,7 @@ const TALKING_STEPS: PracticeStep[] = [
     id: 'run-video',
     title: '点生成，看口播回放（生成按钮点不动时可跳过）',
     summary: '点生成，看口播回放',
-    body: practiceBody(PRACTICE_BODY_READY, '口播要模型带原生出声；仓库这条示例视频本身没有音轨。'),
+    body: practiceBody(PRACTICE_BODY_RUN, '口播要模型带原生出声；这条示例视频本身没有音轨。'),
     anchor: 'inspector-run',
     gate: { kind: 'result', nodeKind: 'video', key: 'talk' },
     gateHint: '听回放：这条是示例素材，视频没有音轨',
@@ -1217,7 +1188,7 @@ const TALKING_STEPS: PracticeStep[] = [
     id: 'audio-track',
     title: '再放一条音频轨',
     summary: '再放一条音频轨',
-    body: practiceBody(PRACTICE_BODY_READY, '音频节点可以生成配乐或音效：选配乐、写提示词后点生成。'),
+    body: practiceBody(PRACTICE_BODY_SHOW, '音频节点可以生成配乐或音效：选配乐、写提示词后点生成。'),
     anchor: 'inspector-audio',
     gate: { kind: 'node', nodeKind: 'audio', atLeast: 1, key: 'voice' },
     prepare: {
@@ -1233,7 +1204,7 @@ const TALKING_STEPS: PracticeStep[] = [
     id: 'run-audio',
     title: '点生成，听音频回放',
     summary: '点生成，听音频回放',
-    body: practiceBody(PRACTICE_BODY_READY, '这条回放真能听到声音：示例音轨落在音频节点上。'),
+    body: practiceBody(PRACTICE_BODY_RUN, '这条回放真能听到声音：示例音轨落在音频节点上。'),
     anchor: 'node:audio',
     gate: { kind: 'result', nodeKind: 'audio', key: 'voice' },
     gateHint: PRACTICE_RUN_HINT,
@@ -1242,8 +1213,8 @@ const TALKING_STEPS: PracticeStep[] = [
   {
     id: 'done',
     title: '口播与音频的三个要点',
-    summary: '口播与音频的三个要点',
-    body: practiceBody(PRACTICE_BODY_READY, '要点：台词定时长、口播要能力位、音频节点承载旁白 / 配乐。'),
+    summary: '台词、口播、音轨',
+    body: practiceBody(PRACTICE_BODY_DONE, '要点：台词定时长、口播要能力位、音频节点承载旁白 / 配乐。'),
     anchor: 'node:audio',
     showcase: {
       nodeKind: 'audio',
@@ -1259,17 +1230,11 @@ const TALKING_STEPS: PracticeStep[] = [
 // ---- 3.6 高阶：一图多规格扇出（交付规格） ----
 const SPEC_STEPS: PracticeStep[] = [
   {
-    id: 'welcome',
-    title: '跟练一遍：一张图出三种交付规格',
-    summary: '一张图出三种交付规格',
-    body: practiceBody(PRACTICE_BODY_ENTER, '规格是纯数据：同一张首帧按 9:16 / 1:1 / 16:9 各出一条片。'),
-  },
-  {
     id: 'cover',
     title: '商品首帧（方图起手）',
-    summary: '商品首帧：方图起手',
-    body: practiceBody(PRACTICE_BODY_READY, '首帧用 1:1 方图起手，三种规格都从它扇出。'),
-    anchor: 'tools',
+    summary: '1:1 起手',
+    body: practiceBody(PRACTICE_BODY_SHOW, '规格是纯数据：同一张首帧按 9:16 / 1:1 / 16:9 各出一条片。'),
+    anchor: 'node:image',
     gate: { kind: 'node', nodeKind: 'image', atLeast: 1, key: 'cover' },
     prepare: {
       kind: 'image-setup',
@@ -1294,7 +1259,7 @@ const SPEC_STEPS: PracticeStep[] = [
     id: 'spec-feed',
     title: '支线一：9:16 信息流',
     summary: '支线一：9:16 信息流',
-    body: practiceBody(PRACTICE_BODY_READY, '支线一的规格写在节点参数里：9:16、5 秒、1080P。'),
+    body: practiceBody(PRACTICE_BODY_SHOW, '支线一的规格写在节点参数里：9:16、5 秒、1080P。'),
     anchor: 'tools',
     gate: { kind: 'node', nodeKind: 'video', atLeast: 1, key: 'v-feed' },
     prepare: {
@@ -1312,7 +1277,7 @@ const SPEC_STEPS: PracticeStep[] = [
     id: 'spec-square',
     title: '支线二：1:1 详情页',
     summary: '支线二：1:1 详情页',
-    body: practiceBody(PRACTICE_BODY_READY, '支线二换规格不换首帧：1:1、5 秒、1080P。'),
+    body: practiceBody(PRACTICE_BODY_SHOW, '支线二换规格不换首帧：1:1、5 秒、1080P。'),
     anchor: 'tools',
     gate: { kind: 'node', nodeKind: 'video', atLeast: 1, key: 'v-square' },
     prepare: {
@@ -1330,7 +1295,7 @@ const SPEC_STEPS: PracticeStep[] = [
     id: 'spec-wide',
     title: '支线三：16:9 主图',
     summary: '支线三：16:9 主图',
-    body: practiceBody(PRACTICE_BODY_READY, '支线三 16:9：三条支线都连在同一张首帧上。'),
+    body: practiceBody(PRACTICE_BODY_SHOW, '支线三 16:9：三条支线都连在同一张首帧上。'),
     anchor: 'tools',
     gate: { kind: 'node', nodeKind: 'video', atLeast: 1, key: 'v-wide' },
     prepare: {
@@ -1348,7 +1313,7 @@ const SPEC_STEPS: PracticeStep[] = [
     id: 'run-videos',
     title: '三条支线各点一次生成',
     summary: '三条支线各点一次生成',
-    body: practiceBody(PRACTICE_BODY_READY, '三条各点一次生成：先演一次失败态，再点一次就成功。'),
+    body: practiceBody(PRACTICE_BODY_RUN, '三条各点一次生成：先演一次失败，再点一次就成功。'),
     anchor: 'inspector-run',
     gate: { kind: 'result', nodeKind: 'video', atLeast: 3 },
     gateHint: '三条支线各点一次生成',
@@ -1365,8 +1330,8 @@ const SPEC_STEPS: PracticeStep[] = [
   {
     id: 'done',
     title: '多规格扇出的三个要点',
-    summary: '多规格扇出的三个要点',
-    body: practiceBody(PRACTICE_BODY_READY, '要点：规格是纯数据、一张首帧扇出多条、出图只有三个比例桶。'),
+    summary: '三种比例',
+    body: practiceBody(PRACTICE_BODY_DONE, '要点：规格是纯数据、一张首帧扇出多条、出图只有三个比例桶。'),
     anchor: 'node:video',
     showcase: {
       nodeKind: 'video',
@@ -1381,16 +1346,10 @@ const SPEC_STEPS: PracticeStep[] = [
 // ---- 3.7 高阶：镜头语言（运镜 / 特效 / 摄影） ----
 const CAMERA_STEPS: PracticeStep[] = [
   {
-    id: 'welcome',
-    title: '跟练一遍：运镜怎么变成画面',
-    summary: '运镜怎么变成画面',
-    body: practiceBody(PRACTICE_BODY_ENTER, '运镜、特效、摄影配置都只是提示词结构，prompt 只写动作。'),
-  },
-  {
     id: 'shot',
     title: '一条运镜台本 → 一个视频节点',
-    summary: '一条运镜台本 → 一个视频节点',
-    body: practiceBody(PRACTICE_BODY_READY, '没有图片节点：台本进文本节点，运镜与特效选在视频节点上。'),
+    summary: '提示词只写动作',
+    body: practiceBody(PRACTICE_BODY_SHOW, '运镜和特效写在节点上，提示词只写动作。'),
     anchor: 'inspector-cam',
     gate: { kind: 'node', nodeKind: 'video', atLeast: 1, key: 'shot' },
     prepare: {
@@ -1419,7 +1378,7 @@ const CAMERA_STEPS: PracticeStep[] = [
     id: 'camera-notes',
     title: '运镜的三个要点（只讲解）',
     summary: '运镜的三个要点（只讲解）',
-    body: practiceBody(PRACTICE_BODY_READY, '要点：运镜是结构、特效是预设、摄影配置同样进提示词。'),
+    body: practiceBody(PRACTICE_BODY_SHOW, '要点：运镜是结构、特效是预设、摄影配置同样进提示词。'),
     anchor: 'node:video',
     // 纯讲解步：不产节点、不产产物、步内没有用户动作，宿主演示完把这一步写进会话 done（判据是 {demo}）
     gate: { kind: 'demo' },
@@ -1428,8 +1387,8 @@ const CAMERA_STEPS: PracticeStep[] = [
   {
     id: 'done',
     title: '这条链就是「镜头语言」',
-    summary: '这条链就是「镜头语言」',
-    body: practiceBody(PRACTICE_BODY_READY, '逐帧导出见「3D 预演出片」；本课只到运镜进提示词。'),
+    summary: '运镜进节点',
+    body: practiceBody(PRACTICE_BODY_DONE, '逐帧导出见「3D 预演出片」；本课只到运镜进提示词。'),
     anchor: 'node:video',
     showcase: {
       nodeKind: 'video',
@@ -1444,17 +1403,11 @@ const CAMERA_STEPS: PracticeStep[] = [
 // ---- 3.8 高阶：3D 预演出片（导演台导出 → 看回放） ----
 const PREVIEW_STEPS: PracticeStep[] = [
   {
-    id: 'welcome',
-    title: '跟练一遍：预演视频怎么出片',
-    summary: '备好预演视频再出片',
-    body: practiceBody(PRACTICE_BODY_ENTER, '跟练会备好预演视频节点，再点生成看回放。不进导演台拖机位。'),
-  },
-  {
     id: 'director',
     title: '先放一个导演台节点',
-    summary: '先放一个导演台节点',
-    body: practiceBody(PRACTICE_BODY_READY, '3D 场景在导演台里。跟练不进台里拖机位，下一步会备好预演视频。'),
-    anchor: 'tools',
+    summary: '不进台里拖机位',
+    body: practiceBody(PRACTICE_BODY_SHOW, '3D 场景在导演台里。跟练不进台里拖机位，下一步会备好预演视频。'),
+    anchor: 'node:director',
     gate: { kind: 'node', nodeKind: 'director', atLeast: 1, key: 'stage' },
     prepare: { kind: 'add-node', nodeKind: 'director', key: 'stage' },
   },
@@ -1462,7 +1415,7 @@ const PREVIEW_STEPS: PracticeStep[] = [
     id: 'export-shot',
     title: '备好预演视频节点',
     summary: '备好预演视频节点',
-    body: practiceBody(PRACTICE_BODY_READY, '跟练会备好预演视频，提示词只写运镜。真导出要退出后在导演台时间轴点。'),
+    body: practiceBody(PRACTICE_BODY_SHOW, '跟练会备好预演视频，提示词只写运镜。真导出要退出后在导演台时间轴点。'),
     anchor: 'inspector-cam',
     gate: { kind: 'node', nodeKind: 'video', atLeast: 1, key: 'preview' },
     prepare: {
@@ -1489,8 +1442,8 @@ const PREVIEW_STEPS: PracticeStep[] = [
   {
     id: 'done',
     title: '运镜是结构，提示词只写动作',
-    summary: '运镜是结构，提示词只写动作',
-    body: practiceBody(PRACTICE_BODY_READY, '跟练不走真导出。退出后在导演台时间轴点导出；点视频节点生成才计积分。'),
+    summary: '不走真导出',
+    body: practiceBody(PRACTICE_BODY_DONE, '跟练不走真导出。退出后在导演台时间轴点导出。'),
     anchor: 'node:video',
     showcase: {
       nodeKind: 'video',
@@ -1505,17 +1458,11 @@ const PREVIEW_STEPS: PracticeStep[] = [
 // ---- 3.9 高阶：多段合成（两段视频合成一条成片） ----
 const COMPOSE_STEPS: PracticeStep[] = [
   {
-    id: 'welcome',
-    title: '跟练一遍：两段视频怎么合成',
-    summary: '两段视频合成一条成片',
-    body: practiceBody(PRACTICE_BODY_ENTER, '先出两段成片；跟练只练到出片，合成要退出后自己做。'),
-  },
-  {
     id: 'clip-a',
     title: '第一段：先出首帧',
-    summary: '第一段：先出首帧',
-    body: practiceBody(PRACTICE_BODY_READY, '合成吃的是已经生成好的视频节点，不是图片。'),
-    anchor: 'tools',
+    summary: '先出第一段',
+    body: practiceBody(PRACTICE_BODY_SHOW, '先出两段成片；跟练只练到出片，合成要退出后自己做。'),
+    anchor: 'node:image',
     gate: { kind: 'node', nodeKind: 'image', atLeast: 1, key: 'clip-a' },
     prepare: {
       kind: 'image-setup',
@@ -1540,7 +1487,7 @@ const COMPOSE_STEPS: PracticeStep[] = [
     id: 'take-a',
     title: '第一段出片',
     summary: '第一段出片',
-    body: practiceBody(PRACTICE_BODY_READY, '这段之后还会再出一段，两条都生成才能合成。'),
+    body: practiceBody(PRACTICE_BODY_SHOW, '这段之后还会再出一段，两条都生成才能合成。'),
     anchor: 'tools',
     gate: { kind: 'node', nodeKind: 'video', atLeast: 1, key: 'take-a' },
     prepare: {
@@ -1558,7 +1505,7 @@ const COMPOSE_STEPS: PracticeStep[] = [
     id: 'clip-b',
     title: '第二段：另起一条首帧',
     summary: '第二段：另起一条首帧',
-    body: practiceBody(PRACTICE_BODY_READY, '第二段不跟第一段串提示词，各是各的镜头。'),
+    body: practiceBody(PRACTICE_BODY_SHOW, '第二段不跟第一段串提示词，各是各的镜头。'),
     anchor: 'tools',
     gate: { kind: 'node', nodeKind: 'image', atLeast: 1, key: 'clip-b' },
     prepare: {
@@ -1574,7 +1521,7 @@ const COMPOSE_STEPS: PracticeStep[] = [
     id: 'take-b',
     title: '第二段出片',
     summary: '第二段出片',
-    body: practiceBody(PRACTICE_BODY_READY, '两条视频都在画布上之后，才能选中它们去合成。'),
+    body: practiceBody(PRACTICE_BODY_SHOW, '两条视频都在画布上之后，才能选中它们去合成。'),
     anchor: 'tools',
     gate: { kind: 'node', nodeKind: 'video', atLeast: 1, key: 'take-b' },
     prepare: {
@@ -1592,7 +1539,7 @@ const COMPOSE_STEPS: PracticeStep[] = [
     id: 'run-videos',
     title: '两段各点一次生成',
     summary: '两段各点一次生成',
-    body: practiceBody(PRACTICE_BODY_READY, '合成前两条都要有成片；跟练里点生成看回放，不真提交合成。'),
+    body: practiceBody(PRACTICE_BODY_RUN, '合成前两条都要有成片；跟练里点生成看回放，不真提交合成。'),
     anchor: 'inspector-run',
     gate: { kind: 'result', nodeKind: 'video', atLeast: 2 },
     gateHint: '两段各点一次生成',
@@ -1608,8 +1555,8 @@ const COMPOSE_STEPS: PracticeStep[] = [
   {
     id: 'done',
     title: '合成不计积分',
-    summary: '合成不计积分',
-    body: practiceBody(PRACTICE_BODY_READY, '跟练不打开合成。退出后选中两段打开合成，顺序即成片顺序，不计积分。'),
+    summary: '退出后再合成',
+    body: practiceBody(PRACTICE_BODY_DONE, '跟练不打开合成。退出后选中两段打开合成，顺序即成片顺序。'),
     anchor: 'node:video',
     showcase: {
       nodeKind: 'video',
@@ -1631,56 +1578,56 @@ const COMPOSE_STEPS: PracticeStep[] = [
 export const PRACTICE_SCRIPTS: PracticeScript[] = [
   {
     id: 'image-video-basics',
-    name: '图片 + 视频节点（最小骨架）',
-    hint: '入门：放节点、连线、出图、出片',
+    name: '图片变成视频',
+    hint: '放节点、连线、出图、再出片',
     level: 'starter',
     icon: 'i-lucide-image',
     steps: IMAGE_VIDEO_STEPS,
   },
   {
     id: 'character-consistency',
-    name: '角色一致性（主体引用）',
-    hint: '进阶：写角色设定、引角色主体，两次出片是同一个人',
+    name: '角色始终同一个人',
+    hint: '同一角色设定，两次出片是同一个人',
     level: 'advanced',
     icon: 'i-lucide-user-round',
     steps: CHARACTER_STEPS,
   },
   {
     id: 'scene-continuity',
-    name: '场景延续（一景两镜）',
-    hint: '进阶：场景主体当参考，一张首帧扇出两个景别',
+    name: '一景拍出两个镜头',
+    hint: '一张首帧，近景和全景各一条',
     level: 'advanced',
     icon: 'i-lucide-image-plus',
     steps: SCENE_STEPS,
   },
   {
     id: 'storyboard-shots',
-    name: '多镜头分镜（一脚本两镜）',
-    hint: '进阶：一个脚本拆两镜，各自一条图片 → 视频链',
+    name: '一个脚本两条镜头',
+    hint: '一个脚本拆两镜，各走出片',
     level: 'advanced',
     icon: 'i-lucide-clapperboard',
     steps: STORYBOARD_STEPS,
   },
   {
     id: 'talking-and-audio',
-    name: '口播与音频（台词 + 音频轨）',
-    hint: '高阶：口播台词与自动时长，独立音频节点承载旁白 / 配乐',
+    name: '口播和旁白',
+    hint: '写台词自动算时长，再加一条音轨',
     level: 'expert',
     icon: 'i-lucide-mic',
     steps: TALKING_STEPS,
   },
   {
     id: 'spec-fanout',
-    name: '一图多规格扇出（交付规格）',
-    hint: '高阶：一张图按 9:16 / 1:1 / 16:9 出三条片',
+    name: '一张图三种比例',
+    hint: '同一张图按三种比例出片',
     level: 'expert',
     icon: 'i-lucide-layout-grid',
     steps: SPEC_STEPS,
   },
   {
     id: 'camera-language',
-    name: '镜头语言（运镜 / 特效 / 摄影）',
-    hint: '高阶：运镜与特效怎么进提示词，prompt 只写动作',
+    name: '运镜和特效',
+    hint: '运镜写在节点上，提示词只写动作',
     level: 'expert',
     icon: 'i-lucide-video',
     steps: CAMERA_STEPS,
@@ -1688,15 +1635,15 @@ export const PRACTICE_SCRIPTS: PracticeScript[] = [
   {
     id: 'preview-export',
     name: '3D 预演出片',
-    hint: '高阶：备好预演视频，再点生成看出片',
+    hint: '先备好预演，再点生成看出片',
     level: 'expert',
     icon: 'i-lucide-film',
     steps: PREVIEW_STEPS,
   },
   {
     id: 'multi-clip-compose',
-    name: '多段合成',
-    hint: '高阶：两段出片；合成要退出后自己做',
+    name: '两段片子再合成',
+    hint: '两段出片；合成退出后自己做',
     level: 'expert',
     icon: 'i-lucide-layers',
     steps: COMPOSE_STEPS,

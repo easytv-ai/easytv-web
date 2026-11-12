@@ -177,6 +177,11 @@ export function useCanvasPractice(opts: {
   function replaySubmit(node: PracticeSubmitNode, req: { type: string }): boolean {
     if (!session.value.active)
       return false
+    if (flying)
+      return true
+    const status = String(node.data?.taskStatus || '')
+    if (status === 'pending' || status === 'running' || status === 'succeeded')
+      return true
     const step = currentStep()
     const replay = practiceReplayFor(step?.replay, String(node.data?.kind || ''), String(node.data?.practiceKey || ''))
     if (!replay) {

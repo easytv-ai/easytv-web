@@ -120,4 +120,64 @@ describe('pickGuideCardPosition', () => {
     expect(placement.left).toBe(GUIDE_VIEWPORT_PAD)
     expect(placement.top).toBe(GUIDE_VIEWPORT_PAD)
   })
+
+  it('右侧对话栏开着时卡片夹在舞台里，不飞到对话栏上', () => {
+    const pane: GuideRect = { left: 0, top: 56, width: 820, height: 744 }
+    const node: GuideRect = { left: 430, top: 220, width: 280, height: 220 }
+    const chat: GuideRect = { left: 820, top: 56, width: 460, height: 744 }
+    const inspector: GuideRect = { left: 80, top: 620, width: 700, height: 160 }
+    const list: GuideRect = { left: 560, top: 72, width: 248, height: 360 }
+    const placement = pickGuideCardPosition(
+      node,
+      { width: 340, height: 280 },
+      { hard: [chat, inspector, list] },
+      win,
+      pane,
+    )
+    const rect = { left: placement.left, top: placement.top, width: 340, height: 280 }
+    expect(placement.hardOverlap).toBe(0)
+    expect(intersects(rect, node)).toBe(false)
+    expect(intersects(rect, chat)).toBe(false)
+    expect(rect.left).toBeGreaterThanOrEqual(pane.left)
+    expect(rect.left + rect.width).toBeLessThanOrEqual(pane.left + pane.width)
+  })
+
+  it('第二步视频节点贴舞台右侧、对话栏开着时，卡片留在舞台左侧，不盖节点也不进对话栏', () => {
+    const pane: GuideRect = { left: 0, top: 48, width: 860, height: 852 }
+    const node: GuideRect = { left: 430, top: 180, width: 320, height: 240 }
+    const chat: GuideRect = { left: 860, top: 48, width: 580, height: 852 }
+    const inspector: GuideRect = { left: 80, top: 680, width: 720, height: 180 }
+    const list: GuideRect = { left: 600, top: 64, width: 248, height: 360 }
+    const tools: GuideRect = { left: 16, top: 325, width: 36, height: 250 }
+    const placement = pickGuideCardPosition(
+      node,
+      { width: 340, height: 320 },
+      { hard: [chat, inspector, list, tools] },
+      { width: 1440, height: 900 },
+      pane,
+    )
+    const rect = { left: placement.left, top: placement.top, width: 340, height: 320 }
+    expect(placement.hardOverlap).toBe(0)
+    expect(intersects(rect, node)).toBe(false)
+    expect(intersects(rect, chat)).toBe(false)
+    expect(intersects(rect, inspector)).toBe(false)
+    expect(rect.left + rect.width).toBeLessThanOrEqual(pane.left + pane.width)
+    expect(rect.left).toBeLessThan(node.left)
+  })
+
+  it('节点在舞台中部、底栏是检查器时，卡片不夹回节点身上', () => {
+    const pane: GuideRect = { left: 0, top: 56, width: 1280, height: 744 }
+    const node: GuideRect = { left: 480, top: 240, width: 320, height: 240 }
+    const inspector: GuideRect = { left: 120, top: 600, width: 900, height: 180 }
+    const placement = pickGuideCardPosition(
+      node,
+      { width: 340, height: 280 },
+      { hard: [inspector] },
+      win,
+      pane,
+    )
+    const rect = { left: placement.left, top: placement.top, width: 340, height: 280 }
+    expect(intersects(rect, node)).toBe(false)
+    expect(intersects(rect, inspector)).toBe(false)
+  })
 })

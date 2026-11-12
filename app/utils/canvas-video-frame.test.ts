@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   isOssSnapshotableUrl,
   ossVideoSnapshotUrl,
+  videoCoverUrl,
   promptReverseFrameRanges,
   samplePromptReverseTimes,
   stripFrameTimes,
@@ -33,6 +34,13 @@ describe('ossVideoSnapshotUrl', () => {
     expect(ossVideoSnapshotUrl(src, 1.25, 240)).toBe(
       `${src}?x-oss-process=video/snapshot,t_1250,f_jpg,w_240,h_0,m_fast`,
     )
+  })
+
+  it('优先用现成封面，没有就截公开 OSS 的首帧', () => {
+    const src = 'https://tv-oss.easyapi.com/easytv/a.mp4'
+    expect(videoCoverUrl(src, 'https://cdn.example/cover.jpg')).toBe('https://cdn.example/cover.jpg')
+    expect(videoCoverUrl(src, '')).toBe(ossVideoSnapshotUrl(src, 0.04, 160))
+    expect(videoCoverUrl('/upload/a.mp4', '')).toBe('')
   })
 
   it('签名地址和 blob 不改', () => {

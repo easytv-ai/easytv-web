@@ -22,6 +22,8 @@ const { teams, teamsFailed, isTeam, currentTeam, loadTeams, switchTo } = useWork
 const switcherOpen = ref(false)
 /** 画布外的「新手跟练」入口：置位后 workspace 会起跟练会话 */
 const practiceOpen = useState('canvas-practice-open', () => false)
+const practiceScript = useState('canvas-practice-script', () => '')
+const practicePickOpen = ref(false)
 
 const PERMISSION_LABEL: Record<string, string> = {
   admin: t('管理员'),
@@ -111,14 +113,25 @@ function onSettings(tab: SettingsTab) {
   openSettings(tab)
 }
 
+function onCanvasPath() {
+  return /\/canvas\/?$/.test(route.path)
+}
+
 function startGuide() {
   open.value = false
-  // 新手跟练（回放式）：画布外的入口用 useState 通知 workspace 起会话；
-  // 跟练里不会真的生成，随时可退出并还原画布。
-  practiceOpen.value = true
-  if (/\/canvas\/?$/.test(route.path))
+  if (onCanvasPath()) {
+    practiceScript.value = ''
+    practiceOpen.value = true
     return
-  void navigateTo(localePath('/canvas'))
+  }
+  practicePickOpen.value = true
+}
+
+function pickPractice(scriptId: string) {
+  practicePickOpen.value = false
+  practiceScript.value = scriptId
+  practiceOpen.value = true
+  void navigateTo(localePath({ path: '/canvas', query: { practice: scriptId } }))
 }
 
 function onWallet(tab: 'overview' | 'logs' | 'tasks') {
@@ -326,4 +339,11 @@ const menuItems = computed(() => [
       </div>
     </template>
   </UPopover>
+  <Teleport to="body">
+    <CanvasPracticePick
+      v-if="practicePickOpen"
+      @pick="pickPractice"
+      @close="practicePickOpen = false"
+    />
+  </Teleport>
 </template>

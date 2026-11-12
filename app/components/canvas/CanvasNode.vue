@@ -878,11 +878,11 @@ onMounted(() => {
               {{ t('打开导演台') }}
             </button>
             <button
-              v-else-if="isMediaCard"
+              v-else-if="isMediaCard && !practiceLocked"
               type="button"
               class="cnode__upload nodrag nopan nowheel"
               :disabled="nodeUploading || writeFrozen"
-              :aria-label="practiceLocked ? t('跟练中画布是只读的：先退出跟练再编辑') : (nodeLocked ? t('canvas.lock.lock') : undefined)"
+              :aria-label="nodeLocked ? t('canvas.lock.lock') : undefined"
               @pointerdown.stop
               @click.stop="onUploadClick"
               @dblclick.stop

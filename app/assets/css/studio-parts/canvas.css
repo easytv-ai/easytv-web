@@ -7880,7 +7880,7 @@ html.dark .canvas-brief {
 }
 
 .canvas-practice-pick__modal {
-  width: min(92vw, 560px);
+  width: min(92vw, 720px);
   padding: 0;
   overflow: hidden;
   border: 0;
@@ -7901,6 +7901,14 @@ html.dark .canvas-brief {
   font-size: 20px;
   font-weight: 650;
   letter-spacing: -0.02em;
+}
+
+.canvas-practice-pick__kicker {
+  margin: 0 0 8px;
+  color: var(--st-plan);
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: 0.04em;
 }
 
 .canvas-practice-pick__head p {
@@ -7941,6 +7949,137 @@ html.dark .canvas-brief {
 
 .canvas-practice-pick__body::-webkit-scrollbar-thumb:hover {
   background: var(--st-muted);
+}
+
+.canvas-practice-pick__section {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.canvas-practice-pick__section:last-child {
+  margin-bottom: 0;
+}
+
+.canvas-practice-pick__section h3 {
+  margin: 0;
+  padding: 0 4px;
+  color: var(--st-muted);
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+}
+
+.canvas-practice-pick__grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 640px) {
+  .canvas-practice-pick__grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.canvas-practice-pick__card {
+  display: flex;
+  width: 100%;
+  align-items: stretch;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--st-float-border);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--st-elevated) 88%, transparent);
+  color: var(--st-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.canvas-practice-pick__card:hover {
+  border-color: color-mix(in srgb, var(--st-plan) 45%, var(--st-float-border));
+  background: var(--st-hover);
+}
+
+.canvas-practice-pick__card.is-featured {
+  padding: 14px;
+  border-color: color-mix(in srgb, var(--st-plan) 40%, var(--st-float-border));
+  background: color-mix(in srgb, var(--st-plan) 8%, var(--st-elevated));
+}
+
+.canvas-practice-pick__thumb {
+  display: flex;
+  flex: 0 0 72px;
+  align-items: center;
+  justify-content: center;
+  width: 72px;
+  min-height: 72px;
+  border-radius: 12px;
+  color: var(--st-text);
+}
+
+.canvas-practice-pick__thumb[data-level="starter"] {
+  background: color-mix(in srgb, var(--st-plan) 22%, transparent);
+  color: var(--st-plan);
+}
+
+.canvas-practice-pick__thumb[data-level="advanced"] {
+  background: color-mix(in srgb, var(--st-text) 8%, transparent);
+}
+
+.canvas-practice-pick__thumb[data-level="expert"] {
+  background: color-mix(in srgb, var(--st-text) 6%, transparent);
+}
+
+.canvas-practice-pick__copy {
+  display: grid;
+  min-width: 0;
+  align-content: center;
+  gap: 4px;
+}
+
+.canvas-practice-pick__copy i {
+  width: fit-content;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--st-plan) 18%, transparent);
+  color: var(--st-plan);
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 650;
+}
+
+.canvas-practice-pick__copy b {
+  font-size: 15px;
+  font-weight: 650;
+}
+
+.canvas-practice-pick__copy em,
+.canvas-practice-pick__copy small {
+  color: var(--st-muted);
+  font-size: 12px;
+  font-style: normal;
+  line-height: 1.45;
+}
+
+.canvas-practice-pick__more {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 4px;
+  padding: 6px 0;
+  border: 0;
+  background: transparent;
+  color: var(--st-muted);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.canvas-practice-pick__more:hover {
+  color: var(--st-text);
 }
 
 /* 场景按钮：图标 + 名字 + 一句平台规格，一列排开 */
@@ -8031,6 +8170,8 @@ html.dark .canvas-brief {
 .canvas-guide__skip,
 .canvas-guide__head-ops button,
 .canvas-guide__scenes button,
+.canvas-practice-pick__card,
+.canvas-practice-pick__more,
 .canvas-practice-list__fold,
 .canvas-practice-list__rows button,
 .canvas-practice-pill {
@@ -8048,6 +8189,8 @@ html.dark .canvas-brief {
 .canvas-guide__skip:focus-visible,
 .canvas-guide__head-ops button:focus-visible,
 .canvas-guide__scenes button:focus-visible,
+.canvas-practice-pick__card:focus-visible,
+.canvas-practice-pick__more:focus-visible,
 .canvas-practice-list__fold:focus-visible,
 .canvas-practice-list__rows button:focus-visible,
 .canvas-practice-pill:focus-visible {
@@ -8059,6 +8202,8 @@ html.dark .canvas-brief {
 .canvas-guide__skip:active:not(:disabled),
 .canvas-guide__head-ops button:active:not(:disabled),
 .canvas-guide__scenes button:active,
+.canvas-practice-pick__card:active,
+.canvas-practice-pick__more:active,
 .canvas-practice-list__fold:active,
 .canvas-practice-list__rows button:active {
   transform: translateY(1px);

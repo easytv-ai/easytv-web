@@ -33,6 +33,7 @@ import { beginSave,
 import { graphHeavyNames, isGraphNearLimit, isGraphOverLimit } from '~/utils/director/persist'
 import type { PracticeSession } from '~/composables/useCanvasPractice'
 import { practiceSessionDefault } from '~/composables/useCanvasPractice'
+import { findPracticeScript } from '~/utils/canvas-practice'
 
 const { t } = useI18n()
 const { load: loadAppConfig } = useStudioAppConfig()
@@ -62,6 +63,8 @@ const chatMaxPct = 42
 const chatPct = ref(chatMinPct)
 const resizing = ref(false)
 const guideOpen = useState('canvas-guide-open', () => false)
+const practiceWanted = useState('canvas-practice-open', () => false)
+const practiceScript = useState('canvas-practice-script', () => '')
 
 // ---- 新手跟练：沙盒语义。跟练期间不保存、不落库；退出把持久化状态还原回去 ----
 const practiceSession = useState<PracticeSession>('canvas-practice', practiceSessionDefault)
@@ -114,6 +117,20 @@ watch(guideOpen, (on) => {
   if (on)
     chatOpen.value = true
 }, { immediate: true })
+
+function consumePracticeQuery() {
+  const raw = String(route.query.practice || '')
+  if (!raw)
+    return
+  const scriptId = raw === '1' ? '' : (findPracticeScript(raw)?.id || '')
+  if (raw !== '1' && !scriptId)
+    return
+  practiceScript.value = scriptId
+  practiceWanted.value = true
+  const query = { ...route.query }
+  delete query.practice
+  void router.replace({ query })
+}
 
 function closeGuide() {
   guideOpen.value = false
@@ -861,10 +878,14 @@ function onRestored(detail: CanvasDetail, from?: { id: number }) {
 
 // ---- 对话栏与画布联动 ----
 function onChatInsertText(text: string, label?: string) {
+  if (blockedByPractice())
+    return
   workspace.value?.insertTextNode(text, label)
 }
 
 function onChatInsertImages(items: { label: string, prompt: string, ratio?: string, group?: string }[], fromText?: { text: string, label?: string }) {
+  if (blockedByPractice())
+    return
   const fromId = fromText?.text
     ? workspace.value?.insertTextNode(fromText.text, fromText.label) || undefined
     : undefined
@@ -872,6 +893,8 @@ function onChatInsertImages(items: { label: string, prompt: string, ratio?: stri
 }
 
 function onChatInsertAudios(items: { label: string, prompt: string, group?: string }[]) {
+  if (blockedByPractice())
+    return
   workspace.value?.insertAudioNodes(items)
 }
 
@@ -997,6 +1020,7 @@ onMounted(() => {
   window.addEventListener('beforeunload', onBeforeUnload)
   if (String(route.query.guide) === '1')
     guideOpen.value = true
+  consumePracticeQuery()
   hydrate()
   void refreshWallet()
   void load()
@@ -1166,7 +1190,7 @@ function onResizeStart(event: PointerEvent) {
       </ClientOnly>
     </div>
     <div
-      v-if="chatOpen && !practiceSession.active"
+      v-if="chatOpen"
       class="canvas-splitter"
       role="separator"
       aria-orientation="vertical"
@@ -1174,7 +1198,7 @@ function onResizeStart(event: PointerEvent) {
       @pointerdown="onResizeStart"
     />
     <Transition name="chat-panel">
-      <div v-if="chatOpen && !practiceSession.active" class="canvas-editor__chat-panel">
+      <div v-if="chatOpen" class="canvas-editor__chat-panel">
         <div class="canvas-editor__chat" data-guide="chat">
           <CanvasChat
             ref="chat"

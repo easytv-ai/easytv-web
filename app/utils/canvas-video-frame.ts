@@ -13,6 +13,14 @@ export function isOssSnapshotableUrl(src: string) {
   return !/[?&](Signature|OSSAccessKeyId|x-oss-process)=/i.test(value)
 }
 
+/** 视频封面：有 cover 用 cover，公开 OSS 则截首帧，其它地址交给调用方用 video 标签自己出画面 */
+export function videoCoverUrl(src: string, cover = '', timeSec = 0.04, width = 160) {
+  const poster = String(cover || '').trim()
+  if (poster)
+    return poster
+  return ossVideoSnapshotUrl(src, timeSec, width)
+}
+
 export function ossVideoSnapshotUrl(src: string, timeSec: number, width = 240) {
   if (!isOssSnapshotableUrl(src))
     return ''

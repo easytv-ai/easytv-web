@@ -7,9 +7,7 @@ import {
   practiceProgress,
   practiceReadyItems,
   practiceStepSatisfied,
-  PRACTICE_LEVELS,
   PRACTICE_LIST_WIDTH,
-  PRACTICE_SCRIPTS,
   type PracticeAppliedPrepare,
   type PracticeGraphView,
   type PracticeReadyItem,
@@ -82,7 +80,6 @@ const emit = defineEmits<{
 
 const { t } = useI18n()
 
-const scripts = PRACTICE_SCRIPTS
 const script = computed(() => findPracticeScript(props.session.scriptId))
 const steps = computed(() => script.value?.steps ?? [])
 const step = computed<PracticeStep | null>(() => steps.value[props.session.stepIndex] ?? null)
@@ -142,17 +139,12 @@ function readyLines(item: PracticeReadyItem): string[] {
   }
 }
 
-/** 场景选择卡按等级分组（入门 / 进阶 / 高阶），组内保持剧本表里的原顺序 */
-const scriptGroups = computed(() => PRACTICE_LEVELS
-  .map(level => ({ level: level.id, label: level.label, items: scripts.filter(item => item.level === level.id) }))
-  .filter(group => group.items.length > 0))
-
 // ---- 聚光 / 卡片 / 清单的几何：每帧一条快路径（useGuideOverlay），禁区与清单是每 8 帧的慢活 ----
 
 /** 硬 / 软禁区，每 8 帧重收一次：菜单是点开的，只能靠周期性测量让卡片自己让位 */
 const zones = ref<GuideZones>({ hard: [], soft: [] })
-/** 卡片真实尺寸：ResizeObserver 量，量到之前用默认宽 × 250 占位 */
-const cardSize = ref<GuideCardSize>({ width: GUIDE_CARD_WIDTH, height: 250 })
+/** 卡片真实尺寸：ResizeObserver 量；量到之前按「接上视频」这类带 ready 块的步骤估高，免得先落到节点身上再跳 */
+const cardSize = ref<GuideCardSize>({ width: GUIDE_CARD_WIDTH, height: 300 })
 const cardEl = ref<HTMLElement | null>(null)
 
 function rectOf(el: Element | null | undefined): GuideRect | null {
@@ -182,11 +174,15 @@ const HARD_ZONE_SELECTORS = [
   '.canvas-practice-list',
   /* 左边工具条很窄，卡片一压就把加号盖死；跟高亮锚点一样，任何情况下都不压 */
   '.canvas-tools',
+  /* 紧凑 Inspector 含生成键：压住就点不到「等你动手」那一下 */
+  '[data-guide="inspector"]',
+  /* 对话栏在舞台右侧：卡片飞过去等于离开节点 */
+  '[data-guide="chat"]',
   '[aria-label^="Notifications"] li',
   'ol[data-slot="viewport"] > li',
 ]
 /** 软禁区：常驻面板，尽量避但不强求 */
-const SOFT_ZONE_SELECTORS = ['.canvas-dock', '[data-guide="inspector"]', '[data-guide="chat"]']
+const SOFT_ZONE_SELECTORS = ['.canvas-dock']
 
 /**
  * 画布舞台的矩形：跟禁区一起每 8 帧量一次（只有面板开合才会变，逐帧量那份是白给的 DOM 开销）。
@@ -357,48 +353,13 @@ onUnmounted(() => {
         {{ t('跟练中 · 展开') }}
         <em>{{ progress.done }}/{{ progress.total }}</em>
       </button>
-      <div
+      <CanvasPracticePick
         v-else-if="session.active && !step"
         key="pick"
-        class="studio-modal-mask canvas-practice-pick"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="canvas-practice-pick-title"
-        @click.self="emit('exit')"
-        @pointerdown.stop
-      >
-        <div class="studio-modal canvas-practice-pick__modal">
-          <header class="canvas-practice-pick__head">
-            <div>
-              <h2 id="canvas-practice-pick-title">{{ t('新手跟练') }}</h2>
-              <p>{{ t('按你的业务选一条，跟练一遍') }}。{{ t('每条都是从易到难的一条链：跟练替你布好、你点生成看回放。全程不调模型、不花点数；中途随时可以退出，退出会把画布还原成现在的样子。') }}</p>
-            </div>
-            <button type="button" class="trash-modal__close" :aria-label="t('退出跟练')" :title="t('退出并还原画布')" @click="emit('exit')">
-              <UIcon name="i-lucide-x" class="size-5" />
-            </button>
-          </header>
-          <div class="canvas-practice-pick__body">
-            <div class="canvas-guide__scenes">
-              <template v-for="group in scriptGroups" :key="group.level">
-                <h4 class="canvas-guide__scenes-title">{{ t(group.label) }}</h4>
-                <button
-                  v-for="item in group.items"
-                  :key="item.id"
-                  type="button"
-                  :aria-label="t('跟练场景：{name}', { name: t(item.name) })"
-                  @click="emit('pickScript', item.id)"
-                >
-                  <UIcon :name="item.icon" class="size-4" />
-                  <span>
-                    <b>{{ t(item.name) }}</b>
-                    <em>{{ t(item.hint) }}</em>
-                  </span>
-                </button>
-              </template>
-            </div>
-          </div>
-        </div>
-      </div>
+        exit
+        @pick="emit('pickScript', $event)"
+        @close="emit('exit')"
+      />
       <div v-else-if="session.active && step" key="card" class="canvas-guide canvas-guide--practice" role="dialog" aria-modal="false" :aria-label="t('新手跟练')">
         <div class="canvas-guide__spot" :style="spotStyle" />
         <CanvasPracticeList

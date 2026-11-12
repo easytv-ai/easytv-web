@@ -15,6 +15,7 @@ import { useCanvasCameraGlide } from '~/composables/useCanvasCameraGlide'
 import { useCanvasPractice } from '~/composables/useCanvasPractice'
 import {
   anchorSelector,
+  findPracticeScript,
   gateSatisfied,
   practiceAutoPreparePlan,
   practiceKindLabel,
@@ -118,14 +119,19 @@ export function useCanvasPracticeHost(opts: {
   })
   /** 画布外的入口（账号菜单 / 帮助弹窗）置位这个 useState 即开始跟练 */
   const wanted = useState('canvas-practice-open', () => false)
+  /** 菜单里先选好的剧本 id；空字符串则进画布后再弹选课 */
+  const wantedScript = useState('canvas-practice-script', () => '')
   /** 3 步新手引导（CanvasGuideTour）的开关：跟练与它是两套同 z-index 的聚光浮层，进跟练先把那边关掉 */
   const canvasGuideOpen = useState('canvas-guide-open', () => false)
 
   watch(wanted, (on) => {
     if (!on)
       return
-    wanted.value = false
-    start()
+    const scriptId = findPracticeScript(wantedScript.value)?.id || ''
+    wantedScript.value = ''
+    start(scriptId)
+    if (session.value.active)
+      wanted.value = false
   }, { immediate: true })
 
   // 会话一结束（退出 / 跨画布被复位），在飞的补间立刻停手：它已经不能再写视口了
@@ -159,6 +165,8 @@ export function useCanvasPracticeHost(opts: {
     // Inspector 全程紧凑态：展开成大面板会盖住画布，锚点靠「选中节点 + 紧凑态里的 data-guide」定位
     opts.inspectorOpen.value = false
     practice.start(scriptId)
+    if (scriptId)
+      void nextTick(() => enterPracticeStep())
     // 不弹「跟练开始 / 先选一个场景」的通知：文案与选课卡正文逐字重复，而且 toast 正好压在
     // 选课卡右上角，会把卡头的「退出跟练」按钮整块盖住（选课卡是无锚点兜底定位、不吃禁区，躲不开）。
   }

@@ -11,6 +11,7 @@ import { agentModeFor, chatQuotaDisabled, chatQuotaExhausted, chatQuotaLabel, is
 import type { GenerationModel, Skill, Asset } from '~/types/creative'
 import { isVisionTextModel } from '~/utils/image-input'
 import { resolveMediaUrl } from '~/utils/media'
+import { videoCoverUrl } from '~/utils/canvas-video-frame'
 import { promptTemplates } from '~/utils/canvas-templates'
 import { writeChatEntry, type ChatEntryDraft } from '~/utils/chat-entry'
 import { effectiveUnitPrice, estimateSecondDuration, estimateTaskPoints, modelPromoDisplay } from '~/utils/model-price'
@@ -639,10 +640,21 @@ type ChatAttachment = {
   content?: string
   assetId?: number
   url?: string
+  src?: string
   /** 资产上传中 */
   pending?: boolean
 }
 const attachments = ref<ChatAttachment[]>([])
+const attachPreview = ref<{ src: string, kind: ChatAttachment['kind'], caption: string } | null>(null)
+
+function openAttachPreview(item: ChatAttachment) {
+  if (item.pending)
+    return
+  const src = item.src || item.url || ''
+  if (!src)
+    return
+  attachPreview.value = { src, kind: item.kind, caption: item.name }
+}
 
 type AttachKind = 'image' | 'video' | 'audio'
 type AttachMenuKind = AttachKind | 'script'
@@ -776,7 +788,14 @@ async function onAttachFile(event: Event, kind: AttachMenuKind) {
   }
   const asset: Asset = res.data
   item.assetId = asset.id
-  item.url = resolveMediaUrl(asset.cover_url || asset.url)
+  fillAttachMedia(item, asset)
+}
+
+function fillAttachMedia(item: ChatAttachment, asset: Asset) {
+  const src = resolveMediaUrl(asset.url)
+  const cover = resolveMediaUrl(asset.cover_url || '')
+  item.src = src
+  item.url = item.kind === 'video' ? (videoCoverUrl(src, cover) || cover) : (cover || src)
 }
 
 function removeAttachment(key: string) {
@@ -789,13 +808,14 @@ function addAssetAttachments(assets: Asset[]) {
     const kind = asset.type === 'image' || asset.type === 'video' || asset.type === 'audio' ? asset.type : null
     if (!kind)
       continue
-    attachments.value.push({
+    const next: ChatAttachment = {
       key: `a${asset.id}-${Date.now()}`,
       kind,
       name: asset.name,
       assetId: asset.id,
-      url: resolveMediaUrl(asset.cover_url || asset.url),
-    })
+    }
+    fillAttachMedia(next, asset)
+    attachments.value.push(next)
   }
 }
 
@@ -3158,6 +3178,7 @@ function send(text?: string) {
           name: item.name,
           assetId: item.assetId,
           url: item.url,
+          src: item.src,
         })),
     })
     void navigateTo(localePath({ path: '/canvas', query: { from: 'agent' } }))
@@ -3339,13 +3360,18 @@ function applyEntryDraft(draft: ChatEntryDraft) {
     prompt: activeStylePrompt.value,
     cover: activeStyleCover.value,
   })
-  attachments.value = (draft.attachments || []).map(item => ({
-    key: item.key,
-    kind: item.kind,
-    name: item.name,
-    assetId: item.assetId,
-    url: item.url,
-  }))
+  attachments.value = (draft.attachments || []).map((item) => {
+    const src = item.src || item.url || ''
+    const cover = item.src ? (item.url || '') : ''
+    return {
+      key: item.key,
+      kind: item.kind,
+      name: item.name,
+      assetId: item.assetId,
+      src,
+      url: item.kind === 'video' ? (videoCoverUrl(src, cover) || cover) : (item.url || src),
+    }
+  })
 }
 
 /** Agent 页带过来的草稿：技能、模型、风格、附件和原文先对上，再按画布自己的发送走 */
@@ -4041,10 +4067,24 @@ function promoOf(item: GenerationModel) {
             class="canvas-chat__attach-thumb"
             :class="{ 'is-pending': item.pending }"
           >
-            <span class="canvas-chat__attach-thumb-hit">
-              <img v-if="item.url" :src="item.url" :alt="item.name">
+            <button
+              type="button"
+              class="canvas-chat__attach-thumb-hit"
+              :disabled="item.pending || !(item.src || item.url)"
+              :aria-label="t('放大查看')"
+              @click="openAttachPreview(item)"
+            >
+              <img v-if="item.kind !== 'video' && item.url" :src="item.url" :alt="item.name">
+              <video
+                v-else-if="item.kind === 'video' && item.src"
+                :src="item.src"
+                :poster="item.url || undefined"
+                muted
+                playsinline
+                preload="metadata"
+              />
               <UIcon v-else :name="ATTACH_ICON[item.kind]" class="size-4" />
-            </span>
+            </button>
             <UIcon v-if="item.pending" name="i-lucide-loader-circle" class="size-3.5 animate-spin canvas-chat__attach-spin" />
             <button type="button" class="canvas-chat__attach-x" :aria-label="t('移除')" @click="removeAttachment(item.key)">
               <UIcon name="i-lucide-x" class="size-3" />
@@ -4476,4 +4516,11 @@ function promoOf(item: GenerationModel) {
       </div>
     </div>
   </Teleport>
+  <CanvasMediaPreview
+    :open="Boolean(attachPreview)"
+    :src="attachPreview?.src || ''"
+    :kind="attachPreview?.kind || 'image'"
+    :caption="attachPreview?.caption || ''"
+    @close="attachPreview = null"
+  />
 </template>

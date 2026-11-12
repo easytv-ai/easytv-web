@@ -277,8 +277,10 @@ const props = withDefaults(defineProps<{
   readonly?: boolean
   /** 当前节点已单独锁定 */
   locked?: boolean
-  /** 生成请求还没返回：按钮置灰，挡住连点 */
+  /** 生成请求还没返回：按钮置灰并转圈 */
   submitting?: boolean
+  /** 跟练已经成功：生成键禁用，但不转圈（转圈只表示还在跑） */
+  sendLocked?: boolean
   /** 节点历史结果（API.md 39.2）：够两条才传进来，工具行上出「历史结果 n」 */
   candidates?: NodeCandidate[]
   /** 节点当前产物，用来在历史结果里标出「当前」 */
@@ -307,6 +309,7 @@ const props = withDefaults(defineProps<{
   readonly: false,
   locked: false,
   submitting: false,
+  sendLocked: false,
   candidates: () => [],
   candidateCurrent: () => ({}),
   candidatesDisabled: false,
@@ -1150,7 +1153,7 @@ function setAudioMood(id: (typeof AUDIO_MOODS)[number]['id']) {
 }
 
 function onSend() {
-  if (props.submitting || props.locked)
+  if (props.submitting || props.locked || props.sendLocked)
     return
   if (noModels.value) {
     toast.add({ title: t('暂无可用模型，请联系运营开通'), color: 'neutral', close: false, progress: false, orientation: 'horizontal' })
@@ -1837,7 +1840,7 @@ const placeholder = computed(() => {
         {{ t('提示词库') }}
       </button>
       <span class="canvas-inspector__grow" />
-      <button v-if="!isText && !noModels" type="button" class="canvas-inspector__icon canvas-inspector__cost" :class="{ 'is-promo': zapPromo }" :aria-label="t('额度')" @click="emit('quota')">
+      <button v-if="!isText && !noModels && !readonly" type="button" class="canvas-inspector__icon canvas-inspector__cost" :class="{ 'is-promo': zapPromo }" :aria-label="t('额度')" @click="emit('quota')">
         <UIcon name="i-lucide-zap" class="size-4" />
         <span class="canvas-inspector__cost-text">{{ typeof zapCost === 'number' ? t('预计扣 {n} 积分', { n: zapCost }) : zapCost }}</span>
         <i v-if="zapPromo" class="canvas-promo__chip">{{ currentModel.promo?.label || t('促销') }}</i>
@@ -1848,7 +1851,7 @@ const placeholder = computed(() => {
         class="canvas-inspector__send"
         data-guide="inspector-run"
         :aria-label="submitting ? t('生成中…') : t('生成')"
-        :disabled="noModels || talkingNoModel || submitting || locked"
+        :disabled="noModels || talkingNoModel || submitting || locked || sendLocked"
         @click="onSend"
       >
         <UIcon :name="submitting ? 'i-lucide-loader-circle' : 'i-lucide-arrow-up'" class="size-4" :class="{ 'animate-spin': submitting }" />

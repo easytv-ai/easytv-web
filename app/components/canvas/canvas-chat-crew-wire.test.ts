@@ -97,6 +97,15 @@ describe('CanvasChat 剧本确认', () => {
     expect(page).toContain('estimateBriefPlaced')
   })
 
+  it('输入栏附件缩略图点开放大预览', () => {
+    expect(src).toContain('function openAttachPreview(')
+    expect(src).toContain('<CanvasMediaPreview')
+    expect(src).toContain('attachPreview')
+    expect(src).toContain("t('放大查看')")
+    expect(src).toContain('videoCoverUrl')
+    expect(src).toContain('item.kind === \'video\' && item.src')
+  })
+
   it('点欢迎区技能只填草稿，不立刻发出去', () => {
     expect(src).toMatch(/function useSkill\(item: ChatSkill\) \{\s*startSkillDraft\(item\)/)
     expect(src).toContain('prompt: item.prompt || \'\'')

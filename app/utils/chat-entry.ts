@@ -7,6 +7,8 @@ export type ChatEntryAttachment = {
   name: string
   assetId?: number
   url?: string
+  /** 原文件地址：视频 / 音频预览用，缩略图仍走 url */
+  src?: string
 }
 
 export type ChatEntrySkill = {

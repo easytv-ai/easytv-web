@@ -1305,6 +1305,14 @@
     }
   },
   "canvas": {
+    "practice": {
+      "kicker": "不扣点 · 随时退出还原",
+      "lead": "选一条课，跟练替你布好节点，你点生成看回放。",
+      "startHere": "从这里开始",
+      "recommended": "推荐",
+      "meta": "{level} · {n} 步",
+      "more": "更多课程（{n}）"
+    },
     "chat": {
       "skill": {
         "all": "全部技能",

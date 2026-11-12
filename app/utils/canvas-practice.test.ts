@@ -330,36 +330,35 @@ describe('practiceProgress（常驻清单的进度与打勾）', () => {
   const script = findPracticeScript('image-video-basics')!
   const empty = viewOf([])
 
-  it('开场：六行都在、没人打勾，当前行是 welcome', () => {
+  it('开场：五行都在、没人打勾，当前行是 add-image', () => {
     const progress = practiceProgress(script.steps, empty, 0)
-    expect(progress.total).toBe(6)
+    expect(progress.total).toBe(5)
     expect(progress.done).toBe(0)
-    expect(progress.items[0]).toEqual({ id: 'welcome', index: 0, state: 'current', checked: false })
-    expect(progress.items[5]).toEqual({ id: 'done', index: 5, state: 'todo', checked: false })
+    expect(progress.items[0]).toEqual({ id: 'add-image', index: 0, state: 'current', checked: false })
+    expect(progress.items[4]).toEqual({ id: 'done', index: 4, state: 'todo', checked: false })
   })
 
   it('当前步的东西已备好 → 当前行立刻打勾，顶部数字跟着变', () => {
     const view = viewOf([node('i1', 'image')])
-    const progress = practiceProgress(script.steps, view, 1)
-    expect(progress.done).toBe(2)
-    expect(progress.items[0]).toEqual({ id: 'welcome', index: 0, state: 'done', checked: true })
-    expect(progress.items[1]).toEqual({ id: 'add-image', index: 1, state: 'current', checked: true })
-    expect(progress.items[2]?.checked).toBe(false)
+    const progress = practiceProgress(script.steps, view, 0)
+    expect(progress.done).toBe(1)
+    expect(progress.items[0]).toEqual({ id: 'add-image', index: 0, state: 'current', checked: true })
+    expect(progress.items[1]?.checked).toBe(false)
   })
 
   it('当前步判据没满足就不打勾（东西还没备上）', () => {
-    const progress = practiceProgress(script.steps, empty, 3)
-    expect(progress.done).toBe(3)
-    expect(progress.items[3]).toEqual({ id: 'run-image', index: 3, state: 'current', checked: false })
+    const progress = practiceProgress(script.steps, empty, 2)
+    expect(progress.done).toBe(2)
+    expect(progress.items[2]).toEqual({ id: 'run-image', index: 2, state: 'current', checked: false })
   })
 
   it('进了会话 done 的步（演示 / 跳过）在清单上也打勾：第 4 参传进去', () => {
-    const progress = practiceProgress(script.steps, empty, 3, new Set(['run-image']))
-    expect(progress.items[3]?.checked).toBe(true)
-    expect(progress.done).toBe(4)
+    const progress = practiceProgress(script.steps, empty, 2, new Set(['run-image']))
+    expect(progress.items[2]?.checked).toBe(true)
+    expect(progress.done).toBe(3)
     // 不传 done 时同一行还是没完成（画布上没有产物），顶部数字也少一个
-    expect(practiceProgress(script.steps, empty, 3).items[3]?.checked).toBe(false)
-    expect(practiceProgress(script.steps, empty, 3).done).toBe(3)
+    expect(practiceProgress(script.steps, empty, 2).items[2]?.checked).toBe(false)
+    expect(practiceProgress(script.steps, empty, 2).done).toBe(2)
   })
 
   it('判据是"东西在不在"，跳回前面的步骤时后面的打勾不会缩水', () => {
@@ -367,10 +366,10 @@ describe('practiceProgress（常驻清单的进度与打勾）', () => {
       node('i1', 'image', { prompt: '首帧' }),
       node('v1', 'video', { model: 'Kling-2.5' }),
     ], [{ source: 'i1', target: 'v1' }])
-    const progress = practiceProgress(script.steps, view, 1)
-    expect(progress.items.slice(0, 3).every(item => item.checked)).toBe(true)
-    expect(progress.items[3]?.checked).toBe(false)
-    expect(progress.done).toBe(3)
+    const progress = practiceProgress(script.steps, view, 0)
+    expect(progress.items.slice(0, 2).every(item => item.checked)).toBe(true)
+    expect(progress.items[2]?.checked).toBe(false)
+    expect(progress.done).toBe(2)
   })
 })
 
@@ -379,7 +378,7 @@ describe('practiceAutoPreparePlan（进入一步就把到这一步为止欠的�
 
   it('只计划到目标步为止，顺序就是依赖顺序', () => {
     const script = findPracticeScript('image-video-basics')!
-    const plan = practiceAutoPreparePlan(script.steps, 3, empty)
+    const plan = practiceAutoPreparePlan(script.steps, 2, empty)
     expect(plan).toEqual([
       { kind: 'add-node', nodeKind: 'image' },
       { kind: 'add-connect', fromKind: 'image', toKind: 'video' },
@@ -407,7 +406,7 @@ describe('practiceAutoPreparePlan（进入一步就把到这一步为止欠的�
   it('判据已满足的步不入列（不会重复建节点 / 重复写）', () => {
     const script = findPracticeScript('image-video-basics')!
     const view = viewOf([node('i1', 'image', { prompt: '用户自己写的' }), node('v1', 'video')], [{ source: 'i1', target: 'v1' }])
-    const plan = practiceAutoPreparePlan(script.steps, 3, view)
+    const plan = practiceAutoPreparePlan(script.steps, 2, view)
     // 放节点与连线都已就位，只剩出图那步的 setup
     expect(plan.map(item => item.kind)).toEqual(['image-setup'])
   })
@@ -623,9 +622,10 @@ function practiceReplayTracks(step: PracticeStep) {
   return tracks.map(track => ({ step, kind: stepKindOf(step), track }))
 }
 
-const PRACTICE_BODY_ENTER = '跟练不会真的调模型、不花点数；退出会把画布还原成进来那一刻。'
-const PRACTICE_BODY_FIRST_RUN = '回放放的是跟练自带的示例素材，不是按你这句提示词真生成的。'
-const PRACTICE_BODY_READY = '跟练已经替你把这一步布好了，你只要点生成看回放。'
+const PRACTICE_BODY_SHOW = '跟练已经替你布好，先看画布上这一步。'
+const PRACTICE_BODY_FIRST_RUN = '点右下角生成。不扣点，播的是跟练示例。'
+const PRACTICE_BODY_RUN = '点右下角生成，不扣点。'
+const PRACTICE_BODY_DONE = '退出会还原画布。'
 
 describe('跟练剧本（九条，从易到难）', () => {
   const ids = [
@@ -651,35 +651,33 @@ describe('跟练剧本（九条，从易到难）', () => {
     'multi-clip-compose': 'expert',
   }
   const stepCounts: Record<string, number> = {
-    'image-video-basics': 6,
-    'character-consistency': 7,
-    'scene-continuity': 7,
-    'storyboard-shots': 9,
-    'talking-and-audio': 8,
-    'spec-fanout': 8,
-    'camera-language': 5,
-    'preview-export': 5,
-    'multi-clip-compose': 8,
+    'image-video-basics': 5,
+    'character-consistency': 6,
+    'scene-continuity': 6,
+    'storyboard-shots': 8,
+    'talking-and-audio': 7,
+    'spec-fanout': 7,
+    'camera-language': 4,
+    'preview-export': 4,
+    'multi-clip-compose': 7,
   }
 
-  it('九条剧本的 id / 等级 / 步数按设计表来（共 63 步）', () => {
+  it('九条剧本的 id / 等级 / 步数按设计表来（共 54 步）', () => {
     expect(PRACTICE_SCRIPTS.map(script => script.id)).toEqual(ids)
     expect(new Set(ids).size).toBe(ids.length)
-    expect(PRACTICE_SCRIPTS.reduce((sum, script) => sum + script.steps.length, 0)).toBe(63)
+    expect(PRACTICE_SCRIPTS.reduce((sum, script) => sum + script.steps.length, 0)).toBe(54)
     for (const script of PRACTICE_SCRIPTS) {
       expect(script.level, script.id).toBe(levels[script.id])
       expect(script.steps.length, script.id).toBe(stepCounts[script.id])
       expect(script.name.trim(), script.id).not.toBe('')
       expect([...script.name].length, `${script.id} 的剧本名太长`).toBeLessThanOrEqual(20)
-      // 剧本提示：一句 ≤30 字（汉字口径：9:16 / 1:1 这类数字与分隔符不算字），开头就是等级
       const levelLabel = PRACTICE_LEVELS.find(item => item.id === script.level)!.label
-      expect(script.hint.startsWith(levelLabel), `${script.id} 的提示没写等级`).toBe(true)
+      expect(script.hint.startsWith(levelLabel), `${script.id} 的提示不该再重复等级`).toBe(false)
       const han = [...script.hint].filter(char => /[\u3000-\u303F\uFF00-\uFFEF\u4E00-\u9FFF]/.test(char)).length
       expect(han, `${script.id} 的提示超过 30 字`).toBeLessThanOrEqual(30)
       expect(script.icon.startsWith('i-lucide-'), script.id).toBe(true)
-      expect(script.steps[0]!.id, script.id).toBe('welcome')
+      expect(script.steps[0]!.id, script.id).not.toBe('welcome')
       expect(script.steps.at(-1)!.id, script.id).toBe('done')
-      // 等级中文名是场景选择卡的分组标题
       expect(PRACTICE_LEVELS.some(item => item.id === script.level)).toBe(true)
     }
     expect(PRACTICE_LEVELS.map(item => item.label)).toEqual(['入门', '进阶', '高阶'])
@@ -714,15 +712,15 @@ describe('跟练剧本（九条，从易到难）', () => {
 
   it('九条剧本的步骤序列与设计表逐条一致（id 顺序也是宿主 auto-prepare 的依赖顺序）', () => {
     const stepIds: Record<string, string[]> = {
-      'image-video-basics': ['welcome', 'add-image', 'add-video', 'run-image', 'run-video', 'done'],
-      'character-consistency': ['welcome', 'write-role', 'cast-image', 'run-image', 'cast-video', 'run-video', 'done'],
-      'scene-continuity': ['welcome', 'scene-image', 'run-image', 'near-shot', 'far-shot', 'run-videos', 'done'],
-      'storyboard-shots': ['welcome', 'script', 'shot-1', 'shot-2', 'chain-1', 'chain-2', 'run-images', 'run-videos', 'done'],
-      'talking-and-audio': ['welcome', 'host-image', 'run-image', 'talking-video', 'run-video', 'audio-track', 'run-audio', 'done'],
-      'spec-fanout': ['welcome', 'cover', 'run-image', 'spec-feed', 'spec-square', 'spec-wide', 'run-videos', 'done'],
-      'camera-language': ['welcome', 'shot', 'run-video', 'camera-notes', 'done'],
-      'preview-export': ['welcome', 'director', 'export-shot', 'run-video', 'done'],
-      'multi-clip-compose': ['welcome', 'clip-a', 'run-image', 'take-a', 'clip-b', 'take-b', 'run-videos', 'done'],
+      'image-video-basics': ['add-image', 'add-video', 'run-image', 'run-video', 'done'],
+      'character-consistency': ['write-role', 'cast-image', 'run-image', 'cast-video', 'run-video', 'done'],
+      'scene-continuity': ['scene-image', 'run-image', 'near-shot', 'far-shot', 'run-videos', 'done'],
+      'storyboard-shots': ['script', 'shot-1', 'shot-2', 'chain-1', 'chain-2', 'run-images', 'run-videos', 'done'],
+      'talking-and-audio': ['host-image', 'run-image', 'talking-video', 'run-video', 'audio-track', 'run-audio', 'done'],
+      'spec-fanout': ['cover', 'run-image', 'spec-feed', 'spec-square', 'spec-wide', 'run-videos', 'done'],
+      'camera-language': ['shot', 'run-video', 'camera-notes', 'done'],
+      'preview-export': ['director', 'export-shot', 'run-video', 'done'],
+      'multi-clip-compose': ['clip-a', 'run-image', 'take-a', 'clip-b', 'take-b', 'run-videos', 'done'],
     }
     for (const script of PRACTICE_SCRIPTS)
       expect(script.steps.map(step => step.id), script.id).toEqual(stepIds[script.id])
@@ -730,12 +728,12 @@ describe('跟练剧本（九条，从易到难）', () => {
 
   it('锚点按设计表落位：工具轨 / 出图出片 / 主体 / 口播 / 运镜 / 音频 / 节点', () => {
     const anchors: Array<[string, string, string]> = [
-      ['image-video-basics', 'add-image', 'tools'],
-      ['image-video-basics', 'add-video', 'tools'],
+      ['image-video-basics', 'add-image', 'node:image'],
+      ['image-video-basics', 'add-video', 'node:video'],
       ['image-video-basics', 'run-image', 'inspector-run'],
       ['image-video-basics', 'run-video', 'inspector-run'],
       ['image-video-basics', 'done', 'node:video'],
-      ['character-consistency', 'write-role', 'tools'],
+      ['character-consistency', 'write-role', 'node:text'],
       ['character-consistency', 'cast-image', 'inspector-subject'],
       ['character-consistency', 'run-image', 'inspector-run'],
       ['character-consistency', 'cast-video', 'inspector-subject'],
@@ -744,27 +742,27 @@ describe('跟练剧本（九条，从易到难）', () => {
       ['scene-continuity', 'near-shot', 'tools'],
       ['scene-continuity', 'far-shot', 'tools'],
       ['scene-continuity', 'run-videos', 'inspector-run'],
-      ['storyboard-shots', 'script', 'tools'],
+      ['storyboard-shots', 'script', 'node:text'],
       ['storyboard-shots', 'shot-1', 'tools'],
       ['storyboard-shots', 'chain-2', 'tools'],
       ['storyboard-shots', 'run-images', 'inspector-run'],
-      ['talking-and-audio', 'host-image', 'tools'],
+      ['talking-and-audio', 'host-image', 'node:image'],
       ['talking-and-audio', 'talking-video', 'inspector-talking'],
       ['talking-and-audio', 'audio-track', 'inspector-audio'],
       ['talking-and-audio', 'run-audio', 'node:audio'],
       ['talking-and-audio', 'done', 'node:audio'],
-      ['spec-fanout', 'cover', 'tools'],
+      ['spec-fanout', 'cover', 'node:image'],
       ['spec-fanout', 'spec-wide', 'tools'],
       ['spec-fanout', 'run-videos', 'inspector-run'],
       ['camera-language', 'shot', 'inspector-cam'],
       ['camera-language', 'run-video', 'inspector-run'],
       ['camera-language', 'camera-notes', 'node:video'],
       ['camera-language', 'done', 'node:video'],
-      ['preview-export', 'director', 'tools'],
+      ['preview-export', 'director', 'node:director'],
       ['preview-export', 'export-shot', 'inspector-cam'],
       ['preview-export', 'run-video', 'inspector-run'],
       ['preview-export', 'done', 'node:video'],
-      ['multi-clip-compose', 'clip-a', 'tools'],
+      ['multi-clip-compose', 'clip-a', 'node:image'],
       ['multi-clip-compose', 'run-image', 'inspector-run'],
       ['multi-clip-compose', 'take-a', 'tools'],
       ['multi-clip-compose', 'clip-b', 'tools'],
@@ -776,23 +774,25 @@ describe('跟练剧本（九条，从易到难）', () => {
       const step = findPracticeScript(scriptId)!.steps.find(item => item.id === stepId)
       expect(step?.anchor, `${scriptId}/${stepId} 的锚点`).toBe(anchor)
     }
-    // 开场步没有锚点（居中卡片）
     for (const script of PRACTICE_SCRIPTS)
-      expect(script.steps[0]!.anchor, script.id).toBeUndefined()
+      expect(script.steps[0]!.anchor, script.id).toBeTruthy()
   })
 
   it('每一步都写了标题 / 小字 / 正文，正文是「固定开场句 + 要点（≤60 字）」', () => {
     for (const script of PRACTICE_SCRIPTS) {
       const firstRunIndex = script.steps.findIndex(step => step.gate?.kind === 'result')
-      expect(firstRunIndex, script.id).toBeGreaterThan(0)
+      expect(firstRunIndex, script.id).toBeGreaterThanOrEqual(0)
+      const lastIndex = script.steps.length - 1
       script.steps.forEach((step, index) => {
         const where = `${script.id}/${step.id}`
         expect(step.title.trim(), where).not.toBe('')
         expect(step.summary.trim(), where).not.toBe('')
         expect([...step.summary].length, `${where} 的清单小字超过 24 字`).toBeLessThanOrEqual(24)
-        const opening = index === 0
-          ? PRACTICE_BODY_ENTER
-          : index === firstRunIndex ? PRACTICE_BODY_FIRST_RUN : PRACTICE_BODY_READY
+        const opening = index === lastIndex
+          ? PRACTICE_BODY_DONE
+          : step.gate?.kind === 'result'
+            ? (index === firstRunIndex ? PRACTICE_BODY_FIRST_RUN : PRACTICE_BODY_RUN)
+            : PRACTICE_BODY_SHOW
         expect(step.body.startsWith(opening), `${where} 的正文没按模板开场`).toBe(true)
         const point = step.body.slice(opening.length)
         expect(point.trim(), where).not.toBe('')
@@ -1013,7 +1013,7 @@ describe('跟练剧本（九条，从易到难）', () => {
     expect(preview.textUpstream).toBeUndefined()
     expect(stepOf('preview-export', 'export-shot').body).not.toContain('时间轴点导出预演')
     expect(stepOf('preview-export', 'done').body).toContain('跟练不走真导出')
-    expect(stepOf('multi-clip-compose', 'welcome').body).toContain('跟练只练到出片')
+    expect(stepOf('multi-clip-compose', 'clip-a').body).toContain('跟练只练到出片')
     expect(stepOf('multi-clip-compose', 'done').body).toContain('跟练不打开合成')
 
     // 扇出：三条支线各自的比例落在参数里（同一张首帧）
@@ -1063,7 +1063,7 @@ describe('跟练文案的翻译覆盖（t(step.summary) 这类非字面量写法
     JSON.parse(readFileSync(`i18n/locales/${name}.json`, 'utf8')) as Record<string, unknown>,
   ]))
 
-  it('九条剧本的名字 / 提示、三个等级名、63 步的标题 / 小字 / 正文、以及 gateHint 都进了 6 个外语文件', () => {
+  it('九条剧本的名字 / 提示、三个等级名、每步的标题 / 小字 / 正文、以及 gateHint 都进了 6 个外语文件', () => {
     const keys = new Set<string>()
     for (const script of PRACTICE_SCRIPTS) {
       keys.add(script.name)
@@ -1077,9 +1077,8 @@ describe('跟练文案的翻译覆盖（t(step.summary) 这类非字面量写法
     }
     for (const level of PRACTICE_LEVELS)
       keys.add(level.label)
-    // 63 步的标题 / 小字 / 正文去重后是 130+ 条（共用的开场句、放节点与连线那几句会合并）；
-    // 少一大截就说明漏了整步的文案
-    expect(keys.size).toBeGreaterThanOrEqual(130)
+    // 标题 / 小字 / 正文去重后仍应覆盖全部剧本；少一大截就说明漏了整步的文案
+    expect(keys.size).toBeGreaterThanOrEqual(110)
     for (const [name, table] of tables) {
       const missing = [...keys].filter(key => !(key in table))
       expect(missing, `${name} 缺译文`).toEqual([])
