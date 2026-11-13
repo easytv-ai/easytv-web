@@ -28,13 +28,16 @@ function episodeHref(id: number) {
 <template>
   <div class="create-card">
     <header class="plan-editor__head">
-      <h3>{{ t('集目录') }} <small>{{ t('{n} 集', { n: episodes.length }) }}</small></h3>
-      <NuxtLink :to="newEpisodeHref" class="studio-chip">
+      <h3>{{ t('集目录') }}</h3>
+      <NuxtLink v-if="episodes.length" :to="newEpisodeHref" class="studio-chip">
         <UIcon name="i-lucide-plus" class="size-4" />
         {{ t('新建一集') }}
       </NuxtLink>
     </header>
-    <p v-if="!episodes.length" class="plan-editor__empty">{{ t('还没有集。点「新建一集」，向导会沿用这里的设定生成策划案。') }}</p>
+    <NuxtLink v-if="!episodes.length" :to="newEpisodeHref" class="bible-empty">
+      <UIcon name="i-lucide-plus" class="size-4" />
+      {{ t('新建一集') }}
+    </NuxtLink>
     <div v-else class="bible-catalog">
       <table>
         <thead>
@@ -42,8 +45,8 @@ function episodeHref(id: number) {
             <th>{{ t('集号') }}</th>
             <th>{{ t('标题') }}</th>
             <th>{{ t('状态') }}</th>
-            <th>{{ t('场数') }}</th>
-            <th>{{ t('镜数') }}</th>
+            <th class="num">{{ t('场数') }}</th>
+            <th class="num">{{ t('镜数') }}</th>
           </tr>
         </thead>
         <tbody>
@@ -80,8 +83,8 @@ function episodeHref(id: number) {
               <span class="bible-status" :class="`is-${row.status === -1 ? 'failed' : row.status}`">{{ episodeStatusLabel(row.status, t) }}</span>
               <small v-if="row.stale" class="bible-stale">{{ t('画布待同步') }}</small>
             </td>
-            <td>{{ row.scenes }}</td>
-            <td>{{ row.shots }}</td>
+            <td class="num">{{ row.scenes }}</td>
+            <td class="num">{{ row.shots }}</td>
           </tr>
         </tbody>
       </table>

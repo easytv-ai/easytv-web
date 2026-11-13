@@ -2568,6 +2568,7 @@
   "剧名": "Series title",
   "梗概": "Logline",
   "一两句话说清这部剧讲什么": "One or two sentences on what this series is about",
+  "一两句话说明白……": "В одном-двух предложениях…",
   "集目录": "Episodes",
   "{n} 集": "{n} episode(s)",
   "还没有集。点「新建一集」，向导会沿用这里的设定生成策划案。": "No episodes yet. Click \"New episode\" and the wizard will generate a plan using this bible.",

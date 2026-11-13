@@ -41,13 +41,16 @@ function toggleKnowledge(charKey: string, factKey: string) {
 <template>
   <div class="create-card plan-editor__block">
     <header class="plan-editor__head">
-      <h3>{{ t('事实') }} <small>{{ bible.facts.length }}/{{ BIBLE_LIMITS.facts }}</small></h3>
-      <button type="button" class="studio-chip" :disabled="bible.facts.length >= BIBLE_LIMITS.facts" @click="addFact">
+      <h3>{{ t('事实') }}</h3>
+      <button v-if="bible.facts.length" type="button" class="studio-chip" :disabled="bible.facts.length >= BIBLE_LIMITS.facts" @click="addFact">
         <UIcon name="i-lucide-plus" class="size-4" />
         {{ t('添加事实') }}
       </button>
     </header>
-    <p class="plan-editor__empty">{{ t('区分「观众知道」与「哪些角色知道」：不知情的角色在后续集里不会泄密。') }}</p>
+    <button v-if="!bible.facts.length" type="button" class="bible-empty" @click="addFact">
+      <UIcon name="i-lucide-plus" class="size-4" />
+      {{ t('添加事实') }}
+    </button>
     <article v-for="(f, i) in bible.facts" :key="f.key" class="bible-item">
       <header class="bible-item__head">
         <span class="plan-editor__key">{{ f.key }}</span>
@@ -61,10 +64,14 @@ function toggleKnowledge(charKey: string, factKey: string) {
           <span>{{ t('揭示于第几集') }}</span>
           <input type="number" min="0" max="999" :value="f.revealed_in || ''" @input="f.revealed_in = episodeNoOf($event); emit('change')">
         </label>
-        <label class="create-foot__opt">
-          <input v-model="f.audience_knows" type="checkbox" @change="emit('change')">
-          <span>{{ t('观众知道') }}</span>
-        </label>
+        <button
+          type="button"
+          class="bible-tag"
+          :class="{ 'is-on': f.audience_knows }"
+          @click="f.audience_knows = !f.audience_knows; emit('change')"
+        >
+          {{ t('观众知道') }}
+        </button>
       </div>
       <div v-if="bible.characters.length" class="bible-sub">
         <div class="bible-sub__head">

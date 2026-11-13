@@ -45,7 +45,7 @@ function propChangeLabel(pc: BiblePropChange) {
 <template>
   <div class="create-card plan-editor__block">
     <header class="plan-editor__head">
-      <h3>{{ t('每集记录') }} <small>{{ t('{n} 集', { n: bible.episodes.length }) }}</small></h3>
+      <h3>{{ t('每集记录') }}</h3>
       <div class="bible-record__tools">
         <StudioSelect
           v-if="recordOptions.length"
@@ -60,7 +60,7 @@ function propChangeLabel(pc: BiblePropChange) {
         </button>
       </div>
     </header>
-    <p class="plan-editor__empty">{{ t('用文本模型把该集策划案总结成连续性记录并并入上面的设定（新人物 / 揭示的事实 / 未解的线索 / 道具换手），按文本模型单价扣一次积分。') }}</p>
+    <p v-if="!bible.episodes.length" class="bible-note">{{ t('还没有每集记录。策划案生成之后，用 AI 把这一集的人物、事实和线索并进设定。') }}</p>
     <article v-for="e in bible.episodes" :key="e.no" class="bible-item bible-record">
       <header class="bible-item__head">
         <strong>{{ episodeNoLabel(e.no, t) }}</strong>

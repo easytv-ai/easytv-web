@@ -207,6 +207,22 @@ async function generateRecord() {
 /** 新线索 / 事实默认落在最后一集 */
 const lastEpisodeNo = computed(() => episodes.value.reduce((max, e) => Math.max(max, e.episode_no), 0))
 
+/** 标题下那一句：和容量条用同一组数字，说明下一集现在能沿用什么。 */
+const finding = computed(() => {
+  const characters = bible.value.characters.length
+  const props = bible.value.props.length
+  const threads = bible.value.threads.length
+  const facts = bible.value.facts.length
+  if (!characters && !props && !threads && !facts)
+    return t('还没有人物、道具和线索，下一集生成时没有可沿用的设定。')
+  return t('已记下 {c} 个人物、{p} 件道具、{n} 条线索、{f} 条事实。', {
+    c: characters,
+    p: props,
+    n: threads,
+    f: facts,
+  })
+})
+
 // ---- 查影响（API.md 27.2）----
 const impactOpen = ref(false)
 const impactKind = ref<ImpactKind>('character')
@@ -276,14 +292,14 @@ watch(projectId, () => void load())
     <header class="create-head">
       <div>
         <h1>{{ t('剧集设定') }}</h1>
-        <p>{{ t('贯穿全剧的人物关系与知情、道具归属、伏笔线索与每集记录；新一集生成时沿用，改设定前可先查影响。') }}</p>
+        <p v-if="!loading && !loadError">{{ finding }}</p>
       </div>
       <div v-if="projectId" class="bible-head__actions">
         <button type="button" class="studio-chip" :disabled="loading" @click="openImpact">
           <UIcon name="i-lucide-search-check" class="size-4" />
           {{ t('查影响') }}
         </button>
-        <NuxtLink :to="newEpisodeHref" class="studio-chip">
+        <NuxtLink :to="newEpisodeHref" class="bible-primary">
           <UIcon name="i-lucide-plus" class="size-4" />
           {{ t('新建一集') }}
         </NuxtLink>
@@ -299,46 +315,62 @@ watch(projectId, () => void load())
     <StudioEmpty v-else-if="loadError" :title="loadError" />
 
     <template v-else>
-      <!-- 剧名 / 梗概 -->
-      <div class="create-card">
-        <div class="plan-editor__grid">
-          <label class="publish-field">
-            <span>{{ t('剧名') }}</span>
-            <input v-model="bible.title" :maxlength="BIBLE_LIMITS.title" :placeholder="t('剧名')" @input="touch">
-          </label>
-          <label class="publish-field bible-span">
-            <span>{{ t('梗概') }}</span>
-            <textarea v-model="bible.logline" rows="2" :maxlength="BIBLE_LIMITS.logline" :placeholder="t('一两句话说清这部剧讲什么')" @input="touch" />
-          </label>
+      <div class="bible-scroll">
+      <div class="bible-mast">
+        <div class="bible-cover">
+          <input v-model="bible.title" class="bible-title" :maxlength="BIBLE_LIMITS.title" :placeholder="t('剧名')" :aria-label="t('剧名')" @input="touch">
+          <textarea v-model="bible.logline" class="bible-logline" rows="2" :maxlength="BIBLE_LIMITS.logline" :placeholder="t('一两句话说明白……')" :aria-label="t('梗概')" @input="touch" />
         </div>
+        <dl class="bible-ledger">
+          <div class="bible-ledger__lead">
+            <dt>{{ t('人物') }}</dt>
+            <dd><span class="num">{{ bible.characters.length }}</span><small>/{{ BIBLE_LIMITS.characters }}</small></dd>
+          </div>
+          <div>
+            <dt>{{ t('道具') }}</dt>
+            <dd><span class="num">{{ bible.props.length }}</span><small>/{{ BIBLE_LIMITS.props }}</small></dd>
+          </div>
+          <div>
+            <dt>{{ t('线索') }}</dt>
+            <dd><span class="num">{{ bible.threads.length }}</span><small>/{{ BIBLE_LIMITS.threads }}</small></dd>
+          </div>
+          <div>
+            <dt>{{ t('事实') }}</dt>
+            <dd><span class="num">{{ bible.facts.length }}</span><small>/{{ BIBLE_LIMITS.facts }}</small></dd>
+          </div>
+        </dl>
       </div>
 
-      <BibleCatalog
-        :episodes="episodes"
-        :new-episode-href="newEpisodeHref"
-        :editing-no="editingNo"
-        :no-draft="noDraft"
-        :saving-no="savingNo"
-        @update:no-draft="noDraft = $event"
-        @edit="startEditNo"
-        @commit="commitNo"
-        @cancel="cancelEditNo"
-      />
+      <div class="bible-board">
+        <BibleCatalog
+          class="bible-episodes"
+          :episodes="episodes"
+          :new-episode-href="newEpisodeHref"
+          :editing-no="editingNo"
+          :no-draft="noDraft"
+          :saving-no="savingNo"
+          @update:no-draft="noDraft = $event"
+          @edit="startEditNo"
+          @commit="commitNo"
+          @cancel="cancelEditNo"
+        />
+        <BibleCharacters class="bible-cast" :bible="bible" @change="touch" />
+        <BibleProps class="bible-props" :bible="bible" @change="touch" />
+        <BibleThreads class="bible-threads" :bible="bible" :last-episode-no="lastEpisodeNo" @change="touch" />
+        <BibleFacts class="bible-facts" :bible="bible" :last-episode-no="lastEpisodeNo" @change="touch" />
+        <BibleRecords
+          v-model:record-target="recordTarget"
+          class="bible-records"
+          :bible="bible"
+          :record-options="recordOptions"
+          :recording="recording"
+          :saving="saving"
+          @generate="generateRecord"
+        />
+      </div>
+    </div>
 
-      <BibleCharacters :bible="bible" @change="touch" />
-      <BibleProps :bible="bible" @change="touch" />
-      <BibleThreads :bible="bible" :last-episode-no="lastEpisodeNo" @change="touch" />
-      <BibleFacts :bible="bible" :last-episode-no="lastEpisodeNo" @change="touch" />
-      <BibleRecords
-        v-model:record-target="recordTarget"
-        :bible="bible"
-        :record-options="recordOptions"
-        :recording="recording"
-        :saving="saving"
-        @generate="generateRecord"
-      />
-
-      <footer class="create-foot bible-foot">
+    <footer v-if="projectId && !loading && !loadError" class="create-foot bible-foot">
         <small v-if="dirty" class="bible-foot__hint">{{ t('有未保存的修改') }}</small>
         <button type="button" class="plan-btn plan-btn--ghost" :disabled="saving || loading" @click="reload">
           {{ t('刷新') }}

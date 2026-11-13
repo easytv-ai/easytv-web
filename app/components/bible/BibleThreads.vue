@@ -48,13 +48,16 @@ function episodeNoOf(event: Event) {
 <template>
   <div class="create-card plan-editor__block">
     <header class="plan-editor__head">
-      <h3>{{ t('线索') }} <small>{{ bible.threads.length }}/{{ BIBLE_LIMITS.threads }}</small></h3>
-      <button type="button" class="studio-chip" :disabled="bible.threads.length >= BIBLE_LIMITS.threads" @click="addThread">
+      <h3>{{ t('线索') }}</h3>
+      <button v-if="bible.threads.length" type="button" class="studio-chip" :disabled="bible.threads.length >= BIBLE_LIMITS.threads" @click="addThread">
         <UIcon name="i-lucide-plus" class="size-4" />
         {{ t('添加线索') }}
       </button>
     </header>
-    <p v-if="!bible.threads.length" class="plan-editor__empty">{{ t('埋下的伏笔和还没回答的问题，开于第几集、解于第几集。') }}</p>
+    <button v-if="!bible.threads.length" type="button" class="bible-empty" @click="addThread">
+      <UIcon name="i-lucide-plus" class="size-4" />
+      {{ t('添加线索') }}
+    </button>
     <article v-for="(th, i) in bible.threads" :key="th.key" class="bible-item">
       <header class="bible-item__head">
         <span class="plan-editor__key">{{ th.key }}</span>

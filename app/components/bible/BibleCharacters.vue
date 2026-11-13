@@ -70,13 +70,16 @@ function toggleKnowledge(charKey: string, factKey: string) {
 <template>
   <div class="create-card plan-editor__block">
     <header class="plan-editor__head">
-      <h3>{{ t('人物') }} <small>{{ bible.characters.length }}/{{ BIBLE_LIMITS.characters }}</small></h3>
-      <button type="button" class="studio-chip" :disabled="bible.characters.length >= BIBLE_LIMITS.characters" @click="addCharacter">
+      <h3>{{ t('人物') }}</h3>
+      <button v-if="bible.characters.length" type="button" class="studio-chip" :disabled="bible.characters.length >= BIBLE_LIMITS.characters" @click="addCharacter">
         <UIcon name="i-lucide-plus" class="size-4" />
         {{ t('添加人物') }}
       </button>
     </header>
-    <p v-if="!bible.characters.length" class="plan-editor__empty">{{ t('还没有人物。也可以先生成一集，再用「用 AI 生成本集记录」把策划案里的人物并进来。') }}</p>
+    <button v-if="!bible.characters.length" type="button" class="bible-empty" @click="addCharacter">
+      <UIcon name="i-lucide-plus" class="size-4" />
+      {{ t('添加人物') }}
+    </button>
     <article v-for="(c, i) in bible.characters" :key="c.key" class="bible-item">
       <header class="bible-item__head">
         <span class="plan-editor__key">{{ c.key }}</span>
@@ -96,22 +99,27 @@ function toggleKnowledge(charKey: string, factKey: string) {
           <textarea v-model="c.traits" rows="2" :maxlength="BIBLE_LIMITS.traits" :placeholder="t('性格与行事方式')" @input="emit('change')" />
         </label>
       </div>
-      <div class="plan-voice">
-        <span class="plan-voice__label">{{ t('音色') }}</span>
-        <StudioSelect
-          size="compact"
-          :model-value="c.voice || ''"
-          :options="voiceOptions"
-          :sr-label="t('音色')"
-          @update:model-value="setVoice(c, $event)"
-        />
-        <input
-          v-model="c.voice_style"
-          class="plan-voice__style"
-          :maxlength="BIBLE_LIMITS.voiceStyle"
-          :placeholder="t('说话风格，如：沉稳')"
-          @input="emit('change')"
-        >
+      <div class="bible-pair">
+        <label class="publish-field">
+          <span>{{ t('音色') }}</span>
+          <StudioSelect
+            size="compact"
+            :model-value="c.voice || ''"
+            :options="voiceOptions"
+            :sr-label="t('音色')"
+            @update:model-value="setVoice(c, $event)"
+          />
+        </label>
+        <label class="publish-field">
+          <span>{{ t('说话风格') }}</span>
+          <input
+            v-model="c.voice_style"
+            class="plan-voice__style"
+            :maxlength="BIBLE_LIMITS.voiceStyle"
+            :placeholder="t('说话风格，如：沉稳')"
+            @input="emit('change')"
+          >
+        </label>
       </div>
       <div class="bible-sub">
         <div class="bible-sub__head">
