@@ -111,7 +111,7 @@ function toggleKnowledge(charKey: string, factKey: string) {
           />
         </label>
         <label class="publish-field">
-          <span>{{ t('说话风格') }}</span>
+          <span>{{ t('bible.voiceStyle') }}</span>
           <input
             v-model="c.voice_style"
             class="plan-voice__style"

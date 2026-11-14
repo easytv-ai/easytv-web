@@ -42,15 +42,39 @@ function makeStore(prompt: string, upstreamText = '一段上游文本') {
 const link = { source: 'text-1', target: 'image-1', sourceHandle: 'out', targetHandle: 'in' }
 
 describe('canvasFollowPromptFromText', () => {
-  it('下游提示词整段换成当前正文，不拼接旧文', () => {
+  it('提示词原样是旧的上游文本：换成新正文，不拼接旧文', () => {
     expect(canvasFollowPromptFromText('一段上游文本', '一段上游文本', '改过的文本', '改过的文本')).toBe('改过的文本')
-    expect(canvasFollowPromptFromText('用户写的\n\n一段上游文本', '一段上游文本', '改过的文本', '改过的文本')).toBe('改过的文本')
-    expect(canvasFollowPromptFromText('完全手写的提示词', '一段上游文本', '改过的文本', '改过的文本')).toBe('改过的文本')
     expect(canvasFollowPromptFromText('一段上游文本', '一段上游文本', '一段上游文本加一句', '一段上游文本加一句')).toBe('一段上游文本加一句')
+    expect(canvasFollowPromptFromText('', '', '新写的', '新写的')).toBe('新写的')
+  })
+
+  it('手拖连线追加过的：只换上游那一段，用户写的留着', () => {
+    expect(canvasFollowPromptFromText('用户写的\n\n一段上游文本', '一段上游文本', '改过的文本', '改过的文本')).toBe('用户写的\n\n改过的文本')
+    expect(canvasFollowPromptFromText('用户写的\n\n一段上游文本', '一段上游文本', '', '')).toBe('用户写的')
+  })
+
+  it('完全手写的提示词不动', () => {
+    expect(canvasFollowPromptFromText('完全手写的提示词', '一段上游文本', '改过的文本', '改过的文本')).toBeNull()
+    expect(canvasFollowPromptFromText('镜头 3：雨夜街道，特写', '整篇剧本……', '整篇剧本改了一个字……', '整篇剧本改了一个字……')).toBeNull()
+  })
+
+  it('上游只有一两个字、撞上手写内容里的同样字眼：不动', () => {
+    expect(canvasFollowPromptFromText('夜晚的街道', '夜', '清晨', '清晨')).toBeNull()
+  })
+
+  it('多个上游文本：只有原样等于旧拼接时才整段换', () => {
+    expect(canvasFollowPromptFromText('甲\n\n乙', '乙', '丙', '甲\n\n丙', '甲\n\n乙')).toBe('甲\n\n丙')
   })
 
   it('已经是当前正文时不再写一次', () => {
     expect(canvasFollowPromptFromText('改过的文本', '一段上游文本', '改过的文本', '改过的文本')).toBeNull()
+  })
+
+  it('撤销把文本改回去：提示词已随快照还原，不再被盖', () => {
+    // 手写提示词 + 文本从「新」退回「旧」
+    expect(canvasFollowPromptFromText('完全手写的提示词', '改过的文本', '一段上游文本', '一段上游文本')).toBeNull()
+    // 追加过的提示词随快照还原成带旧文的样子
+    expect(canvasFollowPromptFromText('用户写的\n\n一段上游文本', '改过的文本', '一段上游文本', '一段上游文本')).toBeNull()
   })
 })
 
@@ -62,6 +86,31 @@ describe('followConnectedText', () => {
     ;(nodes.value[0]!.data as { content: string }).content = '改过的文本'
     connect.followConnectedText('text-1', '一段上游文本', '改过的文本')
     expect(promptOf()).toBe('改过的文本')
+  })
+
+  it('下游是手写提示词（软连线的分镜图）：改上游文本不动它', () => {
+    const { connect, promptOf, nodes } = makeStore('镜头 3：雨夜街道，特写')
+    connect.linkNodes(link, { force: false })
+    ;(nodes.value[0]!.data as { content: string }).content = '改过的文本'
+    connect.followConnectedText('text-1', '一段上游文本', '改过的文本')
+    expect(promptOf()).toBe('镜头 3：雨夜街道，特写')
+  })
+
+  it('把上游文本清空：手写提示词不会被清掉', () => {
+    const { connect, promptOf, nodes } = makeStore('镜头 3：雨夜街道，特写')
+    connect.linkNodes(link, { force: false })
+    ;(nodes.value[0]!.data as { content: string }).content = ''
+    connect.followConnectedText('text-1', '一段上游文本', '')
+    expect(promptOf()).toBe('镜头 3：雨夜街道，特写')
+  })
+
+  it('下游节点锁定：不跟', () => {
+    const { connect, promptOf, nodes } = makeStore('一段上游文本')
+    connect.linkNodes(link, { mode: 'append' })
+    ;(nodes.value[1]!.data as { locked?: boolean }).locked = true
+    ;(nodes.value[0]!.data as { content: string }).content = '改过的文本'
+    connect.followConnectedText('text-1', '一段上游文本', '改过的文本')
+    expect(promptOf()).toBe('一段上游文本')
   })
 })
 

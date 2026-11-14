@@ -214,8 +214,8 @@ const finding = computed(() => {
   const threads = bible.value.threads.length
   const facts = bible.value.facts.length
   if (!characters && !props && !threads && !facts)
-    return t('还没有人物、道具和线索，下一集生成时没有可沿用的设定。')
-  return t('已记下 {c} 个人物、{p} 件道具、{n} 条线索、{f} 条事实。', {
+    return t('bible.summaryEmpty')
+  return t('bible.summaryCounts', {
     c: characters,
     p: props,
     n: threads,
@@ -319,7 +319,7 @@ watch(projectId, () => void load())
       <div class="bible-mast">
         <div class="bible-cover">
           <input v-model="bible.title" class="bible-title" :maxlength="BIBLE_LIMITS.title" :placeholder="t('剧名')" :aria-label="t('剧名')" @input="touch">
-          <textarea v-model="bible.logline" class="bible-logline" rows="2" :maxlength="BIBLE_LIMITS.logline" :placeholder="t('一两句话说明白……')" :aria-label="t('梗概')" @input="touch" />
+          <textarea v-model="bible.logline" class="bible-logline" rows="2" :maxlength="BIBLE_LIMITS.logline" :placeholder="t('bible.loglinePlaceholder')" :aria-label="t('梗概')" @input="touch" />
         </div>
         <dl class="bible-ledger">
           <div class="bible-ledger__lead">

@@ -60,7 +60,7 @@ function propChangeLabel(pc: BiblePropChange) {
         </button>
       </div>
     </header>
-    <p v-if="!bible.episodes.length" class="bible-note">{{ t('还没有每集记录。策划案生成之后，用 AI 把这一集的人物、事实和线索并进设定。') }}</p>
+    <p v-if="!bible.episodes.length" class="bible-note">{{ t('bible.recordsEmpty') }}</p>
     <article v-for="e in bible.episodes" :key="e.no" class="bible-item bible-record">
       <header class="bible-item__head">
         <strong>{{ episodeNoLabel(e.no, t) }}</strong>

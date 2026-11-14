@@ -2566,7 +2566,6 @@
   "集号保存失败": "Failed to save episode number",
   "生成记录失败": "Failed to generate the record",
   "已生成第 {n} 集记录，扣 {p} 积分": "Episode {n} record generated, {p} points deducted",
-  "已记下 {c} 个人物、{p} 件道具、{n} 条线索、{f} 条事实。": "{c} characters, {p} props, {n} threads and {f} facts are on the bible.",
   "已生成本集记录，扣 {p} 积分": "Episode record generated, {p} points deducted",
   "无人持有": "Nobody",
   "选择人物": "Pick a character",
@@ -2583,7 +2582,6 @@
   "剧名": "Series title",
   "梗概": "Logline",
   "一两句话说清这部剧讲什么": "One or two sentences on what this series is about",
-  "一两句话说明白……": "Say it in a sentence or two…",
   "集目录": "Episodes",
   "{n} 集": "{n} episode(s)",
   "还没有集。点「新建一集」，向导会沿用这里的设定生成策划案。": "No episodes yet. Click \"New episode\" and the wizard will generate a plan using this bible.",
@@ -3646,6 +3644,13 @@
       }
     }
   },
+  "bible": {
+    "loglinePlaceholder": "Say it in a sentence or two…",
+    "voiceStyle": "Speaking style",
+    "summaryEmpty": "No characters, props or threads yet, so the next episode has nothing to carry over.",
+    "summaryCounts": "{c} characters, {p} props, {n} threads and {f} facts are on the bible.",
+    "recordsEmpty": "No episode records yet. After a plan is generated, use AI to merge that episode's characters, facts and threads into the bible."
+  },
   "canvas": {
     "practice": {
       "kicker": "No credits · exit anytime to restore",
@@ -4464,7 +4469,8 @@
   "精选推荐": "Featured picks",
   "获赞": "Likes",
   "浏览": "Views",
-  "播放进度": "Playback progress",
+  "播放进度": "Playback progress"
+,
   "先放图片节点": "先放图片节点",
   "出图的起点": "出图的起点",
   "接上视频节点": "接上视频节点",

@@ -71,8 +71,8 @@ describe('创作台文案译文覆盖', () => {
     expect(added).toEqual([])
   })
 
-  it('structured key（canvas.* / account.* / create.* / watch.* / inbox.* / auth.passwordToggle.*）在每种语言里都能解析，占位符和中文一致', () => {
-    const prefixes = ['canvas.', 'account.', 'create.timeline.', 'create.layers.', 'create.leave.', 'watch.', 'inbox.', 'auth.passwordToggle.']
+  it('structured key（canvas.* / bible.* / account.* / create.* / watch.* / inbox.* / auth.passwordToggle.*）在每种语言里都能解析，占位符和中文一致', () => {
+    const prefixes = ['canvas.', 'bible.', 'account.', 'create.timeline.', 'create.layers.', 'create.leave.', 'watch.', 'inbox.', 'auth.passwordToggle.']
     const keys = new Set<string>()
     for (const file of walk('app')) {
       for (const match of readFileSync(file, 'utf8').matchAll(T_PATTERN)) {

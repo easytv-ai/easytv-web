@@ -12,12 +12,32 @@ export function canvasIsAutoConnectedPrompt(text: string) {
 }
 
 /**
- * 上游文本一改，下游提示词整段换成当前正文（不把新旧拼在一起）。
+ * 上游文本改了，下游提示词怎么跟：
+ * - 提示词是空的，或原样等于改之前的上游文本（连线自动填的）：换成当前上游文本；
+ * - 提示词里整段带着改之前的那段上游文本（手拖连线追加的）：只换那一段，用户自己写的留着；
+ * - 其余都是用户手写的：不动，返回 null。
+ * 撤销 / 版本恢复把文本改回去时，提示词已随快照还原，落在「相等」或「手写」里，不会被再盖一次。
  */
-export function canvasFollowPromptFromText(prompt: string, _prev: string, _next: string, joined: string) {
+export function canvasFollowPromptFromText(prompt: string, prev: string, next: string, joined: string, prevJoined: string = prev) {
   const current = String(prompt || '').trim()
   const filled = String(joined || '').trim()
-  return current === filled ? null : filled
+  if (current === filled)
+    return null
+  if (!current || current === String(prevJoined || '').trim())
+    return filled
+  const was = String(prev || '').trim()
+  if (!was)
+    return null
+  const at = current.indexOf(was)
+  if (at < 0)
+    return null
+  const head = current.slice(0, at)
+  const tail = current.slice(at + was.length)
+  // 只认独占段落的那一份，免得上游只有一两个字时撞上用户手写内容里的同样字眼
+  if ((head && !head.endsWith('\n')) || (tail && !tail.startsWith('\n')))
+    return null
+  const swapped = `${head}${String(next || '').trim()}${tail}`.replace(/\n{3,}/g, '\n\n').trim()
+  return swapped === current ? null : swapped
 }
 
 /**
@@ -62,7 +82,7 @@ export function useCanvasConnect(opts: {
   }
 
   /** 上游各文本节点的纯文本（按邻接顺序），追加模式按段去重要用到 */
-  function connectedTextParts(mediaId: string) {
+  function connectedTextParts(mediaId: string, override?: { id: string, text: string }) {
     const parts: string[] = []
     const seen = new Set<string>()
     for (const otherId of neighborIds(mediaId)) {
@@ -72,7 +92,7 @@ export function useCanvasConnect(opts: {
       if (!other || !isContentNode(other) || other.data.kind !== 'text')
         continue
       seen.add(otherId)
-      const copy = opts.nodePlainText(other)
+      const copy = override?.id === otherId ? override.text : opts.nodePlainText(other)
       if (copy)
         parts.push(copy)
     }
@@ -200,7 +220,7 @@ export function useCanvasConnect(opts: {
     return result
   }
 
-  /** 文本节点正文变了：连着的图 / 视频提示词按 canvasFollowPromptFromText 跟着改 */
+  /** 文本节点正文变了：连着的图 / 视频提示词按 canvasFollowPromptFromText 跟着改；锁定的节点不动 */
   function followConnectedText(textId: string, prev: string, next: string) {
     for (const mediaId of neighborIds(textId)) {
       const media = opts.findNode(mediaId)
@@ -209,15 +229,16 @@ export function useCanvasConnect(opts: {
       const kind = media.data.kind
       if (kind !== 'image' && kind !== 'video' && kind !== 'director')
         continue
+      if (isNodeLocked(media, opts.nodes.value))
+        continue
       const patched = canvasFollowPromptFromText(
         String(media.data.prompt || ''),
         prev,
         next,
         connectedTextPrompt(mediaId),
+        connectedTextParts(mediaId, { id: textId, text: prev }).join('\n\n'),
       )
       if (patched === null)
-        continue
-      if (patched === String(media.data.prompt || '').trim())
         continue
       opts.updateNodeData(mediaId, { prompt: patched })
     }
