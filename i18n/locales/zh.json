@@ -1912,6 +1912,15 @@
     },
     "keep": {
       "line": "留用率 {rate}% · 约 {n} 次出一条"
+    },
+    "noModels": {
+      "title": "暂无可用模型",
+      "contact": "请联系运营或管理员开通",
+      "userHint": "暂无可用模型，请联系运营或管理员开通",
+      "adminTitle": "还没有开通模型",
+      "adminDesc": "到运营后台填网关并导入模型后即可使用",
+      "adminToast": "还没有开通模型，请到运营后台配置网关并导入模型",
+      "adminLink": "去后台配置"
     }
   },
   "settings": {

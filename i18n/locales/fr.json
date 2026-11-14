@@ -4227,6 +4227,15 @@
     },
     "keep": {
       "line": "Taux de conservation {rate} % · environ {n} essais par résultat gardé"
+    },
+    "noModels": {
+      "title": "Aucun modèle disponible",
+      "contact": "Demandez à votre opérateur ou administrateur de les activer",
+      "userHint": "Aucun modèle disponible. Demandez à votre opérateur ou administrateur de les activer.",
+      "adminTitle": "Aucun modèle activé pour le moment",
+      "adminDesc": "Connectez la passerelle et importez des modèles dans la console d'administration pour commencer",
+      "adminToast": "Aucun modèle activé pour le moment. Connectez la passerelle et importez des modèles dans la console d'administration.",
+      "adminLink": "Configurer dans la console"
     }
   },
   "settings": {

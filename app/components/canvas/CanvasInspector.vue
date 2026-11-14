@@ -427,6 +427,11 @@ const models = computed<readonly ModelOption[]>(() => {
 })
 /** 一个可用模型都没有：模型选择器显示占位，提交前拦一道 */
 const noModels = computed(() => !models.value.length)
+const noModelsHint = useNoModelsHint()
+/** 空清单时的文案：管理员看到的是「去后台开通」，其余人看到的是「联系运营」 */
+const noModelsText = computed(() => noModelsHint.value.audience === 'admin'
+  ? { title: t('canvas.noModels.adminTitle'), desc: t('canvas.noModels.adminDesc'), toast: t('canvas.noModels.adminToast') }
+  : { title: t('canvas.noModels.title'), desc: t('canvas.noModels.contact'), toast: t('canvas.noModels.userHint') })
 const modelMenu = ref(false)
 const modelMenuRef = ref<HTMLElement | null>(null)
 /** 模型列表项的 DOM 引用，用于把选中项滚到可见位置 */
@@ -551,7 +556,7 @@ const currentModel = computed<ModelOption>(() => {
   // 节点已经指定了模型但清单对不上：显示这个 id，不要拿列表第一项（上次的 Seedance）顶掉
   if (modelId.value)
     return { id: modelId.value, name: prettyModelSlug(modelId.value) || modelId.value, desc: '' }
-  return models.value[0] ?? { id: '', name: t('暂无可用模型'), desc: t('请联系运营开通') }
+  return models.value[0] ?? { id: '', name: noModelsText.value.title, desc: noModelsText.value.desc }
 })
 const currentMode = computed(() => VIDEO_MODES.find(item => item.id === videoMode.value) ?? VIDEO_MODES[0])
 const qualityLabel = computed(() => QUALITY_ITEMS.find(item => item.id === quality.value)?.label ?? t('标准画质'))
@@ -1156,7 +1161,7 @@ function onSend() {
   if (props.submitting || props.locked || props.sendLocked)
     return
   if (noModels.value) {
-    toast.add({ title: t('暂无可用模型，请联系运营开通'), color: 'neutral', close: false, progress: false, orientation: 'horizontal' })
+    toast.add({ title: noModelsText.value.toast, color: 'neutral', close: false, progress: false, orientation: 'horizontal' })
     return
   }
   if (talkingNoModel.value) {
@@ -1595,6 +1600,7 @@ const placeholder = computed(() => {
           </button>
         </div>
       </div>
+      <CanvasNoModelsHint v-else />
 
       <i v-if="isVideo && !noModels" class="canvas-inspector__split" />
       <div v-if="isVideo" class="canvas-inspector__mode">

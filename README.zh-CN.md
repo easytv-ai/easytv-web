@@ -51,6 +51,7 @@ pnpm dev          # http://localhost:3005
 | --- | --- | --- |
 | `NUXT_PUBLIC_API_BASE_URL` | 是 | `easytv-api` 地址 |
 | `NUXT_PUBLIC_SITE_URL` | 生产必填 | 本站公开地址：canonical、sitemap、OG 图片 |
+| `NUXT_PUBLIC_MANAGE_URL` | 否 | 运营后台（`easytv-manage`）地址，默认 `http://localhost:3006`。模型清单为空时，管理员在画布上会看到指向它的「去后台配置」链接；留空不显示链接。 |
 | `NUXT_PUBLIC_SITE_NAME` | 否 | 界面与 meta 里的站点名（默认 `EasyTV`） |
 | `NUXT_PUBLIC_MEDIA_HOSTS` | 否 | 服务端媒体代理额外放行的域名，逗号分隔，如 OSS / CDN 域名。接口域名与本站域名默认放行。 |
 | `NUXT_PUBLIC_CONTACT_EMAIL` | 否 | 协议 / 隐私 / AI 规范页展示的联系邮箱，留空不展示。 |

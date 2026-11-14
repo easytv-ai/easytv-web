@@ -4252,6 +4252,15 @@
     },
     "keep": {
       "line": "Keep rate {rate}% · about {n} tries per keeper"
+    },
+    "noModels": {
+      "title": "No models available",
+      "contact": "Ask your operator or admin to enable models",
+      "userHint": "No models available. Ask your operator or admin to enable them.",
+      "adminTitle": "No models enabled yet",
+      "adminDesc": "Connect the gateway and import models in the admin console to start generating",
+      "adminToast": "No models enabled yet. Connect the gateway and import models in the admin console.",
+      "adminLink": "Set up in admin console"
     }
   },
   "settings": {

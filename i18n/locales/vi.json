@@ -4227,6 +4227,15 @@
     },
     "keep": {
       "line": "Tỷ lệ giữ lại {rate}% · khoảng {n} lần cho một kết quả dùng được"
+    },
+    "noModels": {
+      "title": "Chưa có mô hình khả dụng",
+      "contact": "Hãy liên hệ bộ phận vận hành hoặc quản trị viên để bật",
+      "userHint": "Chưa có mô hình khả dụng. Hãy liên hệ bộ phận vận hành hoặc quản trị viên để bật.",
+      "adminTitle": "Chưa bật mô hình nào",
+      "adminDesc": "Kết nối cổng và nhập mô hình trong trang quản trị để bắt đầu",
+      "adminToast": "Chưa bật mô hình nào. Hãy kết nối cổng và nhập mô hình trong trang quản trị.",
+      "adminLink": "Thiết lập trong trang quản trị"
     }
   },
   "settings": {

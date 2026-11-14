@@ -69,6 +69,7 @@ either; `.env.example` is the reference.
 | --- | --- | --- |
 | `NUXT_PUBLIC_API_BASE_URL` | yes | Base URL of `easytv-api` |
 | `NUXT_PUBLIC_SITE_URL` | yes in prod | Public URL of this site: canonical links, sitemap, Open Graph images |
+| `NUXT_PUBLIC_MANAGE_URL` | no | URL of the admin console (`easytv-manage`, default `http://localhost:3006`). When no models are enabled, admins see a link to it on the canvas. Empty hides the link. |
 | `NUXT_PUBLIC_SITE_NAME` | no | Site name in UI and meta tags (default `EasyTV`) |
 | `NUXT_PUBLIC_MEDIA_HOSTS` | no | Extra hostnames (comma separated) the server-side media proxy may fetch, e.g. your OSS / CDN domain. The API and site hosts are always allowed. |
 | `NUXT_PUBLIC_CONTACT_EMAIL` | no | Contact address shown on the terms, privacy and AI-guidelines pages. Empty hides the address. |

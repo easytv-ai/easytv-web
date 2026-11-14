@@ -141,6 +141,8 @@ export default defineNuxtConfig({
       /** 站点公开地址：canonical、sitemap、OG 图片绝对地址都从这里拼 */
       siteUrl: (globalThis as any).process?.env?.NUXT_PUBLIC_SITE_URL || 'http://localhost:3005',
       apiBaseUrl: (globalThis as any).process?.env?.NUXT_PUBLIC_API_BASE_URL || 'http://localhost:8383',
+      /** 运营后台（easytv-manage）地址：模型清单为空时给管理员的「去后台配置」入口；置空则只显示文案 */
+      manageUrl: (globalThis as any).process?.env?.NUXT_PUBLIC_MANAGE_URL ?? 'http://localhost:3006',
       /** 服务端媒体代理额外放行的域名（逗号分隔），自托管时填自己的 OSS / CDN 域名 */
       mediaHosts: (globalThis as any).process?.env?.NUXT_PUBLIC_MEDIA_HOSTS || '',
       /** 法务页（协议 / 隐私 / AI 规范）展示的联系邮箱，留空则不展示邮箱 */

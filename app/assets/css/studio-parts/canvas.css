@@ -3334,6 +3334,26 @@ html.dark .canvas-inspector__chip:hover {
   flex: 0 1 auto;
 }
 
+.canvas-inspector__empty-models {
+  display: inline-flex;
+  min-width: 0;
+  flex: 0 1 auto;
+  align-items: center;
+  gap: 6px;
+  margin: 0 8px 0 0;
+  color: var(--st-muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.canvas-inspector__empty-models-link {
+  flex: none;
+  color: var(--st-text);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
 .canvas-inspector__grow {
   flex: 1 1 auto;
   min-width: 8px;

@@ -4228,6 +4228,15 @@
     },
     "keep": {
       "line": "留用率 {rate}% · 約 {n} 次出一條"
+    },
+    "noModels": {
+      "title": "暫無可用模型",
+      "contact": "請聯絡營運或管理員開通",
+      "userHint": "暫無可用模型，請聯絡營運或管理員開通",
+      "adminTitle": "還沒有開通模型",
+      "adminDesc": "到營運後台填寫閘道並匯入模型後即可使用",
+      "adminToast": "還沒有開通模型，請到營運後台設定閘道並匯入模型",
+      "adminLink": "去後台設定"
     }
   },
   "settings": {
