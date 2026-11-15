@@ -1037,14 +1037,25 @@ onMounted(() => {
   window.addEventListener('beforeunload', onBeforeUnload)
   if (String(route.query.guide) === '1')
     guideOpen.value = true
-  consumePracticeQuery()
+  // 带 id 打开时跟练要等画布载完再进：跟练一进就给当前图拍快照、退出时按快照还原，
+  // 抢在加载前拍到的是空图，退出会把用户的画布「还原」成空白。
+  const practiceAfterLoad = canvasId.value > 0
+  if (!practiceAfterLoad)
+    consumePracticeQuery()
   hydrate()
   void refreshWallet()
-  void load()
+  void load().finally(() => {
+    if (practiceAfterLoad && !pageLeft)
+      consumePracticeQuery()
+  })
   consumeChatEntry()
 })
 
+/** 页面已卸载：加载晚回来的回调不再改路由、不再开跟练 */
+let pageLeft = false
+
 onBeforeUnmount(() => {
+  pageLeft = true
   document.removeEventListener('click', onDocumentClick)
   window.removeEventListener('keydown', onGlobalKeydown)
   window.removeEventListener('beforeunload', onBeforeUnload)
