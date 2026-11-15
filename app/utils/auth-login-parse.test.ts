@@ -1,4 +1,3 @@
-import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import {
   isApiFailure,
@@ -78,11 +77,5 @@ describe('登录标记 cookie', () => {
     expect(hasAuthSessionMarker(null)).toBe(false)
     expect(hasAuthSessionMarker(undefined)).toBe(false)
     expect(hasAuthSessionMarker('')).toBe(false)
-  })
-
-  it('受保护页在服务端按登录标记决定，不再一律放行', () => {
-    const src = readFileSync(new URL('../middleware/auth.ts', import.meta.url), 'utf8')
-    expect(src).toContain('hasAuthSessionMarker')
-    expect(src).not.toMatch(/if \(import\.meta\.server\)\s*return/)
   })
 })

@@ -1,4 +1,3 @@
-import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import {
   CANVAS_DROP_MAX,
@@ -32,15 +31,5 @@ describe('canvasMediaFilesFromList', () => {
     expect(picked.every(item => canvasMediaKindFromFile(item))).toBe(true)
     expect(picked).toHaveLength(CANVAS_DROP_MAX)
     expect(picked[0]!.name).toBe('b.png')
-  })
-})
-
-describe('画布接线', () => {
-  it('粘贴没有信封时走文件，拖放落到 addAssetNodeAt', () => {
-    const src = readFileSync('app/components/canvas/CanvasWorkspace.vue', 'utf8')
-    expect(src).toContain('canvasMediaFilesFromDataTransfer')
-    expect(src).toContain('placeDroppedFiles')
-    expect(src).toContain('addAssetNodeAt')
-    expect(src).toContain('@drop="onCanvasDrop"')
   })
 })

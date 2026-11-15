@@ -3649,10 +3649,12 @@
     "voiceStyle": "Speaking style",
     "summaryEmpty": "No characters, props or threads yet, so the next episode has nothing to carry over.",
     "summaryCounts": "{c} characters, {p} props, {n} threads and {f} facts are on the bible.",
+    "recordsCost": "Uses the text model to summarize the episode's plan into a continuity record and merges it into the bible above (new characters, revealed facts, open threads, prop hand-offs). Charged once at the text model's rate.",
     "recordsEmpty": "No episode records yet. After a plan is generated, use AI to merge that episode's characters, facts and threads into the bible."
   },
   "canvas": {
     "practice": {
+      "chatSendBlocked": "You can't send messages during practice. Exit practice to use the chat.",
       "kicker": "No credits · exit anytime to restore",
       "lead": "Pick a lesson. We set up the nodes; you hit generate to watch the replay.",
       "startHere": "Start here",
@@ -3712,6 +3714,8 @@
       },
       "media": {
         "runningImage": "Generating an image and placing it on the canvas…",
+        "stillRunning": "Still queued or generating. This will update automatically when it finishes, so there's no need to retry (retrying would charge you again).",
+        "runningDetached": "The task is still running, but its node on the canvas has changed. Check the run queue or your assets for the result.",
         "runningVideo": "Generating a video and placing it on the canvas…",
         "runningAudio": "Generating audio and placing it on the canvas…",
         "placedImage": "Image generated and placed on the canvas.",
@@ -3746,6 +3750,8 @@
         "applied": "Applied {n}",
         "generated": "Finished {n} generations",
         "skipped": "Skipped {n}",
+        "lockedSkipped": "{n} skipped: node is locked",
+        "allLocked": "The nodes these changes touch are locked. Unlock them, then apply.",
         "canvasMoved": "The canvas changed after applying. Use Ctrl+Z to undo step by step",
         "cannotUndo": "These changes can no longer be undone",
         "undone": "Changes undone",
@@ -4138,7 +4144,8 @@
       }
     },
     "download": {
-      "failed": "Download failed. Try again later."
+      "failed": "Download failed. Try again later.",
+      "opened": "Couldn't download directly. Opened in a new window: right-click to save."
     },
     "workflowTeach": {
       "promptToVideo": "Shared skeleton: make one still, then animate it. The upstream text node is a script draft, not what gets submitted.",
@@ -4175,6 +4182,7 @@
       "mixOk": "Music mixed in",
       "framesPending": "The extracted frames are not in the asset library yet, so analysis was skipped",
       "framesFail": "Could not extract frames. The video may not be readable across origins",
+      "durationUnknown": "Could not read the video length, so frames cannot be picked by time. Try again later or re-upload the video",
       "framesOk": "Extracted {n} frames",
       "framesLabel": "Frame extraction"
     },
@@ -4371,7 +4379,8 @@
   },
   "inbox": {
     "markAll": "Mark all read",
-    "markOne": "Mark as read"
+    "markOne": "Mark as read",
+    "markFailed": "Could not mark as read. Please try again later"
   },
   "视频延长": "Extend video",
   "视频编辑": "Edit video",

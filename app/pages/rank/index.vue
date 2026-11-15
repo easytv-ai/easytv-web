@@ -2,6 +2,7 @@
 import rankApi from '~/api/rank'
 import type { RankAuthorItem, RankPeriod, RankSkillItem, RankWorkItem } from '~/types/creative'
 import { formatCount, resolveMediaUrl } from '~/utils/media'
+import { createLatestGuard, createRankCache, rankCacheKey } from '~/utils/rank-cache'
 
 const { t } = useI18n()
 const { exploreTabs } = useStudioNav()
@@ -23,27 +24,40 @@ const authorRows = ref<RankAuthorItem[]>([])
 const skillRows = ref<RankSkillItem[]>([])
 const loading = ref(true)
 const failed = ref(false)
-/** 当前格子里的数据属于哪一档，失败时不要拿另一档的排名冒充 */
-const shownKey = ref('')
-/** 已取过数据的 tab+period 组合，切回来不再重复请求 */
-const fetched = reactive<Record<string, boolean>>({})
-let seq = 0
+/** 每个榜的格子里现在放的是哪一档（榜 + 周期）的数据，不是当前档就不能拿来显示 */
+const shownKeys = reactive<Record<Tab, string>>({ works: '', authors: '', skills: '' })
+type RankRows = RankWorkItem[] | RankAuthorItem[] | RankSkillItem[]
+/** 按「榜 + 周期」分别缓存：周 → 月 → 周 切回来拿到的仍是周榜 */
+const cache = createRankCache<RankRows>()
+const guard = createLatestGuard()
 
-function markRankFailed(next: Tab, key: string) {
-  if (shownKey.value !== key) {
-    if (next === 'works')
-      workRows.value = []
-    else if (next === 'authors')
-      authorRows.value = []
-    else
-      skillRows.value = []
-  }
-  const count = next === 'works'
+function setRows(next: Tab, key: string, rows: RankRows) {
+  if (next === 'works')
+    workRows.value = rows as RankWorkItem[]
+  else if (next === 'authors')
+    authorRows.value = rows as RankAuthorItem[]
+  else
+    skillRows.value = rows as RankSkillItem[]
+  shownKeys[next] = key
+}
+
+function rowCount(next: Tab) {
+  return next === 'works'
     ? workRows.value.length
     : next === 'authors'
       ? authorRows.value.length
       : skillRows.value.length
-  failed.value = count === 0
+}
+
+async function fetchRows(next: Tab, nextPeriod: RankPeriod): Promise<RankRows | null> {
+  const res = next === 'works'
+    ? await rankApi.works(nextPeriod)
+    : next === 'authors'
+      ? await rankApi.authors(nextPeriod)
+      : await rankApi.skills(nextPeriod)
+  if (!res?.success || !res.data)
+    return null
+  return res.data.items ?? []
 }
 
 useHead({ title: t('榜单') })
@@ -52,54 +66,37 @@ useSeoMeta({
 })
 
 async function load(next: Tab, nextPeriod: RankPeriod, force = false) {
-  const key = `${next}-${nextPeriod}`
-  if (fetched[key] && !force)
+  const key = rankCacheKey(next, nextPeriod)
+  // 每次切换都领一个新序号：命中缓存时也要让还在路上的旧请求作废
+  const token = guard.begin()
+  const cached = force ? undefined : cache.get(key)
+  if (cached) {
+    setRows(next, key, cached)
+    loading.value = false
+    failed.value = false
     return
-  const current = ++seq
+  }
+  // 格子里是另一档的数据：先清掉露出骨架，不让「月」标着周榜（失败时也不会拿另一档冒充）
+  if (shownKeys[next] !== key)
+    setRows(next, key, [])
   loading.value = true
   failed.value = false
   try {
-    if (next === 'works') {
-      const res = await rankApi.works(nextPeriod)
-      if (current !== seq)
-        return
-      if (!res?.success || !res.data) {
-        markRankFailed(next, key)
-        return
-      }
-      workRows.value = res.data.items ?? []
-    }
-    else if (next === 'authors') {
-      const res = await rankApi.authors(nextPeriod)
-      if (current !== seq)
-        return
-      if (!res?.success || !res.data) {
-        markRankFailed(next, key)
-        return
-      }
-      authorRows.value = res.data.items ?? []
-    }
-    else {
-      const res = await rankApi.skills(nextPeriod)
-      if (current !== seq)
-        return
-      if (!res?.success || !res.data) {
-        markRankFailed(next, key)
-        return
-      }
-      skillRows.value = res.data.items ?? []
-    }
-    shownKey.value = key
-    fetched[key] = true
-    failed.value = false
+    const rows = await fetchRows(next, nextPeriod)
+    if (rows)
+      cache.set(key, rows)
+    if (!guard.isCurrent(token))
+      return
+    if (rows)
+      setRows(next, key, rows)
+    failed.value = !rows && rowCount(next) === 0
   }
   catch {
-    if (current !== seq)
-      return
-    markRankFailed(next, key)
+    if (guard.isCurrent(token))
+      failed.value = rowCount(next) === 0
   }
   finally {
-    if (current === seq)
+    if (guard.isCurrent(token))
       loading.value = false
   }
 }
@@ -161,6 +158,17 @@ function onAuthorFollowChange(row: RankAuthorItem, following: boolean, followers
 }
 
 onMounted(() => {
+  void load(tab.value, period.value)
+})
+
+// 页面 keepalive：回到榜单时缓存过期就重新取，没过期直接用
+let firstActivation = true
+onActivated(() => {
+  // 首次挂载时 onMounted 已经取过一次
+  if (firstActivation) {
+    firstActivation = false
+    return
+  }
   void load(tab.value, period.value)
 })
 </script>

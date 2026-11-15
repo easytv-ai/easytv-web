@@ -118,6 +118,14 @@ export type ChatMediaConfirmCard = {
   points?: number
   skipped?: boolean
   refs?: Array<{ assetId?: number, url: string, name?: string }>
+  /** 等待到时但任务仍在排队 / 生成：记下在等哪条任务，后端给出终态前卡片不解锁 */
+  waitingTaskId?: number
+  waitingNodeId?: string
+  /** 这张卡正在出片（已点确认、还没等到回报）：「停止」的兜底解锁只认它，已经出片成功的卡不带 */
+  running?: boolean
+  /** 出片中的任务与落图节点：出片途中切走会话 / 刷新后，回来按它向后端问终态 */
+  runTaskId?: number
+  runNodeId?: string
 }
 
 export type BriefCard = BriefAskCard | BriefDocCard | BriefVoiceCard | BriefGenerateCard | BriefVideoCard | ChatMediaConfirmCard

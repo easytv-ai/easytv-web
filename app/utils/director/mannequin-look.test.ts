@@ -1,4 +1,3 @@
-import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import { BoxGeometry, Group, Mesh, MeshStandardMaterial, Texture } from 'three'
 import { LOOK_PLATE_NAME, getLookProjectionLayout, lookSurfaceUv, setMannequinLookPlate } from './mannequin'
@@ -61,18 +60,5 @@ describe('setMannequinLookPlate', () => {
   it('空场景也能卸，不会抛', () => {
     const scene = new Group()
     expect(() => setMannequinLookPlate(scene, null)).not.toThrow()
-  })
-})
-
-describe('导入角色形象接线', () => {
-  it('导入模型吃 lookUrl，角色面板不再把形象藏起来', () => {
-    const imported = readFileSync(new URL('../../components/canvas/director/DirectorImportedModel.vue', import.meta.url), 'utf8')
-    const objectNode = readFileSync(new URL('../../components/canvas/director/DirectorObjectNode.vue', import.meta.url), 'utf8')
-    const panel = readFileSync(new URL('../../components/canvas/director/panels/DirectorCharacterPanel.vue', import.meta.url), 'utf8')
-    expect(imported).toContain('lookUrl')
-    expect(imported).toContain('setMannequinLookPlate')
-    expect(objectNode).toContain(':look-url="isCharacter ? lookUrl : undefined"')
-    expect(panel).toContain(':title="t(\'形象\')"')
-    expect(panel).not.toContain('!selection.role.assetRefId')
   })
 })

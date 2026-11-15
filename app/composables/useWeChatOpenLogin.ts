@@ -565,7 +565,6 @@ export function useWeChatOpenLogin() {
 
       // self_redirect: true — 回调在 iframe 内跳转至后端 callback，避免手机扫码后
       // 微信脚本操控顶层 window 被浏览器 SecurityError 拦截；父页轮询 login-status 完成登录。
-      // eslint-disable-next-line no-new
       new WxLogin({
         self_redirect: true,
         id: containerId,

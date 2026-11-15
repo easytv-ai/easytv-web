@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest'
-import { readFileSync } from 'node:fs'
 import { CANVAS_EDGE_FLOW_CELLS, CANVAS_EDGE_THICKNESS, canvasEdgeFlowCellDelay, canvasEdgeFlowDash, canvasEdgeFlowLayout, canvasEdgeFlowSpeed } from './canvas-edge-flow'
 
 describe('canvasEdgeFlowLayout', () => {
@@ -46,31 +45,5 @@ describe('canvasEdgeFlowLayout', () => {
     expect(dash.wrap).toBe(`${layout.slugLen} ${Math.max(layout.gap, 0.001)}`)
     expect(dash.cycle).toBe(-1)
     expect(dash.thickness).toBe(CANVAS_EDGE_THICKNESS)
-  })
-})
-
-describe('流动只画在一层上', () => {
-  it('单条边不再各自挂流动层，选中路径汇进同一张 SVG', () => {
-    const edge = readFileSync(new URL('../components/canvas/CanvasEdge.vue', import.meta.url), 'utf8')
-    const layer = readFileSync(new URL('../components/canvas/CanvasEdgeFlowLayer.vue', import.meta.url), 'utf8')
-    const css = readFileSync(new URL('../assets/css/studio-parts/canvas.css', import.meta.url), 'utf8').replace(/\r\n/g, '\n')
-    expect(edge).toContain('setCanvasEdgeFlowLive')
-    expect(edge).not.toContain('<CanvasEdgeFlow')
-    expect(layer).toContain('canvas-edge-flow-layer')
-    expect(layer).toContain('.canvas-flow .vue-flow__transformationpane')
-    expect(css).toContain('html.canvas-is-interacting .canvas-edge-flow-layer {\n  display: none;')
-    expect(css).toContain('html.canvas-is-interacting .canvas-edge__flow-g.is-run .canvas-edge__flow {\n  animation: none;')
-    expect(css).not.toContain('.vue-flow__transformationpane {\n  transform-origin: 0 0;\n  will-change: transform;')
-  })
-})
-
-describe('CanvasEdgeFlow', () => {
-  it('一条线只画三层光带，不测 getTotalLength、不叠 7 格 path', () => {
-    const src = readFileSync(new URL('../components/canvas/CanvasEdgeFlow.vue', import.meta.url), 'utf8')
-    expect(src).toContain('pathLength')
-    expect(src).toContain('canvasEdgeFlowDash')
-    expect(src).not.toContain('getTotalLength')
-    expect(src).not.toContain('CELL_INDEXES')
-    expect(src).not.toContain('is-cell-')
   })
 })

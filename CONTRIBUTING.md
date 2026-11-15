@@ -54,6 +54,7 @@ pnpm dev                        # http://localhost:3005
 Local checks (CI runs exactly these):
 
 ```bash
+pnpm lint        # eslint, correctness rules only; errors fail CI, warnings do not
 pnpm typecheck   # vue-tsc, must be clean
 pnpm test            # vitest, app/**/*.test.ts
 pnpm build       # production build, Cloudflare preset

@@ -111,7 +111,8 @@ export type AgentPlan = AssistPlan & {
   estimate?: AgentEstimate
 }
 
-export type AssistApplyResult = { undoToken: number, applied: number, skipped: number, generated: number }
+/** locked：因节点锁定被跳过的改动数（不计入 skipped） */
+export type AssistApplyResult = { undoToken: number, applied: number, skipped: number, generated: number, locked?: number }
 
 /** 画布页交给对话栏的桥：读上下文、应用 / 撤销方案 */
 export type AssistBridge = {

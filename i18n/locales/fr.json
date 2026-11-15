@@ -3624,10 +3624,12 @@
     "voiceStyle": "Style de parole",
     "summaryEmpty": "Pas encore de personnages, d'accessoires ni d'intrigues : le prochain épisode n'aura rien à reprendre.",
     "summaryCounts": "{c} personnages, {p} accessoires, {n} intrigues et {f} faits enregistrés.",
+    "recordsCost": "Le modèle de texte résume le plan de l'épisode en un récapitulatif de continuité et l'intègre à la bible ci-dessus (nouveaux personnages, faits révélés, intrigues ouvertes, changements de main des accessoires). Facturé une fois au tarif du modèle de texte.",
     "recordsEmpty": "Aucun récapitulatif d'épisode pour l'instant. Une fois le plan généré, utilisez l'IA pour intégrer les personnages, faits et intrigues de l'épisode à la bible."
   },
   "canvas": {
     "practice": {
+      "chatSendBlocked": "Impossible d'envoyer un message pendant l'entraînement. Quittez l'entraînement pour utiliser le chat.",
       "kicker": "No credits · exit anytime to restore",
       "lead": "Pick a lesson. We set up the nodes; you hit generate to watch the replay.",
       "startHere": "Start here",
@@ -3687,6 +3689,8 @@
       },
       "media": {
         "runningImage": "Génération de l’image et placement sur le canevas…",
+        "stillRunning": "Toujours en file d'attente ou en cours de génération. La mise à jour se fera automatiquement une fois terminé, inutile de réessayer (un nouvel essai serait facturé à nouveau).",
+        "runningDetached": "La tâche est toujours en cours, mais son nœud sur le canevas a changé. Consultez la file d'exécution ou vos ressources pour voir le résultat.",
         "runningVideo": "Génération de la vidéo et placement sur le canevas…",
         "runningAudio": "Génération de l’audio et placement sur le canevas…",
         "placedImage": "Image générée et placée sur le canevas.",
@@ -3721,6 +3725,8 @@
         "applied": "Applied {n}",
         "generated": "{n} générations terminées",
         "skipped": "Skipped {n}",
+        "lockedSkipped": "{n} ignorées : nœud verrouillé",
+        "allLocked": "Les nœuds concernés par ces modifications sont verrouillés. Déverrouillez-les, puis appliquez.",
         "canvasMoved": "The canvas changed after applying. Use Ctrl+Z to undo step by step",
         "cannotUndo": "These changes can no longer be undone",
         "undone": "Changes undone",
@@ -4113,7 +4119,8 @@
       }
     },
     "download": {
-      "failed": "Le téléchargement a échoué. Réessayez plus tard."
+      "failed": "Le téléchargement a échoué. Réessayez plus tard.",
+      "opened": "Téléchargement direct impossible. Ouvert dans une nouvelle fenêtre : clic droit pour enregistrer."
     },
     "workflowTeach": {
       "promptToVideo": "Squelette commun : produire une image, puis l’animer. Le nœud texte en amont est un brouillon de script, pas le contenu soumis.",
@@ -4150,6 +4157,7 @@
       "mixOk": "Musique mixée",
       "framesPending": "Les images extraites ne sont pas encore dans la bibliothèque, l’analyse a été ignorée",
       "framesFail": "Échec de l’extraction des images. La vidéo n’est peut-être pas lisible depuis une autre origine",
+      "durationUnknown": "Durée de la vidéo illisible : impossible d’extraire des images réparties dans le temps. Réessayez plus tard ou réimportez la vidéo",
       "framesOk": "{n} images extraites",
       "framesLabel": "Extraction d’images"
     },
@@ -4346,7 +4354,8 @@
   },
   "inbox": {
     "markAll": "Tout marquer comme lu",
-    "markOne": "Lu"
+    "markOne": "Marquer comme lu",
+    "markFailed": "Impossible de marquer comme lu. Réessayez plus tard"
   },
   "视频延长": "Prolonger la vidéo",
   "视频编辑": "Édition vidéo",

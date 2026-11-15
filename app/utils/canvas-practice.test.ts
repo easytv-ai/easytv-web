@@ -22,10 +22,8 @@ import {
   PRACTICE_SHOT_SCRIPT,
   practiceSpotForNewNode,
   practiceStepSatisfied,
-  PRACTICE_VIDEO_PROMPT,
   stepKeyOf,
   stepKindOf,
-  type PracticePrepare,
   type PracticeScript,
   type PracticeStep,
 } from './canvas-practice'

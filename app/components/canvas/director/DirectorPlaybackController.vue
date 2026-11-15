@@ -96,6 +96,7 @@ onBeforeRender(({ delta }: { delta: number }) => {
 })
 </script>
 
+<!-- eslint-disable vue/valid-template-root -- 无渲染组件，模板有意留空 -->
 <template>
   <!-- 只跑逻辑，不画东西 -->
 </template>

@@ -34,6 +34,7 @@ import { graphHeavyNames, isGraphNearLimit, isGraphOverLimit } from '~/utils/dir
 import type { PracticeSession } from '~/composables/useCanvasPractice'
 import { practiceSessionDefault } from '~/composables/useCanvasPractice'
 import { findPracticeScript } from '~/utils/canvas-practice'
+import type { ChatMediaReport } from '~/utils/canvas-chat-media-report'
 
 const { t } = useI18n()
 const { load: loadAppConfig } = useStudioAppConfig()
@@ -902,7 +903,12 @@ function onChatResetBrief() {
   workspace.value?.resetBriefPlaced()
 }
 
-async function onChatGenerateMedia(req: { kind: 'image' | 'video' | 'audio', prompt: string, model: string, ratio?: string, seconds?: number, resolution?: string, label?: string, refs?: Array<{ assetId?: number, url: string, name?: string }> }, opts?: { onTask?: (taskId: number) => void, onDone?: (report: { ok: boolean, nodeId?: string, url?: string, error?: string }) => void }) {
+async function onChatGenerateMedia(req: { kind: 'image' | 'video' | 'audio', prompt: string, model: string, ratio?: string, seconds?: number, resolution?: string, label?: string, refs?: Array<{ assetId?: number, url: string, name?: string }> }, opts?: { onTask?: (taskId: number, nodeId?: string) => void, onDone?: (report: ChatMediaReport) => void }) {
+  // 跟练期间对话栏不出片（CanvasChat 已禁用发送，这里是第二道）：回失败即可，没有任务被创建
+  if (blockedByPractice()) {
+    opts?.onDone?.({ ok: false })
+    return
+  }
   try {
     const result = await workspace.value?.generateFromChat(req, { onTask: opts?.onTask })
     opts?.onDone?.(result || { ok: false })
@@ -912,7 +918,16 @@ async function onChatGenerateMedia(req: { kind: 'image' | 'video' | 'audio', pro
   }
 }
 
+/** 出片等待到时但任务还在跑：让画布盯着节点，后端给出终态再回调对话栏 */
+function onChatTrackMedia(nodeId: string, taskId: number, done: (report: ChatMediaReport | null) => void) {
+  workspace.value?.trackChatMedia(nodeId, taskId, done)
+}
+
 async function onChatGenerateBrief(groups: string[], opts?: { models?: { image?: string, audio?: string, video?: string }, limit?: number, onProgress?: (row: { index: number, total: number, label: string, status: 'start' | 'ok' | 'fail' }) => void, onDone?: (report: { ok: number, failed: number, total: number }) => void }) {
+  if (blockedByPractice()) {
+    opts?.onDone?.({ ok: 0, failed: 0, total: 0 })
+    return
+  }
   try {
     const result = await workspace.value?.generateBriefPlaced(groups, { onProgress: opts?.onProgress, models: opts?.models, limit: opts?.limit })
     opts?.onDone?.(result || { ok: 0, failed: 0, total: 0 })
@@ -923,11 +938,13 @@ async function onChatGenerateBrief(groups: string[], opts?: { models?: { image?:
 }
 
 function onChatPlaceVideos(shots?: string[]) {
+  if (blockedByPractice())
+    return
   workspace.value?.placeBriefVideos(shots)
 }
 
 function onChatComposeBrief(opts?: { preview?: boolean, aspect?: string, onStart?: (nodeId: string) => void, onDone?: (report: { ok: boolean, nodeId?: string, error?: string, count?: number }) => void }) {
-  if (!workspace.value) {
+  if (!workspace.value || blockedByPractice()) {
     opts?.onDone?.({ ok: false, error: 'needTwo' })
     return
   }
@@ -1206,6 +1223,7 @@ function onResizeStart(event: PointerEvent) {
             :assist="readonly ? null : assistBridge"
             :selection="assistSelection"
             :brief-quote="briefQuote"
+            :practice="practiceSession.active"
             @close="chatOpen = false"
             @insert-text="onChatInsertText"
             @insert-images="onChatInsertImages"
@@ -1213,6 +1231,7 @@ function onResizeStart(event: PointerEvent) {
             @reset-brief="onChatResetBrief"
             @generate-brief="onChatGenerateBrief"
             @generate-media="onChatGenerateMedia"
+            @track-media="onChatTrackMedia"
             @place-videos="onChatPlaceVideos"
             @compose-brief="onChatComposeBrief"
             @pick-asset="onChatPickAsset"

@@ -2,6 +2,7 @@
 import type { Bible, BibleEpisode, BiblePropChange } from '~/types/creative'
 import type { StudioSelectOption } from '~/components/studio/StudioSelect.vue'
 import { bibleName, episodeNoLabel, factLabel } from '~/utils/bible'
+import { recordGenerateView } from '~/utils/bible-record'
 
 const { t } = useI18n()
 const localePath = useLocalePath()
@@ -18,6 +19,13 @@ const props = defineProps<{
 const emit = defineEmits<{
   generate: []
 }>()
+
+const generateView = computed(() => recordGenerateView({
+  target: recordTarget.value,
+  recording: props.recording,
+  saving: props.saving,
+  episodeCount: props.bible.episodes.length,
+}))
 
 function episodeHref(id: number) {
   return localePath(`/create?screenplay=${id}`)
@@ -54,13 +62,15 @@ function propChangeLabel(pc: BiblePropChange) {
           :options="recordOptions"
           :sr-label="t('选择要记录的集')"
         />
-        <button type="button" class="studio-chip" :disabled="!recordTarget || recording || saving" @click="emit('generate')">
+        <button type="button" class="studio-chip" :disabled="generateView.disabled" :title="t('bible.recordsCost')" @click="emit('generate')">
           <UIcon name="i-lucide-sparkles" class="size-4" />
           {{ recording ? t('生成中…') : t('用 AI 生成本集记录') }}
         </button>
       </div>
     </header>
-    <p v-if="!bible.episodes.length" class="bible-note">{{ t('bible.recordsEmpty') }}</p>
+    <!-- 点之前要看得到会扣分：这句常驻在按钮下方，不随有没有记录隐藏 -->
+    <p v-if="generateView.showCost" class="bible-note">{{ t('bible.recordsCost') }}</p>
+    <p v-if="generateView.showEmpty" class="bible-note">{{ t('bible.recordsEmpty') }}</p>
     <article v-for="e in bible.episodes" :key="e.no" class="bible-item bible-record">
       <header class="bible-item__head">
         <strong>{{ episodeNoLabel(e.no, t) }}</strong>

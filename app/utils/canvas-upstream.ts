@@ -66,6 +66,33 @@ export function makeInputSnapshot(input: {
   }
 }
 
+/**
+ * 按画布当前的样子给节点拍一份输入快照（模型 / 提示词 / 各上游产物签名）。
+ * 不经 useCanvasGenerate.submit 的提交入口（一稿多版的服务端批次）在任务挂回节点时用它，
+ * 上游顺序与 computeStaleMap 一致（按 edges 的顺序），否则刚拍完就会被判成上游变了。
+ */
+export function snapshotNodeInput(
+  id: string,
+  nodes: Array<{ id: string, data?: any }>,
+  edges: Array<{ source: string, target: string }>,
+  at?: number,
+): InputSnapshot | null {
+  const byId = new Map(nodes.map(node => [node.id, node]))
+  const node = byId.get(id)
+  if (!node)
+    return null
+  return makeInputSnapshot({
+    at,
+    model: node.data?.model,
+    prompt: node.data?.prompt,
+    upstream: edges
+      .filter(edge => edge.target === id)
+      .map(edge => byId.get(edge.source))
+      .filter((item): item is { id: string, data?: any } => Boolean(item))
+      .map(item => ({ id: item.id, data: item.data })),
+  })
+}
+
 /** 从节点 data 里取出快照；形状不对（老数据 / 手改过的 graph）就当作没有 */
 export function inputSnapshotOf(data?: Record<string, any> | null): InputSnapshot | null {
   const raw = data?.inputSnapshot as InputSnapshot | undefined

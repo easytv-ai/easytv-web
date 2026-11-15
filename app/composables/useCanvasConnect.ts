@@ -248,9 +248,14 @@ export function useCanvasConnect(opts: {
    * 连一条线并同步两端提示词。缺省 force（程序化自动连线：上游文本直接盖下游提示词）；
    * 手拖连线等用户手势传 `{ mode: 'append' }`，用户写过的提示词只追加不盖；
    * 「从画布添加参考」这类只是补一条参考线的入口传 `{ force: false }`，只在下游提示词为空或本来就是自动同步的时才填。
+   * 两端任一锁定（含父组锁定）时不连线，返回 null；allowLocked 跳过这道检查。
    * 返回两端里最"重"的同步结果：有一端追加了就是 'appended'，方便调用方提示可撤销。
    */
-  function linkNodes(connection: Connection, linkOpts: { force?: boolean, mode?: 'append', onLater?: (result: CanvasConnectSyncResult) => void } = {}): CanvasConnectSyncResult {
+  function linkNodes(connection: Connection, linkOpts: { force?: boolean, mode?: 'append', allowLocked?: boolean, onLater?: (result: CanvasConnectSyncResult) => void } = {}): CanvasConnectSyncResult {
+    // 两端任一锁定就不连：连线会把上游文本 / 参考图同步进另一端，等于改了锁定节点。
+    // allowLocked 只给「用户自己发起、往新落的节点上接线」的入口（对话落图、跟练搭图）用。
+    if (!linkOpts.allowLocked && connectionLocked(connection.source, connection.target))
+      return null
     const mode: CanvasConnectSyncMode = linkOpts.mode === 'append' ? 'append' : (linkOpts.force ?? true)
     opts.addEdges({
       ...connection,

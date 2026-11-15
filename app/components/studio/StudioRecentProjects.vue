@@ -52,7 +52,12 @@ function fmtDate(ts: number) {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
+// 登录态只有客户端知道（服务端渲染恒为未登录），首帧与服务端保持一致，挂载后再显示，避免 hydration 不一致
+const mounted = ref(false)
+const shown = computed(() => mounted.value && isLoggedIn.value)
+
 onMounted(() => {
+  mounted.value = true
   if (isLoggedIn.value)
     void load()
 })
@@ -72,7 +77,7 @@ onActivated(() => {
 </script>
 
 <template>
-  <section v-if="isLoggedIn" class="show-page__inner recent" :aria-label="t('最近项目')">
+  <section v-if="shown" class="show-page__inner recent" :aria-label="t('最近项目')">
     <header class="recent__head">
       <h2>{{ t('最近项目') }}</h2>
       <NuxtLink :to="localePath('/projects')" class="recent__all">

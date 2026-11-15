@@ -6,6 +6,7 @@ import { resolveSettingsTab } from '~/composables/useSettingsModal'
 import { pathWithoutLocale } from '~/utils/app-path'
 
 const { t } = useI18n()
+const toast = useToast()
 const { openSettings } = useSettingsModal()
 
 const { inboxOpen, closeInbox, unreadCount, markRead, markAllRead, refreshUnread } = useStudioInbox()
@@ -94,23 +95,39 @@ function stampRead(n: Notification) {
   return true
 }
 
-function onMarkRead(n: Notification) {
-  if (stampRead(n))
-    void markRead([n.id])
+function notifyMarkFailed() {
+  toast.add({ title: t('inbox.markFailed'), color: 'error', close: false, progress: false, orientation: 'horizontal' })
 }
 
+/** 乐观标已读：请求失败就把这几条恢复成未读并提示 */
+async function onMarkRead(n: Notification) {
+  if (!stampRead(n))
+    return
+  if (await markRead([n.id]))
+    return
+  n.read_at = 0
+  notifyMarkFailed()
+}
+
+/** 点正文：带链接的标已读并跳转，没有链接的标已读并展开 */
 function onItemClick(n: Notification) {
-  onMarkRead(n)
-  if (!n.link)
-    toggleExpand(`n-${n.id}`)
+  if (n.link) {
+    go(n)
+    return
+  }
+  void onMarkRead(n)
+  toggleExpand(`n-${n.id}`)
 }
 
 async function onMarkAllRead() {
   if (!hasUnread.value)
     return
-  for (const n of notifications.value)
-    stampRead(n)
-  await markAllRead()
+  const stamped = notifications.value.filter(n => stampRead(n))
+  if (await markAllRead())
+    return
+  for (const n of stamped)
+    n.read_at = 0
+  notifyMarkFailed()
 }
 
 async function loadAll() {
@@ -133,8 +150,7 @@ function onMaskClick() {
 }
 
 function go(n: Notification) {
-  if (stampRead(n))
-    void markRead([n.id])
+  void onMarkRead(n)
   closeInbox()
   if (!n.link)
     return

@@ -143,3 +143,47 @@ export function composeTimeline(ordered: ComposeSource[], opts: ComposeOptions):
 
 export type ComposeAudioSource = { id: string, assetId: number, label: string, preferred?: boolean }
 export type ComposeSubtitleSource = { id: string, label: string }
+
+export type ComposeTrimPatch = { id: string, patch: { trimIn: number | undefined, trimOut: number | undefined } }
+
+/**
+ * 合成面板的入点 / 出点 → 要写回节点的补丁。
+ * 只返回真的变了的节点：节点不在了、被锁定、数值没变的都不算，所以拿同一份数据再调一次是空的。
+ */
+export function composeTrimPatches(
+  items: Array<Pick<ComposeSource, 'id' | 'trimIn' | 'trimOut'>>,
+  lookup: (id: string) => { trimIn?: unknown, trimOut?: unknown, locked?: boolean } | null | undefined,
+): ComposeTrimPatch[] {
+  const out: ComposeTrimPatch[] = []
+  for (const item of items) {
+    const node = lookup(item.id)
+    if (!node || node.locked)
+      continue
+    const nextIn = Number(item.trimIn) > 0 ? Number(item.trimIn) : 0
+    const nextOut = Number(item.trimOut) > 0 ? Number(item.trimOut) : 0
+    if ((Number(node.trimIn) || 0) === nextIn && (Number(node.trimOut) || 0) === nextOut)
+      continue
+    out.push({ id: item.id, patch: { trimIn: nextIn || undefined, trimOut: nextOut || undefined } })
+  }
+  return out
+}
+
+/**
+ * 把一次入出点调整落到画布：有实际变更才写，并且整批只 commit 一次（一步撤销 + 触发自动保存）。
+ * 面板只在关闭 / 确认时交回数据，拖动中的值留在面板里，所以不会每帧入栈。
+ */
+export function applyComposeTrims(
+  items: Array<Pick<ComposeSource, 'id' | 'trimIn' | 'trimOut'>>,
+  io: {
+    lookup: (id: string) => { trimIn?: unknown, trimOut?: unknown, locked?: boolean } | null | undefined
+    update: (id: string, patch: ComposeTrimPatch['patch']) => void
+    commit: () => void
+  },
+) {
+  const patches = composeTrimPatches(items, io.lookup)
+  for (const { id, patch } of patches)
+    io.update(id, patch)
+  if (patches.length)
+    io.commit()
+  return patches.length
+}

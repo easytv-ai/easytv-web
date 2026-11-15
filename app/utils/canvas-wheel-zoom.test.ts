@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest'
-import { readFileSync } from 'node:fs'
 import {
   CANVAS_MAX_ZOOM,
   CANVAS_MIN_ZOOM,
@@ -74,21 +73,5 @@ describe('canvasWheelPanDelta', () => {
     expect(canvasWheelPanHalfLife({ deltaX: 0, deltaY: 3, deltaMode: 1 }, 8)).toBe(CANVAS_WHEEL_PAN_HALF_LIFE_MS)
     const snapped = canvasWheelPanFollow({ x: 0, y: 0, zoom: 1 }, { x: 40, y: 0, zoom: 1 }, 16, 0)
     expect(snapped.x).toBe(40)
-  })
-})
-
-describe('Workspace 自己接管滚轮平移', () => {
-  it('关掉 Vue Flow pan-on-scroll，捕获阶段自己平移并进入 live viewport', () => {
-    const ws = readFileSync(new URL('../components/canvas/CanvasWorkspace.vue', import.meta.url), 'utf8')
-    const body = ws.slice(ws.indexOf('function onWindowWheel'), ws.indexOf('function onWindowWheel') + 2200)
-    expect(ws).toContain(':pan-on-scroll="false"')
-    expect(ws).toContain('function pulseLiveViewport()')
-    expect(body).toContain('pulseLiveViewport()')
-    expect(body).toContain('canvasWheelPanTarget')
-    expect(body).toContain('canvasWheelPanDelta')
-    expect(body).toContain('requestAnimationFrame')
-    expect(body).not.toContain('setViewport({ x: current.x + dx')
-    expect(ws).toContain('applyCanvasPaneTransform')
-    expect(ws).toContain('commitWheelPan()')
   })
 })

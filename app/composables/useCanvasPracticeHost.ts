@@ -29,6 +29,7 @@ import {
   type PracticePrepare,
   type PracticeStep,
 } from '~/utils/canvas-practice'
+import { consumePracticeRequest } from '~/utils/canvas-practice-gate'
 import { CAMERA_GLIDE_MS, canvasRevealShift } from '~/utils/canvas-viewport-tween'
 import { DEFAULT_CAMERA_SETUP } from '~/utils/canvas-camera'
 import { normalizeTalkingData, talkingDuration } from '~/utils/canvas-talking'
@@ -124,14 +125,13 @@ export function useCanvasPracticeHost(opts: {
   /** 3 步新手引导（CanvasGuideTour）的开关：跟练与它是两套同 z-index 的聚光浮层，进跟练先把那边关掉 */
   const canvasGuideOpen = useState('canvas-guide-open', () => false)
 
-  watch(wanted, (on) => {
-    if (!on)
-      return
-    const scriptId = findPracticeScript(wantedScript.value)?.id || ''
-    wantedScript.value = ''
-    start(scriptId)
-    if (session.value.active)
-      wanted.value = false
+  // 无论开没开成都复位（见 consumePracticeRequest）：被只读 / 锁定画布拒掉时 canEditCanvas 已经给过提示
+  watch(wanted, () => {
+    consumePracticeRequest(wanted, () => {
+      const scriptId = findPracticeScript(wantedScript.value)?.id || ''
+      wantedScript.value = ''
+      return scriptId
+    }, start)
   }, { immediate: true })
 
   // 会话一结束（退出 / 跨画布被复位），在飞的补间立刻停手：它已经不能再写视口了

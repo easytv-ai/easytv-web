@@ -3624,10 +3624,12 @@
     "voiceStyle": "Phong cách nói",
     "summaryEmpty": "Chưa có nhân vật, đạo cụ hay tuyến truyện, tập sau sẽ không có thiết lập nào để kế thừa.",
     "summaryCounts": "Đã ghi {c} nhân vật, {p} đạo cụ, {n} tuyến truyện và {f} sự kiện.",
+    "recordsCost": "Dùng mô hình văn bản để tóm tắt kế hoạch của tập thành ghi chép liên tục và gộp vào thiết lập phía trên (nhân vật mới, sự kiện đã lộ, tuyến truyện còn mở, đạo cụ đổi chủ). Trừ điểm một lần theo đơn giá của mô hình văn bản.",
     "recordsEmpty": "Chưa có ghi chép theo tập. Sau khi tạo kế hoạch, hãy dùng AI để gộp nhân vật, sự kiện và tuyến truyện của tập đó vào thiết lập."
   },
   "canvas": {
     "practice": {
+      "chatSendBlocked": "Không thể gửi tin nhắn khi đang luyện tập. Hãy thoát luyện tập để dùng trò chuyện.",
       "kicker": "No credits · exit anytime to restore",
       "lead": "Pick a lesson. We set up the nodes; you hit generate to watch the replay.",
       "startHere": "Start here",
@@ -3687,6 +3689,8 @@
       },
       "media": {
         "runningImage": "Đang tạo ảnh và đặt lên canvas…",
+        "stillRunning": "Vẫn đang xếp hàng hoặc đang tạo. Kết quả sẽ tự cập nhật khi hoàn tất, không cần thử lại (thử lại sẽ bị trừ điểm thêm lần nữa).",
+        "runningDetached": "Tác vụ vẫn đang chạy nhưng nút tương ứng trên canvas đã thay đổi. Hãy xem kết quả trong hàng đợi chạy hoặc kho tài nguyên.",
         "runningVideo": "Đang tạo video và đặt lên canvas…",
         "runningAudio": "Đang tạo âm thanh và đặt lên canvas…",
         "placedImage": "Đã tạo ảnh và đặt lên canvas.",
@@ -3721,6 +3725,8 @@
         "applied": "Applied {n}",
         "generated": "Đã xong {n} mục",
         "skipped": "Skipped {n}",
+        "lockedSkipped": "Bỏ qua {n} mục: nút đang bị khóa",
+        "allLocked": "Các nút liên quan đến những thay đổi này đang bị khóa. Hãy mở khóa rồi áp dụng.",
         "canvasMoved": "The canvas changed after applying. Use Ctrl+Z to undo step by step",
         "cannotUndo": "These changes can no longer be undone",
         "undone": "Changes undone",
@@ -4113,7 +4119,8 @@
       }
     },
     "download": {
-      "failed": "Tải xuống thất bại, vui lòng thử lại sau."
+      "failed": "Tải xuống thất bại, vui lòng thử lại sau.",
+      "opened": "Không tải trực tiếp được. Đã mở trong cửa sổ mới, hãy nhấp chuột phải để lưu."
     },
     "workflowTeach": {
       "promptToVideo": "Khung chung: tạo một ảnh tĩnh, rồi làm nó chuyển động. Nút văn bản phía trên là bản nháp kịch bản, không phải nội dung được gửi.",
@@ -4150,6 +4157,7 @@
       "mixOk": "Đã trộn nhạc nền",
       "framesPending": "Khung hình đã trích chưa vào thư viện tài sản nên bỏ qua phần phân tích",
       "framesFail": "Trích khung hình thất bại. Có thể không đọc được video do khác nguồn gốc",
+      "durationUnknown": "Không đọc được thời lượng video nên không thể trích khung hình theo thời gian. Hãy thử lại sau hoặc tải video lên lại",
       "framesOk": "Đã trích {n} khung hình",
       "framesLabel": "Trích khung hình"
     },
@@ -4346,7 +4354,8 @@
   },
   "inbox": {
     "markAll": "Đánh dấu đã đọc tất cả",
-    "markOne": "Đã đọc"
+    "markOne": "Đánh dấu đã đọc",
+    "markFailed": "Không thể đánh dấu đã đọc. Vui lòng thử lại sau"
   },
   "视频延长": "Kéo dài video",
   "视频编辑": "Chỉnh sửa video",

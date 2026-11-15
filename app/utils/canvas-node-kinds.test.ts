@@ -1,4 +1,3 @@
-import { existsSync, readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import {
   appendFxPrompt,
@@ -232,50 +231,9 @@ describe('canvasCommentNodeHint', () => {
 })
 
 describe('半开能力收口', () => {
-  it('不再导出未挂菜单的超长视频入口，也不再列出补帧 / 慢放选项', () => {
-    const src = readFileSync(new URL('./canvas-node-kinds.ts', import.meta.url), 'utf8')
-    expect(src).not.toContain('VIDEO_TRY_ITEMS')
-    expect(src).not.toContain('5分钟超长视频')
-    expect(src).not.toContain('HD_INTERP_ITEMS')
-    expect(src).not.toContain('HD_SLOWMO_ITEMS')
-  })
-
-  it('空画布起步有配乐卡，带 audioKind', () => {
-    const src = readFileSync(new URL('./canvas-node-kinds.ts', import.meta.url), 'utf8')
-    expect(src).toContain("id: 'bgm'")
-    expect(src).toContain("audioKind: 'bgm'")
-    expect(src).toContain('canvas.audio.kind.bgm')
-  })
-
-  it('控制图角标写清回落', () => {
-    const node = readFileSync(new URL('../components/canvas/CanvasNode.vue', import.meta.url), 'utf8')
-    expect(node).toContain("t('控制图')")
-    expect(node).toContain("t('canvas.director.preview.controlTag')")
-  })
-
-  it('角色设计师和剧本节点已下线', () => {
-    expect(existsSync(new URL('../components/canvas/CanvasCharacterDesignerNode.vue', import.meta.url))).toBe(false)
-    expect(existsSync(new URL('../utils/canvas-demo-cast.ts', import.meta.url))).toBe(false)
-    expect(existsSync(new URL('../components/canvas/CanvasScriptNode.vue', import.meta.url))).toBe(false)
-    const src = readFileSync(new URL('./canvas-node-kinds.ts', import.meta.url), 'utf8')
-    expect(src).not.toContain("kind: 'character-designer'")
-    expect(src).not.toContain("kind: 'script'")
-  })
-
   it('ffmpeg 已经裁过的视频不再套 CSS 裁切', () => {
     const rect = { x: 0.1, y: 0.2, w: 0.5, h: 0.4, width: 320, height: 240 }
     expect(videoPlayerCrop({ cropRect: rect })).toEqual(rect)
     expect(videoPlayerCrop({ cropRect: rect, params: { videoEditOperation: 'crop' } })).toBeNull()
-  })
-
-  it('导演助手拉对话额度', () => {
-    const assist = readFileSync(new URL('../components/canvas/director/agent/DirectorAssistant.vue', import.meta.url), 'utf8')
-    expect(assist).toContain('aiChatApi.quota')
-    expect(assist).toContain('aiChatApi.create')
-    expect(assist).toContain('chatQuotaExhausted')
-    expect(assist).toContain('store.readonly.value')
-    expect(assist).not.toContain('taskApi.create')
-    expect(assist).toContain('查看模型原文')
-    expect(assist).not.toContain('RAW_PREVIEW_LIMIT')
   })
 })

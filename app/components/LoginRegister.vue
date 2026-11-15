@@ -125,8 +125,6 @@ const formLead = computed(() => {
   return t('使用手机号验证码登录，或微信扫码快捷登录')
 })
 
-const canSendRegisterCode = computed(() => !sendingCode.value && !codeCountdownActive.value)
-
 function tabFromPath(path: string): 'login' | 'register' | 'forgot' {
   const last = pathWithoutLocale(path).split('/').filter(Boolean).pop() ?? ''
   if (last === 'register')

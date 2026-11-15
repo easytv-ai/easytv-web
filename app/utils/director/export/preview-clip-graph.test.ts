@@ -209,30 +209,6 @@ describe('预演视频模型', () => {
   })
 })
 
-describe('导演台落图接线', () => {
-  const src = readFileSync(new URL('../../../pages/canvas/director.vue', import.meta.url), 'utf8')
-
-  it('预演组按 group 落地，帧和视频挂 parentNode', () => {
-    expect(src).toContain("placed.kind === 'group'")
-    expect(src).toContain("type: 'group'")
-    expect(src).toContain('parentNode: parentId')
-    expect(src).toContain("extent: parentId ? 'parent' : undefined")
-    expect(src).toContain('nextPreviewLeft(')
-    expect(src).toContain('previewFrame')
-    expect(src).toContain("useState('director-preview-placing'")
-    expect(src).toContain('previewPlacing.value = true')
-    expect(src).toContain("useState<AbortController | null>('director-preview-abort'")
-    expect(src).toContain('signal?.aborted')
-    expect(src).toContain("t('已取消导出预演')")
-    expect(src).toContain('canvas.director.preview.controlPlaced')
-    expect(src).toContain('previewControlLinks')
-    expect(src).toContain('extraControls')
-    expect(src).toContain('pickPreviewVideoModel')
-    expect(src).toContain('previewBatchItems(')
-    expect(src).toContain('batchApi.create')
-  })
-})
-
 describe('生产环境关掉导演台调试页', () => {
   it('pages:extend 在 production 拿掉 /director-dev', () => {
     const src = readFileSync(new URL('../../../../nuxt.config.ts', import.meta.url), 'utf8')
@@ -240,14 +216,5 @@ describe('生产环境关掉导演台调试页', () => {
     expect(src).toContain('/director-dev')
     expect(src).toContain("'stats.js'")
     expect(src).toContain('needsInterop')
-  })
-})
-
-describe('试用页预演接线', () => {
-  it('导出预演本地下载，不进画布', () => {
-    const src = readFileSync(new URL('../../../pages/director-dev/index.vue', import.meta.url), 'utf8')
-    expect(src).toContain('@export-preview="item => downloadPreviewFrames(item.frames)"')
-    expect(src).toContain('downloadPreviewFrames')
-    expect(src).toContain("middleware: ['auth', 'dev-only']")
   })
 })

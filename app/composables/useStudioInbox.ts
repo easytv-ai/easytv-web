@@ -22,19 +22,34 @@ export function useStudioInbox() {
     }
   }
 
+  /** 返回是否成功；失败（含网络错误）时调用方负责把乐观标记回滚 */
   async function markRead(ids: number[]) {
     const unique = [...new Set(ids.filter(id => id > 0))]
     if (!unique.length)
-      return
-    const res = await notificationApi.read(unique)
-    if (res?.success)
+      return true
+    try {
+      const res = await notificationApi.read(unique)
+      if (!res?.success)
+        return false
       unreadCount.value = Number(res.data?.unread_count) || 0
+      return true
+    }
+    catch {
+      return false
+    }
   }
 
   async function markAllRead() {
-    const res = await notificationApi.read()
-    if (res?.success)
+    try {
+      const res = await notificationApi.read()
+      if (!res?.success)
+        return false
       unreadCount.value = Number(res.data?.unread_count) || 0
+      return true
+    }
+    catch {
+      return false
+    }
   }
 
   function openInbox() {

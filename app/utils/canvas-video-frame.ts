@@ -41,6 +41,28 @@ export function stripFrameTimes(duration: number, count: number) {
   return times
 }
 
+/** 从几个时长来源里取第一个可用的（有限且大于 0），都没有返回 0 */
+export function pickKnownDuration(...candidates: unknown[]): number {
+  for (const value of candidates) {
+    const n = Number(value)
+    if (Number.isFinite(n) && n > 0)
+      return n
+  }
+  return 0
+}
+
+/**
+ * 要落成素材的抽帧时刻。时长未知时：只要 1 帧就给首帧；
+ * 要多帧则返回 null —— 没有时长算不出分布，硬抽只会得到 N 张相同的首帧，交给调用方提示用户。
+ */
+export function planStripFrameTimes(duration: number, count: number): number[] | null {
+  const n = Math.max(1, Math.floor(count) || 1)
+  const d = pickKnownDuration(duration)
+  if (d <= 0 && n > 1)
+    return null
+  return stripFrameTimes(d, n)
+}
+
 function readableVideoUrl(src: string) {
   return mergeReadableUrl(src, typeof location === 'undefined' ? 'http://localhost' : location.origin)
 }

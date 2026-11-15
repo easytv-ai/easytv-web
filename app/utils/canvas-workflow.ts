@@ -55,7 +55,7 @@ export const WORKFLOW_GRAPH_VERSION = 1
 export const WORKFLOW_NODE_MAX = 60
 
 /** 生成产物字段：下游节点保存时清掉，源头节点保留 */
-const RESULT_FIELDS = ['content', 'assetId', 'previewUrl', 'taskId', 'taskStatus', 'taskProgress', 'taskError', 'mediaJobId', 'mediaAction', 'mediaLinkedId', 'composeJobId'] as const
+const RESULT_FIELDS = ['content', 'assetId', 'previewUrl', 'taskId', 'taskStatus', 'taskProgress', 'taskError', 'mediaJobId', 'mediaAction', 'mediaLinkedId', 'composeJobId', 'inputSnapshot'] as const
 
 export function hasUpstream(id: string, edges: WorkflowEdge[]) {
   return edges.some(edge => edge.target === id)

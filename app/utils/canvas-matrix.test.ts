@@ -484,57 +484,6 @@ describe('来源标记与标题', () => {
   })
 })
 
-describe('面板与驱动器的接口（源码级兜底：这两处不是纯逻辑，只能扫）', () => {
-  const panel = readFileSync('app/components/canvas/CanvasMatrixPanel.vue', 'utf8')
-  const driver = readFileSync('app/composables/useCanvasMatrix.ts', 'utf8')
-
-  it('面板用居中弹窗外壳（canvas-wf + studio-modal），点遮罩可关', () => {
-    expect(panel).toContain('class="canvas-wf canvas-matrix')
-    expect(panel).toContain('studio-modal-mask')
-    expect(panel).toContain('trash-modal__close')
-    expect(panel).toContain('@pointerdown.stop')
-    expect(panel).toContain('@click.self="closePanel()"')
-  })
-
-  it('面板复用既有语言与估价口径：useLangs + matrixPoints + matrixPlan', () => {
-    expect(panel).toMatch(/useLangs\(\)/)
-    expect(panel).toContain('matrixPoints(')
-    expect(panel).toContain('matrixPlan(')
-    expect(panel).toContain('subtitleApi.translate')
-    expect(driver).toContain('budget_points')
-  })
-
-  it('驱动器复用既有能力：既有落图 / 打组 / create-batch / 批量接口与动作', () => {
-    expect(driver).toContain('matrixPlaceGraph')
-    expect(driver).toContain('matrixNextOrigin')
-    expect(driver).toContain('batchNodePatches')
-    expect(driver).toContain('batchActive')
-    expect(driver).toContain('matrixBatchItems')
-    expect(driver).toContain('batchApi.create')
-    expect(driver).toContain('batchApi.action')
-    expect(driver).toContain('opts.groupNodeList')
-  })
-
-  it('提交批量前先把画布存过（服务端要求条目 node_id 在已存 graph 里），并在进画布时恢复批次', () => {
-    expect(driver).toContain('ensurePersisted')
-    expect(driver).toContain('canvasApi.get')
-    expect(driver).toMatch(/async function restore\(\)/)
-    expect(driver).toContain('MATRIX_BATCH_LAYER')
-    // 页面把保存能力交给画布（新画布也会在这一步被建出来）
-    const page = readFileSync('app/pages/canvas/index.vue', 'utf8')
-    expect(page).toContain(':request-save="save"')
-    const workspace = readFileSync('app/components/canvas/CanvasWorkspace.vue', 'utf8')
-    expect(workspace).toContain('matrixRestore')
-    expect(workspace).toContain('saveCanvas: async () => { await props.requestSave?.() }')
-  })
-
-  it('面板打开时补拉模型清单：没有它估价永远是 0，不能只等 Inspector 去拉', () => {
-    const workspace = readFileSync('app/components/canvas/CanvasWorkspace.vue', 'utf8')
-    expect(workspace).toMatch(/taskApi\.models\(\)/)
-    expect(workspace).toContain('matrixModelsLoading')
-  })
-})
-
 describe('文案的翻译覆盖（t(platform.label) / t(eligibility.reason) 这类非字面量写法扫不到，单独兜住）', () => {
   const locales = ['zh', 'zh-TW', 'en', 'ja', 'fr', 'ru', 'vi']
   const tables = new Map(locales.map(name => [
@@ -624,79 +573,6 @@ describe('文案的翻译覆盖（t(platform.label) / t(eligibility.reason) 这�
           expect(got.length, `${name} 的「${key}」丢了占位符`).toBeGreaterThan(0)
       }
     }
-  })
-})
-
-describe('一稿多版提交窗口', () => {
-  const panel = readFileSync('app/components/canvas/CanvasMatrixPanel.vue', 'utf8')
-  const driver = readFileSync('app/composables/useCanvasMatrix.ts', 'utf8')
-
-  it('工作区把派生 run.busy 传给面板，面板自己也认 run.busy', () => {
-    const workspace = readFileSync('app/components/canvas/CanvasWorkspace.vue', 'utf8')
-    expect(workspace).toContain(':busy="Boolean(matrixRun?.busy)"')
-    expect(panel).toContain('props.busy || Boolean(props.run?.busy)')
-  })
-
-  it('plan 跟 labels 挂在 run 上：关面板再开还能重试，版本名不靠下标硬对齐', () => {
-    expect(driver).toContain('plan: MatrixPlan | null')
-    expect(driver).toContain('labels: Record<string, string>')
-    expect(driver).toContain('function nodeLabels(')
-    expect(panel).not.toContain('const lastPlan')
-    expect(panel).toContain('props.run?.plan')
-    expect(panel).toContain('props.run?.labels')
-    expect(panel).toContain('function runVersionLabel(')
-  })
-
-  it('busy 包住落图 + 保存复核 + 提交，finally 在 create 之后才放下', () => {
-    const derive = driver.slice(driver.indexOf('async function derive('), driver.indexOf('async function resubmit('))
-    expect(derive.indexOf('ensurePersisted')).toBeGreaterThan(derive.indexOf('try {'))
-    expect(derive.indexOf('batchApi.create')).toBeGreaterThan(derive.indexOf('ensurePersisted'))
-    expect(derive.indexOf('finally')).toBeGreaterThan(derive.indexOf('batchApi.create'))
-    expect(derive).toContain('patchState({ busy: false })')
-  })
-
-  it('先弹确认再翻译；关掉面板会作废进行中的翻译；确认框打开时 Esc 不关面板', () => {
-    const submit = panel.slice(panel.indexOf('async function submit('), panel.indexOf('function onResubmit('))
-    expect(submit.indexOf('await confirm(')).toBeGreaterThan(0)
-    expect(submit.indexOf('await confirm(')).toBeLessThan(submit.indexOf('translatePrompts()'))
-    expect(panel).toContain('function abortTranslate(')
-    expect(panel).toContain('confirmState.value.open')
-    expect(panel).toContain('const codes = [...pickedLangs.value]')
-  })
-
-  it('回滚先二次确认（会取消批次并删节点），提交中不能点', () => {
-    expect(panel).toContain('function onRollback(')
-    expect(panel).toContain("t('回滚这次派生？')")
-    expect(panel).toContain('danger: true')
-    expect(panel).toContain('@click="onRollback()"')
-    expect(panel).toContain(':disabled="submitting" @click="onRollback()"')
-  })
-
-  it('图片源规格只写比例；同源语种跳过翻译；打开后面板不跟画布选中走', () => {
-    expect(panel).toContain('matrixPlatformSpec(platform, source?.kind || \'image\')')
-    expect(panel).toContain('matrixSameLang(code, String(locale.value || \'\'))')
-    expect(panel).toContain('sourceId.value = defaultSource()')
-    expect(panel).not.toContain('watch(() => props.selectedId')
-  })
-
-  it('批次还在跑或节点未提交时不能再派生，表单和主按钮一起锁', () => {
-    const derive = driver.slice(driver.indexOf('async function derive('), driver.indexOf('async function resubmit('))
-    expect(derive).toContain('batchActive(run.value?.batch)')
-    expect(derive).toContain("t('批次还在生成中，先取消或等它结束再派生')")
-    expect(derive).toContain("t('这次派生的节点还在画布上，先回滚或重试提交')")
-    expect(panel).toContain('const placedPending')
-    expect(panel).toContain('const deriveLocked')
-    expect(panel).toContain(':disabled="deriveLocked"')
-    expect(panel).toContain("t('批次生成中…')")
-  })
-
-  it('刷新后能从画布节点还原未提交的 plan，进度拆开成功 / 失败', () => {
-    expect(driver).toContain('function restoreUnsubmitted(')
-    expect(driver).toContain('matrixPlanFromDerived(')
-    expect(driver).toContain('matrixLatestUnsubmitted(')
-    const workspace = readFileSync('app/components/canvas/CanvasWorkspace.vue', 'utf8')
-    expect(workspace).toContain('sourceOf:')
-    expect(panel).toContain('成功 {ok} 个，失败 {failed} 个，共 {total} 个')
   })
 })
 

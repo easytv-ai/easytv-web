@@ -386,6 +386,7 @@ async function encodeRangeAccurate(
   }
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- 先拷贝后重编码的备用实现，目前没有调用方；确认不要了再删
 async function encodeRange(
   ffmpeg: FfmpegHandle,
   input: string,

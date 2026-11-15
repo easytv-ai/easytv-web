@@ -73,6 +73,8 @@ import { emptyMarkPick, expandMarkTokens, insertMarkToken, markHitInstruction, n
 import { renderMarkdown } from '~/utils/markdown'
 import { fillI18n } from '~/utils/i18n-fill'
 import { sanitizeGraphForSave } from '~/utils/canvas-graph-save'
+import { chatMediaReport, type ChatMediaReport, type NodeTaskView } from '~/utils/canvas-chat-media-report'
+import { useCanvasTaskSettle } from '~/composables/useCanvasTaskSettle'
 import { briefNodeTitle, briefPickShotRefs, briefTitleHead, defaultBriefModel, readCanvasLastModels, writeCanvasLastModel, SHOT_REF_HINT, type BriefComposeOpts, type BriefGenerateOpts, type BriefGenerateReport, type BriefMediaModels } from '~/utils/canvas-chat-brief'
 import { useToast } from '#imports'
 import type { Asset, AssetType, CanvasGraph, GeneratePayload, GenerationModel, GenerationTask, MediaJob, NodeCandidate, Style } from '~/types/creative'
@@ -85,7 +87,9 @@ import {
 } from '~/utils/canvas-media-job'
 import { clipStripMetrics } from '~/utils/canvas-strip-keys'
 import { addNodeDataPatch, buildAssistNodes, orderAssistChanges, updatePromptPatch, type AssistChange, type AssistNodeSummary } from '~/utils/canvas-assist'
-import { CANVAS_STALE_KEY, computeStaleMap, type InputSnapshot } from '~/utils/canvas-upstream'
+import { CANVAS_STALE_KEY, computeStaleMap, snapshotNodeInput, type InputSnapshot } from '~/utils/canvas-upstream'
+import { splitAssistChangesByLock } from '~/utils/canvas-assist-lock'
+import { fetchDownloadBlob } from '~/utils/canvas-download'
 import { useCanvasPracticeHost } from '~/composables/useCanvasPracticeHost'
 import { useCanvasVideoOps } from '~/composables/useCanvasVideoOps'
 import { useCanvasImageEdits } from '~/composables/useCanvasImageEdits'
@@ -104,7 +108,7 @@ import type { WorkflowPreset } from '~/utils/canvas-workflow-presets'
 import { gridPresetById, gridPresetPatch, gridPresetsFor } from '~/utils/canvas-grid-presets'
 import { montageOrder, montageReady, type MontageSource } from '~/utils/canvas-montage'
 import { audioKindParams, audioKindTag, audioMoodPrompt, isPreferredComposeBgm } from '~/utils/canvas-audio'
-import { composeClipDuration, composeGuessAspect, composeOrder, composeReady, type ComposeAudioSource, type ComposeOptions, type ComposeSource } from '~/utils/canvas-compose'
+import { applyComposeTrims, composeClipDuration, composeGuessAspect, composeOrder, composeReady, type ComposeAudioSource, type ComposeOptions, type ComposeSource } from '~/utils/canvas-compose'
 import { isMergeResult, MergeVideoError, mergeShotIndex, mergeVideoOrder } from '~/utils/canvas-video-merge'
 import { canvasMergeRunning, flushMergeUploads, publishMergeProgress, trackMergeUpload } from '~/utils/canvas-merge-state'
 import { probeMediaDuration } from '~/utils/canvas-video-frame'
@@ -929,7 +933,6 @@ function revealCull(vp: CanvasLiveViewport) {
   const view = cullViewSize()
   if (view.width < 10 || view.height < 10)
     return
-  const margin = Math.max(view.width, view.height) * CANVAS_CULL_MARGIN_SCREENS
   if (cullPrepared && !canvasCullNeedsReveal(cullPrepared, vp, view, CANVAS_CULL_REVEAL_PAD))
     return
   const built = buildCull(vp)
@@ -1541,7 +1544,7 @@ function linkBriefShotAnchors() {
       ...props.filter(node => hits.props.includes(briefAnchorName(node))),
     ]
     for (const src of sources)
-      linkNodes({ source: src.id, target: shot.id, sourceHandle: 'out', targetHandle: 'in' }, { force: false })
+      linkNodes({ source: src.id, target: shot.id, sourceHandle: 'out', targetHandle: 'in' }, { force: false, allowLocked: true })
     const prompt = String(shot.data.prompt || '')
     if (prompt && !prompt.includes('参考图中的角色'))
       updateNodeData(shot.id, { prompt: `${SHOT_REF_HINT}${prompt}` })
@@ -1774,15 +1777,10 @@ export type ChatMediaGenerateRequest = {
 }
 
 export type ChatMediaGenerateOpts = {
-  onTask?: (taskId: number) => void
+  onTask?: (taskId: number, nodeId: string) => void
 }
 
-export type ChatMediaGenerateReport = {
-  ok: boolean
-  nodeId?: string
-  url?: string
-  error?: string
-}
+export type ChatMediaGenerateReport = ChatMediaReport
 
 /** 对话栏自由创作：落一个节点并立刻生成，结果写回画布 */
 async function generateFromChat(req: ChatMediaGenerateRequest, extra?: ChatMediaGenerateOpts): Promise<ChatMediaGenerateReport> {
@@ -1827,7 +1825,7 @@ async function generateFromChat(req: ChatMediaGenerateRequest, extra?: ChatMedia
     },
     (taskId) => {
       if (taskId > 0)
-        extra?.onTask?.(taskId)
+        extra?.onTask?.(taskId, node.id)
     },
     { immediate: true },
   )
@@ -1837,15 +1835,36 @@ async function generateFromChat(req: ChatMediaGenerateRequest, extra?: ChatMedia
   finally {
     stopTaskWatch()
   }
-  const live = findNode(node.id) as CanvasFlowNode | undefined
-  const data = live && isContentNode(live) ? live.data : node.data
-  const status = String(data.taskStatus || '')
-  const url = String(data.content || '')
-  if (status === 'succeeded' && url)
-    return { ok: true, nodeId: node.id, url }
-  if (status === 'cancelled')
-    return { ok: false, nodeId: node.id, error: t('canvas.chat.msg.stopped') }
-  return { ok: false, nodeId: node.id, error: String(data.taskError || '') || t('生成失败') }
+  // 等待到时但任务仍在排队 / 生成时报 pending（不是失败）：对话栏据此保持卡片锁定，再用 trackChatMedia 等终态
+  return chatMediaReport(node.id, nodeTaskView(node.id) ?? {}, chatMediaTexts())
+}
+
+function chatMediaTexts() {
+  return { stopped: t('canvas.chat.msg.stopped'), failed: t('生成失败') }
+}
+
+function nodeTaskView(id: string): NodeTaskView | null {
+  const live = findNode(id) as CanvasFlowNode | undefined
+  if (!live || !isContentNode(live))
+    return null
+  return {
+    taskId: Number(live.data.taskId) || 0,
+    status: String(live.data.taskStatus || ''),
+    url: String(live.data.content || ''),
+    error: String(live.data.taskError || ''),
+  }
+}
+
+const chatTaskSettle = useCanvasTaskSettle(nodeTaskView)
+
+/**
+ * 对话栏那条出片还没到终态：盯着节点等后端结果（状态由已有的任务轮询写回，这里不另起定时器）。
+ * 回 null = 节点被删或换了任务，画布上已经看不到这条，对话栏自己去问后端。
+ */
+function trackChatMedia(nodeId: string, taskId: number, done: (report: ChatMediaGenerateReport | null) => void) {
+  return chatTaskSettle.track(nodeId, taskId, (result) => {
+    done(result.state === 'settled' ? chatMediaReport(nodeId, result.view, chatMediaTexts()) : null)
+  })
 }
 
 /** 从文本落到角色或分镜图时，每张图接一条线；不改已经写好的提示词 */
@@ -1855,7 +1874,7 @@ function insertImageNodes(items: { label: string, prompt: string, ratio?: string
   rememberBriefPlaced(ids, ready)
   if (fromId) {
     ids.forEach((id) => {
-      linkNodes({ source: fromId, target: id, sourceHandle: 'out', targetHandle: 'in' }, { force: false })
+      linkNodes({ source: fromId, target: id, sourceHandle: 'out', targetHandle: 'in' }, { force: false, allowLocked: true })
     })
   }
   if (ready.some(item => item.group === 'shot'))
@@ -1876,7 +1895,7 @@ function insertAudioNodes(items: { label: string, prompt: string, group?: string
   rememberBriefPlaced(ids, ready)
   if (source) {
     ids.forEach((id) => {
-      linkNodes({ source, target: id, sourceHandle: 'out', targetHandle: 'in' }, { force: false })
+      linkNodes({ source, target: id, sourceHandle: 'out', targetHandle: 'in' }, { force: false, allowLocked: true })
     })
   }
   frameChatInsert(ids)
@@ -1889,7 +1908,7 @@ function insertVideoNodes(items: { label: string, prompt: string, ratio?: string
   rememberBriefPlaced(ids, ready)
   if (fromId) {
     ids.forEach((id) => {
-      linkNodes({ source: fromId, target: id, sourceHandle: 'out', targetHandle: 'in' }, { force: false })
+      linkNodes({ source: fromId, target: id, sourceHandle: 'out', targetHandle: 'in' }, { force: false, allowLocked: true })
     })
   }
   frameChatInsert(ids)
@@ -2017,7 +2036,7 @@ function onEmptyStart(item: CanvasEmptyStart) {
   addEmptyStart(item)
 }
 
-/** 技能卡走对话栏：跟练期间对话栏不渲染，点了只会留下一个「开着」的标志，同样先提示再早退 */
+/** 技能卡走对话栏：跟练期间对话栏可见但不能发送（CanvasChat 的 practice），技能带过去也发不出，同样先提示再早退 */
 function onEmptyStartSkill(skill: CanvasStartSkill) {
   if (practiceBlocked())
     return
@@ -2186,16 +2205,19 @@ let assistSeq = 0
  * 返回撤销凭据（0 表示没有可撤销的改动）与各项计数。
  */
 async function applyAssistChanges(changes: AssistChange[], generate: boolean) {
-  const result = { undoToken: 0, applied: 0, skipped: 0, generated: 0 }
+  const result = { undoToken: 0, applied: 0, skipped: 0, generated: 0, locked: 0 }
   if (props.readonly || canvasLocked.value) {
     notify(props.readonly ? t('只读画布不能修改') : t('画布已锁定，解锁后再应用'), 'error')
     return result
   }
+  // 涉及锁定节点（含父组锁定）的改动整条跳过：不改提示词、不连线、不重新生成，数量回给对话栏告诉用户
+  const byLock = splitAssistChangesByLock(changes, nodes.value)
+  result.locked = byLock.locked.length
   const before = historySnaps.value[historyIndex.value]
   const regenerate: AssistChange[] = []
   gate.lock = true
   try {
-    for (const change of orderAssistChanges(changes)) {
+    for (const change of orderAssistChanges(byLock.open)) {
       if (change.action === 'apply_graph') {
         // 契约 3.5：整张图落到「选区右侧 / 视口中心」，id 全部重建，整批只占一步撤销（循环后统一 pushHistory）
         if (!isUsableWorkflowGraph(change.graph)) {
@@ -2415,7 +2437,8 @@ const practice = useCanvasPracticeHost({
   addNode,
   addNodeAtCenter,
   findNode,
-  linkNodes,
+  // 跟练搭图是程序在练习范围内接线，不受用户锁定影响
+  linkNodes: edge => void linkNodes(edge, { allowLocked: true }),
   isContentNode,
   setCenter,
   setViewport,
@@ -2495,7 +2518,7 @@ function expandStoryboard(nodeId: string) {
     if (!id)
       continue
     made += 1
-    linkNodes({ source: nodeId, target: id, sourceHandle: 'out', targetHandle: 'in' }, { force: false })
+    linkNodes({ source: nodeId, target: id, sourceHandle: 'out', targetHandle: 'in' }, { force: false, allowLocked: true })
   }
   if (!made)
     return false
@@ -2992,7 +3015,7 @@ function onBoardNodePick(id: string) {
       target: target.id,
       sourceHandle: 'out',
       targetHandle: 'in',
-    }, { force: false })
+    }, { force: false, allowLocked: true })
     pushHistory()
     notify(t('已从画布添加参考：{name}', { name: source.data.label || t('节点') }))
     return
@@ -4166,10 +4189,17 @@ async function downloadMediaNode() {
   }
   const href = resolveMediaUrl(raw)
   try {
-    const res = await fetch(href)
-    if (!res.ok)
-      throw new Error('download failed')
-    const blob = await res.blob()
+    // 直连（OSS 没有 CORS 头时必失败）→ 同源代理 → 都拿不到字节就新窗口打开原地址让用户另存
+    const got = await fetchDownloadBlob(href, window.location.origin, url => fetch(url))
+    if (got.via === 'open') {
+      const win = window.open(href, '_blank')
+      if (!win)
+        throw new Error('popup blocked')
+      win.opener = null
+      notify(t('canvas.download.opened'))
+      return
+    }
+    const blob = got.blob
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
@@ -4764,7 +4794,7 @@ const applyMediaJobToNodeRef = { fn: (_nodeId: string, _job: MediaJob) => {} }
 const runQueueNotify = { submitted: () => {} }
 const laterFns = {
   dropNode: (_id: string) => {},
-  groupNodeList: (_ids: string[]) => {},
+  groupNodeList: (_ids: string[]): string => '',
   joinGroup: (_group: CanvasFlowNode & { data: import('~/utils/canvas-group').CanvasGroupData }, _ids: string[]) => {},
 }
 
@@ -4775,7 +4805,6 @@ const {
   pollMediaJob: pollMediaJobRaw,
   resumePolling,
   waitTask,
-  waitMediaJob,
 } = useCanvasJobPolling({
   findNode,
   nodes,
@@ -4892,22 +4921,16 @@ const { run: composeRun, submit: submitCompose, resume: composeResume } = useCan
   blocked: () => practiceLocked.value,
 })
 
+/** 面板关闭 / 确认时交回入出点：有实际变更才写，整批入一次撤销栈（pushHistory 同时触发自动保存） */
 function persistComposeTrims(items: ComposeSource[]) {
-  for (const item of items) {
-    const node = findNode(item.id) as CanvasFlowNode | undefined
-    if (!node || !isContentNode(node))
-      continue
-    const nextIn = item.trimIn || 0
-    const nextOut = item.trimOut || 0
-    if (nodeLocked(node))
-      continue
-    if ((Number(node.data.trimIn) || 0) === nextIn && (Number(node.data.trimOut) || 0) === nextOut)
-      continue
-    updateNodeData(node.id, {
-      trimIn: nextIn || undefined,
-      trimOut: nextOut || undefined,
-    })
-  }
+  applyComposeTrims(items, {
+    lookup: (id) => {
+      const node = findNode(id) as CanvasFlowNode | undefined
+      return node && isContentNode(node) ? { trimIn: node.data.trimIn, trimOut: node.data.trimOut, locked: nodeLocked(node) } : null
+    },
+    update: (id, patch) => updateNodeData(id, patch),
+    commit: pushHistory,
+  })
 }
 
 function onComposeConfirm(options: ComposeOptions, ordered: ComposeSource[]) {
@@ -5473,7 +5496,7 @@ function openStyleLibrary(target: '' | 'extend' | 'chat' = '') {
   styleLibOpen.value = true
 }
 
-defineExpose({ getGraph, loadGraph, flushMergeUploads, hasBlobMedia, replaceBlobMedia, addNodeAtCenter, insertTextNode, insertImageNodes, insertAudioNodes, insertVideoNodes, resetBriefPlaced, generateBriefPlaced, generateFromChat, estimateBriefPlaced, placeBriefVideos, composeBrief, pickAssetFromChat, addAssetNodeAtCenter, selectionLabels, assistContext, applyAssistChanges, undoAssistChanges, openStyleLibrary, refreshRunQueue, locateNode, commentNodeHint })
+defineExpose({ getGraph, loadGraph, flushMergeUploads, hasBlobMedia, replaceBlobMedia, addNodeAtCenter, insertTextNode, insertImageNodes, insertAudioNodes, insertVideoNodes, resetBriefPlaced, generateBriefPlaced, generateFromChat, trackChatMedia, estimateBriefPlaced, placeBriefVideos, composeBrief, pickAssetFromChat, addAssetNodeAtCenter, selectionLabels, assistContext, applyAssistChanges, undoAssistChanges, openStyleLibrary, refreshRunQueue, locateNode, commentNodeHint })
 
 function commentNodeHint(nodeId: string) {
   return canvasCommentNodeHint(nodes.value, nodeId, t)
@@ -5817,15 +5840,16 @@ function joinGroup(group: CanvasFlowNode & { data: import('~/utils/canvas-group'
   })
 }
 
-function groupNodeList(ids: string[]) {
+/** 返回新组 id（没打成组返回空串）：addNodes 不是同步落地的，调用方别去 nodes 里找刚加的组 */
+function groupNodeList(ids: string[]): string {
   const picked = ids
     .map(id => findNode(id) as CanvasFlowNode | undefined)
     .filter((node): node is CanvasFlowNode => Boolean(node))
   if (picked.length < 2)
-    return
+    return ''
   const box = nodesBounds(picked, nodes.value)
   if (!box)
-    return
+    return ''
   const pad = 28
   groupCount.value += 1
   const id = `group-${groupCount.value}`
@@ -5858,6 +5882,7 @@ function groupNodeList(ids: string[]) {
     relabelGroups()
     pushHistory()
   })
+  return id
 }
 
 const {
@@ -6249,6 +6274,7 @@ const {
   refreshWallet,
   sourceOf: id => matrixSources.value.find(item => item.id === id) ?? null,
   estimate: matrixEstimate,
+  snapshotOf: id => snapshotNodeInput(id, nodes.value as any, edges.value as any),
 })
 
 /**

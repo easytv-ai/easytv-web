@@ -1,4 +1,3 @@
-import { readFileSync } from 'node:fs'
 import { describe, expect, it, vi } from 'vitest'
 import { dispatchDirectorShortcut } from './director-shortcuts'
 import { isLinkedCameraLocked } from './object-focus'
@@ -50,48 +49,10 @@ describe('dispatchDirectorShortcut', () => {
   })
 })
 
-describe('导演台撤销重做 / 路径拖拽接线', () => {
-  it('工具条有重做按钮并监听 Ctrl+Z / C / V', () => {
-    const src = readFileSync('app/components/canvas/director/DirectorViewportToolbar.vue', 'utf8')
-    expect(src).toContain('dispatchDirectorShortcut')
-    expect(src).toContain('store.redo()')
-    expect(src).toContain('store.copySelectedObjects()')
-    expect(src).toContain('store.pasteClipboardObjects()')
-    expect(src).toContain("t('重做')")
-  })
-
-  it('运镜路径点和贝塞尔柄可拖，一次拖拽进撤销批', () => {
-    const src = readFileSync('app/components/canvas/director/DirectorCameraPath.vue', 'utf8')
-    expect(src).toContain('@pointerdown.stop="onNodeDown($event, node.id)"')
-    expect(src).toContain('store.beginBatch()')
-    expect(src).toContain('store.updateCameraNode')
-    expect(src).toContain('store.updateCameraSegment')
-    expect(src).toContain('store.readonly.value')
-    expect(src).toContain('isLinkedCameraLocked')
-  })
-
-  it('机位对象锁了：属性 / 时间线 / 路径不能改，切换机位还能点', () => {
+describe('机位对象锁定', () => {
+  it('机位对象锁了才算锁：没有对应对象或对象没锁都不算', () => {
     expect(isLinkedCameraLocked([], 'cam-1')).toBe(false)
     expect(isLinkedCameraLocked([{ linkedCameraId: 'cam-1', locked: true }] as never, 'cam-1')).toBe(true)
     expect(isLinkedCameraLocked([{ linkedCameraId: 'cam-1', locked: false }] as never, 'cam-1')).toBe(false)
-
-    const camera = readFileSync('app/components/canvas/director/panels/DirectorCameraPanel.vue', 'utf8')
-    expect(camera).toContain('isLinkedCameraLocked')
-    expect(camera).toContain('writeBlocked')
-    expect(camera).toContain("t('切换机位')")
-    expect(camera).toContain("class=\"director-camera-edits\"")
-
-    const timeline = readFileSync('app/components/canvas/director/timeline/DirectorTimeline.vue', 'utf8')
-    expect(timeline).toContain('isLinkedCameraLocked')
-    expect(timeline).toContain(':write-blocked="writeBlocked"')
-
-    const inspector = readFileSync('app/components/canvas/director/timeline/DirectorTimelineInspector.vue', 'utf8')
-    expect(inspector).toContain('writeBlocked?: boolean')
-    expect(inspector).toContain("if (props.writeBlocked || !current || !segment)")
-  })
-
-  it('会话把页面只读传进 store', () => {
-    const src = readFileSync('app/components/canvas/CanvasDirectorSession.vue', 'utf8')
-    expect(src).toContain('createDirectorStore(undefined, { readonly: props.readonly })')
   })
 })

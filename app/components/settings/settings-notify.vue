@@ -9,7 +9,7 @@
 import notificationApi from '~/api/notification'
 import type { NotificationPrefs } from '~/types/creative'
 
-const props = defineProps<{
+defineProps<{
   /** 当前账号（用于展示邮箱） */
   username: string
 }>()

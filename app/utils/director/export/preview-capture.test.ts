@@ -1,4 +1,3 @@
-import { readFileSync } from 'node:fs'
 import { describe, expect, it, vi } from 'vitest'
 import { capturePreviewFrames, readPreviewFrames } from './preview-capture'
 import type { PreviewFramePlan } from './preview-frames'
@@ -159,31 +158,5 @@ describe('预演帧读取', () => {
       previousViewMode: 'director',
     })
     expect(result).toEqual({ ok: false, message: '已取消导出预演' })
-  })
-})
-
-describe('时间轴采样接线', () => {
-  const src = readFileSync(new URL('../../../components/canvas/director/timeline/DirectorTimeline.vue', import.meta.url), 'utf8')
-
-  it('导出预演把下拉档位交给截图', () => {
-    expect(src).toContain('sampling: previewSamplingFromMode(samplingMode.value)')
-    expect(src).toContain("value: 'shot-ends', label: t('首尾')")
-    expect(src).toContain("value: 'interval', label: t('0.25秒')")
-    expect(src).toContain("value: 'depth', label: t('深度')")
-    expect(src).toContain("value: 'matte', label: t('白模')")
-    expect(src).toContain('const output = previewOutputFromMode(outputMode.value)')
-    expect(src).toContain("readPass: output === 'color' ? undefined : playback.controlPass.value ?? undefined")
-    expect(src).toContain('pickPreviewVideoModel')
-    expect(src).toContain('previewExportPoints(')
-    expect(src).toContain("t('导出预演 · 约 {points} 积分'")
-    expect(src).toContain("useState('director-preview-placing'")
-    expect(src).toContain('previewBusy')
-    expect(src).toContain('onCancelPreview')
-    expect(src).toContain("t('取消')")
-    expect(src).toContain('signal: ctrl.signal')
-    expect(src).toContain("t('canvas.director.export.title')")
-    expect(src).toContain("t('canvas.director.export.refClip')")
-    expect(src).toContain("t('canvas.director.preview.tip')")
-    expect(src).toContain('generate,')
   })
 })

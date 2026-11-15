@@ -73,6 +73,7 @@ const grabbing = ref(false)
 const stripRef = ref<HTMLElement | null>(null)
 let frameObserver: ResizeObserver | null = null
 
+// eslint-disable-next-line vue/no-dupe-keys -- 与同名 prop 撞名（模板里取到的是这个 ref），改名牵涉模板，留待专门处理
 const prompt = ref('')
 const modelId = ref('')
 const type = ref<ExtendStudioType>('extend')
@@ -120,13 +121,6 @@ const summaryLabel = computed(() => {
   return `${ratioText} · ${resolution.value}`
 })
 const cameraLabel = (id: string) => CAMERA_MOVE_ITEMS.find(item => item.id === id)?.label || id
-
-/** 片段重拍：时间线分成 total 段，点选某一段即选中该段 */
-const segmentIndex = computed(() => {
-  const total = Math.max(1, props.total)
-  const mid = (start.value + end.value) / 2
-  return Math.min(total, Math.max(1, Math.floor(mid * total) + 1))
-})
 
 function pickSegment(index: number) {
   const total = Math.max(1, props.total)

@@ -22,16 +22,16 @@ import {
   captureVideoFrame,
   formatFrameClock,
   probeMediaDuration,
-  probeVideoDuration,
+  pickKnownDuration,
+  planStripFrameTimes,
   promptReverseFrameRanges,
   samplePromptReverseTimes,
-  stripFrameTimes,
 } from '~/utils/canvas-video-frame'
 import { isGptImageModel, pickCanvasImageEditModel, pickImageEditModel, pickImageUpscaleModel, pickVisionTextModel, preferredImageModel } from '~/utils/image-input'
 import { cellNodeLayout, type GridCell } from '~/utils/canvas-grid-split'
 import { montageNodeSize, montageParams, type MontageOptions, type MontageSource } from '~/utils/canvas-montage'
 import { applyOptimizedPrompt, canOptimizePrompt, cleanOptimizedPrompt, promptOptimizeInstruction } from '~/utils/canvas-prompt-optimize'
-import { mediaActionState, mediaGridLayout, mediaSourceRef } from '~/utils/canvas-media-job'
+import { mediaGridLayout, mediaSourceRef } from '~/utils/canvas-media-job'
 import { expandPromptTokens } from '~/utils/canvas-mark'
 import { isMediaUrl, resolveMediaUrl } from '~/utils/media'
 import { canvasMergeRunning, publishMergeProgress, trackMergeUpload } from '~/utils/canvas-merge-state'
@@ -54,7 +54,7 @@ import {
   storyboardCols,
   type CanvasFlowNode,
 } from '~/utils/canvas-group'
-import type { Asset, GenerationModel, MediaAction, TaskInput } from '~/types/creative'
+import type { Asset, MediaAction, TaskInput } from '~/types/creative'
 import type { CanvasNodeData } from '~/utils/canvas-node-kinds'
 
 export function useCanvasImageEdits(opts: { blocked?: () => boolean } & Record<string, any>) {
@@ -156,12 +156,8 @@ export function useCanvasImageEdits(opts: { blocked?: () => boolean } & Record<s
     return isNodeLocked(node, nodes.value)
   }
   const smartEditRefs = opts.smartEditRefs as Ref<Array<{ assetId: number, url: string }>>
-  const connectedRefThumbs = opts.connectedRefThumbs as (nodeId: string) => Array<{ url: string, kind?: 'image' | 'video' | 'audio', assetId?: number }>
   const mediaActions = opts.mediaActions as Ref<MediaAction[]>
   const montageSources = opts.montageSources as ComputedRef<MontageSource[]>
-  const uploadedRefList = opts.uploadedRefList as (data: CanvasNodeData) => Array<{ assetId?: number, url: string, name?: string }>
-  const collectRefImages = opts.collectRefImages as (node: CanvasFlowNode) => Array<{ url: string, assetId?: number }>
-  const mediaKindOfUrl = opts.mediaKindOfUrl as (url: string) => 'image' | 'video' | 'audio'
   const nodeImageUrl = opts.nodeImageUrl as (node: CanvasFlowNode) => string
   let optimizeSeq = 0
 
@@ -233,6 +229,22 @@ function openDepthBar() {
 
 const reverseBusy = ref(false)
 
+/**
+ * 视频时长：先直接读 metadata（不设 crossOrigin，存储没配 CORS 也读得到），读不到再用资产库里记的时长；都没有返回 0。
+ */
+async function resolveVideoDuration(src: string, assetId = 0): Promise<number> {
+  const probed = await probeMediaDuration(src).catch(() => 0)
+  if (probed > 0 || !(assetId > 0))
+    return pickKnownDuration(probed)
+  try {
+    const res = await assetApi.get(assetId)
+    return pickKnownDuration(res?.success ? res.data?.duration : 0)
+  }
+  catch {
+    return 0
+  }
+}
+
 type VideoReverseMaterial = {
   inputs: TaskInput[]
   ranges: ReturnType<typeof promptReverseFrameRanges>
@@ -245,14 +257,12 @@ type VideoReverseMaterial = {
  * 视频反推的原料：浏览器抽关键帧 → 上传成图片素材，顺带带回原片时长与像素尺寸。
  * 读不到像素（跨域）时返回 null，不回退到服务端 ffmpeg。
  */
-async function collectVideoReverseInputs(src: string): Promise<VideoReverseMaterial | null> {
+async function collectVideoReverseInputs(src: string, assetId = 0): Promise<VideoReverseMaterial | null> {
   notify(t('正在抽取关键帧…'))
-  let duration = 0
-  try {
-    duration = await probeVideoDuration(src)
-  }
-  catch {
-    notify(t('抽取关键帧失败，请确认视频可跨域读取'), 'error')
+  const duration = await resolveVideoDuration(src, assetId)
+  if (!(duration > 0)) {
+    // 没有时长只能抽到首帧，反推出来的分镜时间轴是假的，不如直说
+    notify(t('canvas.videoTool.durationUnknown'), 'error')
     return null
   }
   const times = samplePromptReverseTimes(duration)
@@ -293,7 +303,7 @@ async function runVideoPromptReverse(
     notify(t('请先生成或添加一段视频'), 'error')
     return
   }
-  const material = await collectVideoReverseInputs(src)
+  const material = await collectVideoReverseInputs(src, Number(from.data.assetId) || 0)
   if (!material)
     return
   await submitDerivedTask(spawnDerivedText(from, 'Timestamped prompts'), '反推提示词', {
@@ -982,7 +992,7 @@ async function analyzeViral(from: CanvasFlowNode & { data: CanvasNodeData }) {
   viralBusy.value = true
   viralStep.value = 'analyze'
   try {
-    const material = await collectVideoReverseInputs(src)
+    const material = await collectVideoReverseInputs(src, sourceAssetId)
     if (!material || !findNode(from.id))
       return
     const textNode = spawnDerivedText(from, 'Timestamped prompts')
@@ -1953,15 +1963,11 @@ type StripFrameAsset = {
   time: number
 }
 
-async function captureStripBrowser(src: string, count: number): Promise<StripFrameAsset[] | null> {
-  let duration = 0
-  try {
-    duration = await probeVideoDuration(src)
-  }
-  catch {
-    duration = 0
-  }
-  const times = stripFrameTimes(duration, count)
+/** 返回 'no-duration' 表示要抽多帧却拿不到时长，调用方提示用户，不去抽 N 张相同的首帧 */
+async function captureStripBrowser(src: string, count: number, assetId = 0): Promise<StripFrameAsset[] | 'no-duration' | null> {
+  const times = planStripFrameTimes(await resolveVideoDuration(src, assetId), count)
+  if (!times)
+    return 'no-duration'
   const out: StripFrameAsset[] = []
   for (let i = 0; i < times.length; i++) {
     publishMergeProgress({ phase: 'encoding', progress: 12 + Math.round(((i + 1) / times.length) * 70), job: 'frames' })
@@ -2061,12 +2067,16 @@ async function extractVideoFrames(
   const n = Math.max(1, Math.floor(count) || 6)
   const frames = await withBrowserMediaJob('frames', async () => {
     try {
-      return await captureStripBrowser(resolveMediaUrl(src), n)
+      return await captureStripBrowser(resolveMediaUrl(src), n, Number(from.data.assetId) || 0)
     }
     catch {
       return null
     }
   })
+  if (frames === 'no-duration') {
+    notify(t('canvas.videoTool.durationUnknown'), 'error')
+    return
+  }
   if (!frames?.length) {
     notify(t('canvas.videoTool.framesFail'), 'error')
     return

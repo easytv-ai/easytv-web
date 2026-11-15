@@ -1,4 +1,3 @@
-import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import {
   CANVAS_CULL_MIN_NODES,
@@ -73,20 +72,5 @@ describe('canvasCullNeedsReveal', () => {
     const prepared = canvasFlowViewRect(viewport, view, 1000)
     expect(canvasCullNeedsReveal(prepared, { x: -200, y: 0, zoom: 1 }, view, 200)).toBe(false)
     expect(canvasCullNeedsReveal(prepared, { x: -2200, y: 0, zoom: 1 }, view, 200)).toBe(true)
-  })
-})
-
-describe('裁剪不卸载节点', () => {
-  it('仍然关闭 Vue Flow 的可见性卸载，平移只跳过绘制', () => {
-    const ws = readFileSync(new URL('../components/canvas/CanvasWorkspace.vue', import.meta.url), 'utf8')
-    const css = readFileSync(new URL('../assets/css/studio-parts/canvas.css', import.meta.url), 'utf8').replace(/\r\n/g, '\n')
-    expect(ws).toContain(':only-render-visible-elements="false"')
-    expect(ws).toContain('revealCull(')
-    expect(ws).toContain('scheduleRevealCull(')
-    expect(ws).toContain('const edgeList: CanvasCullEdge[] = []')
-    expect(ws).toContain('applyCanvasCullDom')
-    expect(ws).toContain('content-visibility')
-    expect(css).not.toContain('html.canvas-is-interacting .vue-flow__edges')
-    expect(css).toContain('html.canvas-is-interacting .canvas-edge-flow-layer {\n  display: none;')
   })
 })

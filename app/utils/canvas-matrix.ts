@@ -191,7 +191,7 @@ export type MatrixPlan = {
 }
 
 /** 生成产物字段：派生节点是「配方不是成品」，一律清掉（与 utils/canvas-workflow 的 RESULT_FIELDS 一致） */
-const RESULT_FIELDS = ['content', 'assetId', 'previewUrl', 'taskId', 'taskStatus', 'taskProgress', 'taskError', 'mediaJobId', 'mediaAction', 'mediaLinkedId', 'composeJobId', 'gridSplit', 'transcriptCues', 'matrix'] as const
+const RESULT_FIELDS = ['content', 'assetId', 'previewUrl', 'taskId', 'taskStatus', 'taskProgress', 'taskError', 'mediaJobId', 'mediaAction', 'mediaLinkedId', 'composeJobId', 'gridSplit', 'transcriptCues', 'matrix', 'inputSnapshot'] as const
 
 function clearedSourceData(data: Record<string, unknown> | undefined) {
   const next: Record<string, any> = { ...(data || {}) }
@@ -553,6 +553,27 @@ export function matrixBatchItems(plan: MatrixPlan, derived: string[]): BatchItem
 /** 画布上带这个批次标记的节点 id（回滚 / 分组用） */
 export function matrixNodeIds(nodes: Array<{ id: string, data?: Record<string, any> }>, batchId: string) {
   return nodes.filter(node => node.data?.matrix?.batchId === batchId).map(node => node.id)
+}
+
+/**
+ * 回滚时要一起收掉的空组：为这次派生打的组（groupId；刷新后没记住就按派生节点的父组认），
+ * 去掉派生节点后一个子节点都不剩才收——用户往组里放过别的节点就留着。
+ */
+export function matrixEmptyGroups(
+  nodes: Array<{ id: string, parentNode?: string, data?: Record<string, any> }>,
+  removed: string[],
+  groupId: string,
+) {
+  const gone = new Set(removed)
+  const candidates = groupId
+    ? [groupId]
+    : [...new Set(nodes.filter(node => gone.has(node.id) && node.parentNode).map(node => String(node.parentNode)))]
+  return candidates.filter((id) => {
+    const group = nodes.find(node => node.id === id)
+    if (!group || group.data?.kind !== 'group' || gone.has(id))
+      return false
+    return !nodes.some(node => node.parentNode === id && !gone.has(node.id))
+  })
 }
 
 /** 同一源再派生一轮时，整组往右错开，避免叠在上一轮上面 */

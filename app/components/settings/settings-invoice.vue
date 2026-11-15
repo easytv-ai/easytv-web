@@ -8,7 +8,7 @@
  */
 import InvoicePanel from './invoice-panel.vue'
 
-const props = defineProps<{
+defineProps<{
   invoiceEnabled: boolean
   appConfigLoaded: boolean
   appConfigLoading: boolean

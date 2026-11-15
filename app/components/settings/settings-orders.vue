@@ -12,7 +12,7 @@ import rechargeApi from '~/api/recharge'
 import { payMethodLabel } from '~/utils/recharge-pay'
 import type { Order, RechargeRecord } from '~/types/creative'
 
-const props = defineProps<{
+defineProps<{
   invoiceEnabled: boolean
 }>()
 

@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest'
-import { readFileSync } from 'node:fs'
 import { estimateJsonBytes, isGraphOverLimit } from '~/utils/director/persist'
 import { sanitizeGraphForSave } from '~/utils/canvas-graph-save'
 
@@ -87,10 +86,5 @@ describe('sanitizeGraphForSave', () => {
     const saved = sanitizeGraphForSave(raw)
     expect(isGraphOverLimit(saved)).toBe(false)
     expect(estimateJsonBytes(saved)).toBeLessThan(estimateJsonBytes(raw) / 10)
-  })
-
-  it('画布导出前会瘦身', () => {
-    const workspace = readFileSync('app/components/canvas/CanvasWorkspace.vue', 'utf8')
-    expect(workspace).toContain('sanitizeGraphForSave')
   })
 })

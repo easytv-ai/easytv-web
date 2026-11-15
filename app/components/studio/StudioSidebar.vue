@@ -97,10 +97,15 @@ function syncNarrow(matches: boolean) {
     mobileNavOpen.value = false
 }
 
+let narrowQuery: MediaQueryList | null = null
+function onNarrowChange(event: MediaQueryListEvent) {
+  syncNarrow(event.matches)
+}
+
 onMounted(() => {
-  const mq = window.matchMedia('(max-width: 860px)')
-  syncNarrow(mq.matches)
-  mq.addEventListener('change', event => syncNarrow(event.matches))
+  narrowQuery = window.matchMedia('(max-width: 860px)')
+  syncNarrow(narrowQuery.matches)
+  narrowQuery.addEventListener('change', onNarrowChange)
   syncIndicator(false)
   if (typeof ResizeObserver === 'undefined' || !navRef.value)
     return
@@ -112,6 +117,8 @@ onMounted(() => {
 onBeforeUnmount(() => {
   window.clearTimeout(indicatorTimer)
   navObserver?.disconnect()
+  narrowQuery?.removeEventListener('change', onNarrowChange)
+  narrowQuery = null
 })
 </script>
 

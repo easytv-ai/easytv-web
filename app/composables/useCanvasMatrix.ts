@@ -2,11 +2,12 @@ import { onScopeDispose, ref, type Ref } from 'vue'
 import { batchApi } from '~/api/batch'
 import canvasApi from '~/api/canvas'
 import { batchActive, batchNodePatches } from '~/utils/create-batch'
-import { matrixBatchItems, matrixLatestUnsubmitted, matrixNextOrigin, matrixNodeIds, matrixPlaceGraph, matrixPlanFromDerived, matrixPoints, MATRIX_BATCH_LAYER, type MatrixPlan, type MatrixSource } from '~/utils/canvas-matrix'
+import { matrixBatchItems, matrixEmptyGroups, matrixLatestUnsubmitted, matrixNextOrigin, matrixNodeIds, matrixPlaceGraph, matrixPlanFromDerived, matrixPoints, MATRIX_BATCH_LAYER, type MatrixPlan, type MatrixSource } from '~/utils/canvas-matrix'
 import { startHiddenAwarePoll } from '~/utils/hidden-poll'
-import { absPosition, isGroupNode, type CanvasFlowNode } from '~/utils/canvas-group'
+import { absPosition, type CanvasFlowNode } from '~/utils/canvas-group'
 import type { CanvasNodeData, CanvasNodeKind } from '~/utils/canvas-node-kinds'
 import type { BatchAction, CanvasGraph, GenerationBatch } from '~/types/creative'
+import type { InputSnapshot } from '~/utils/canvas-upstream'
 
 /** 批次轮询间隔：与服务端批量编排的节奏一致（成片向导用同一个值） */
 export const MATRIX_POLL_MS = 3000
@@ -53,8 +54,13 @@ export function useCanvasMatrix(opts: {
   findNode: (id: string) => CanvasFlowNode | undefined
   updateNodeData: (id: string, patch: Record<string, unknown>) => void
   removeNodes: (ids: string[]) => void
-  /** 既有的打组（useCanvasGenerate 的批量副本也走它） */
-  groupNodeList: (ids: string[]) => void
+  /** 既有的打组（useCanvasGenerate 的批量副本也走它）；返回新组 id，回滚时连组一起收 */
+  groupNodeList: (ids: string[]) => string | void
+  /**
+   * 任务挂回节点那一刻的输入快照（模型 / 提示词 / 上游产物签名）。批次任务不经 useCanvasGenerate.submit，
+   * 不在这里盖的话派生节点没有快照，之后真改了上游也标不出「结果已过期」。
+   */
+  snapshotOf?: (nodeId: string) => InputSnapshot | null
   /** 画布既有的任务轮询：挂上新任务后取结果 */
   pollTask: (nodeId: string, taskId: number) => void
   /** 页面保存画布（会顺手把新画布建出来）；服务端建批次要求节点已落库，提交前要先存一次 */
@@ -102,11 +108,6 @@ export function useCanvasMatrix(opts: {
     return map
   }
 
-  /** 打组前的组 id 集合：打组用既有 groupNodeList，组 id 只能从差集里认（它不返回 id） */
-  function groupIds() {
-    return new Set(opts.nodes.value.filter(isGroupNode).map(node => node.id))
-  }
-
   function notifyBatch(color: 'neutral' | 'error' = 'neutral') {
     const batch = run.value?.batch
     if (!batch)
@@ -126,8 +127,9 @@ export function useCanvasMatrix(opts: {
     const items = run.value?.batch?.items ?? []
     const patches = batchNodePatches(items, id => Number((opts.findNode(id)?.data as { taskId?: number } | undefined)?.taskId) || 0)
     for (const { nodeId, patch } of patches) {
-      opts.updateNodeData(nodeId, patch)
       const taskId = Number(patch.taskId) || 0
+      const snapshot = taskId > 0 ? opts.snapshotOf?.(nodeId) : null
+      opts.updateNodeData(nodeId, snapshot ? { ...patch, inputSnapshot: snapshot } : patch)
       if (taskId > 0)
         opts.pollTask(nodeId, taskId)
     }
@@ -340,7 +342,6 @@ export function useCanvasMatrix(opts: {
         opts.notify(t('没有可以派生的版本'), 'error')
         return
       }
-      const before = groupIds()
       for (const node of opts.nodes.value)
         node.selected = false
       opts.addNodes(placed.nodes.map(node => ({
@@ -359,13 +360,12 @@ export function useCanvasMatrix(opts: {
           targetHandle: edge.targetHandle || 'in',
         })
       }
-      if (placed.derived.length > 1)
-        opts.groupNodeList(placed.derived)
+      // 组 id 由打组函数直接返回：addNodes 不是同步落地的，这一拍去 nodes 里找新组是找不到的
+      const groupId = placed.derived.length > 1 ? opts.groupNodeList(placed.derived) : ''
       opts.pushHistory()
-      const group = opts.nodes.value.find(node => isGroupNode(node) && !before.has(node.id))
       patchState({
         nodeIds: placed.derived,
-        groupId: group?.id || '',
+        groupId: groupId || '',
         labels: nodeLabels(placed.derived),
       })
 
@@ -481,8 +481,8 @@ export function useCanvasMatrix(opts: {
     // data 是内容节点 / 组的联合：先收窄成内容节点再读 matrix 标记
     const marked = (node: CanvasFlowNode) => (node.data as CanvasNodeData | undefined)?.matrix?.batchId === state.batchId
     const ids = state.nodeIds.length ? state.nodeIds : matrixNodeIds(opts.nodes.value, state.batchId)
-    const left = opts.nodes.value.filter(node => !ids.includes(node.id) && !marked(node))
-    const emptyGroup = state.groupId && !left.some(node => node.parentNode === state.groupId) ? [state.groupId] : []
+    const gone = [...new Set([...ids, ...opts.nodes.value.filter(marked).map(node => node.id)])]
+    const emptyGroup = matrixEmptyGroups(opts.nodes.value, gone, state.groupId)
     opts.removeNodes([...ids, ...emptyGroup])
     opts.pushHistory()
     opts.notify(opts.t('已回滚这次派生的 {n} 个节点', { n: ids.length }))

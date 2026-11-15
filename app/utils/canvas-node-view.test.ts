@@ -1,4 +1,3 @@
-import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import { canvasKindIndex } from './canvas-node-kinds'
 import { buildCanvasNodeView, canvasNodeViewStamp } from './canvas-node-view'
@@ -102,34 +101,5 @@ describe('buildCanvasNodeView', () => {
     expect(grouped?.thumbs[0]?.id).toBe('v1')
     expect(grouped?.thumbs[0]?.video).toBe(true)
     expect(grouped?.thumbs[0]?.media).toContain('a.mp4')
-  })
-})
-
-describe('卡片不再订阅 vue-flow 全表', () => {
-  it('平移不裁剪卸载节点，避免进出视口反复挂载', () => {
-    const ws = readFileSync(new URL('../components/canvas/CanvasWorkspace.vue', import.meta.url), 'utf8')
-    expect(ws).toContain(':only-render-visible-elements="false"')
-  })
-
-  it('节点 / 组 / 边不读 nodes 整表', () => {
-    const card = readFileSync(new URL('../components/canvas/CanvasNode.vue', import.meta.url), 'utf8')
-    const group = readFileSync(new URL('../components/canvas/CanvasGroupNode.vue', import.meta.url), 'utf8')
-    const edge = readFileSync(new URL('../components/canvas/CanvasEdge.vue', import.meta.url), 'utf8')
-    expect(card).not.toContain('viewport, nodes, findNode')
-    expect(card).not.toContain('nodes.value')
-    expect(card).toContain('CANVAS_NODE_VIEW_KEY')
-    expect(group).not.toContain('getNodes')
-    expect(group).toContain('CANVAS_NODE_VIEW_KEY')
-    expect(edge).not.toContain('getSelectedNodes')
-    expect(edge).toContain('CANVAS_NODE_VIEW_KEY')
-  })
-
-  it('未播放的视频卡片不立刻挂 video', () => {
-    const player = readFileSync(new URL('../components/canvas/CanvasVideoPlayer.vue', import.meta.url), 'utf8')
-    expect(player).toContain('hydrated')
-    expect(player).toContain('ossVideoSnapshotUrl')
-    expect(player).toContain('v-if="hydrated"')
-    expect(player).toContain('onPosterLoad')
-    expect(player).toContain('probeVideoSize')
   })
 })

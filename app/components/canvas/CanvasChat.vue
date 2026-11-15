@@ -2,14 +2,14 @@
 import { useToast } from '#imports'
 import { useAuth } from '~/composables/useAuth'
 import skillApi from '~/api/skill'
-import styleApi from '~/api/style'
-import taskApi from '~/api/task'
-import canvasApi from '~/api/canvas'
-import assetApi from '~/api/asset'
+import rawTaskApi from '~/api/task'
+import rawCanvasApi from '~/api/canvas'
+import { guardPracticeWrites } from '~/utils/canvas-practice-gate'
+import { adoptOrphanChatMediaRuns, beginChatMediaRun, chatMediaCardAwaiting, chatMediaReport, endChatMediaRun, findRunningChatMedia, noteChatMediaTask, settleChatMediaMessage, type ChatMediaReport } from '~/utils/canvas-chat-media-report'
+import rawAssetApi from '~/api/asset'
 import aiChatApi, { type ChatQuota } from '~/api/ai-chat'
 import { agentModeFor, chatQuotaDisabled, chatQuotaExhausted, chatQuotaLabel, isChatQuotaExceeded, pickedPoints, type AgentPlan, type AssistBridge } from '~/utils/canvas-assist'
 import type { GenerationModel, Skill, Asset } from '~/types/creative'
-import { isVisionTextModel } from '~/utils/image-input'
 import { resolveMediaUrl } from '~/utils/media'
 import { videoCoverUrl } from '~/utils/canvas-video-frame'
 import { promptTemplates } from '~/utils/canvas-templates'
@@ -85,7 +85,7 @@ import {
 } from '~/utils/canvas-chat-brief'
 import { fillI18n } from '~/utils/i18n-fill'
 import StudioSelect from '~/components/studio/StudioSelect.vue'
-const { canvasNodeItems, load: loadAppConfig } = useStudioAppConfig()
+const { load: loadAppConfig } = useStudioAppConfig()
 const { isMember } = useWallet()
 const { gotoPricing } = usePricingModal()
 const { settings, save: saveSettings, setPointsRemind, setPointsThreshold, confirmSpend } = useCanvasAgentSettings()
@@ -119,12 +119,21 @@ const props = withDefaults(defineProps<{
   /** Agent 页只放这一块输入：外观与发送前的选择和画布相同，点发送后把草稿交给画布再发 */
   entry?: boolean
   briefQuote?: (groups?: string[], models?: BriefMediaModels) => { count: number, points: number }
+  /** 新手跟练进行中：对话栏照常可见，但不能发送、不建任务、不存会话（跟练不扣点、不写真实数据） */
+  practice?: boolean
 }>(), {
   assist: null,
   selection: () => [],
   entry: false,
   briefQuote: undefined,
+  practice: false,
 })
+
+// 对话栏建任务的路径很多（提问 / 剧本流水线 / 结合画布），跟练期间统一在接口这层拦住；查询与取消照常
+const practiceBlockedText = () => t('canvas.practice.chatSendBlocked')
+const taskApi = guardPracticeWrites(rawTaskApi, ['create'], () => props.practice, practiceBlockedText)
+const assetApi = guardPracticeWrites(rawAssetApi, ['upload'], () => props.practice, practiceBlockedText)
+const canvasApi = guardPracticeWrites(rawCanvasApi, ['agent', 'agentRetry', 'chat.create', 'chat.update', 'chat.delete', 'chat.clear'], () => props.practice, practiceBlockedText)
 
 const emit = defineEmits<{
   close: []
@@ -135,7 +144,9 @@ const emit = defineEmits<{
   insertAudios: [items: { label: string, prompt: string, group?: string, tag?: string }[]]
   resetBrief: []
   generateBrief: [groups: string[], opts?: { models?: BriefMediaModels, limit?: number, onProgress?: (row: BriefGenerateProgress) => void, onDone?: (report: BriefGenerateReport) => void }]
-  generateMedia: [req: { kind: ChatFreeMediaKind, prompt: string, model: string, ratio?: string, seconds?: number, resolution?: string, label?: string, refs?: Array<{ assetId?: number, url: string, name?: string }> }, opts?: { onTask?: (taskId: number) => void, onDone?: (report: { ok: boolean, nodeId?: string, url?: string, error?: string }) => void }]
+  generateMedia: [req: { kind: ChatFreeMediaKind, prompt: string, model: string, ratio?: string, seconds?: number, resolution?: string, label?: string, refs?: Array<{ assetId?: number, url: string, name?: string }> }, opts?: { onTask?: (taskId: number, nodeId?: string) => void, onDone?: (report: ChatMediaReport) => void }]
+  /** 出片等待到时但任务还在跑：请画布盯着这个节点，后端给出终态再回调（null = 节点已不在，自己问后端） */
+  trackMedia: [nodeId: string, taskId: number, done: (report: ChatMediaReport | null) => void]
   placeVideos: [shots?: string[]]
   composeBrief: [opts?: BriefComposeOpts]
   pickAsset: [autoUpload: boolean]
@@ -469,24 +480,6 @@ function withoutStylePrefix(text: string) {
   const prefix = styleRequestPrefix()
   return prefix && text.startsWith(prefix) ? text.slice(prefix.length) : text
 }
-
-/** 发给助手的生成约束，不写进对话气泡 */
-function generationHint() {
-  if (!showGenParams.value)
-    return ''
-  const bits: string[] = []
-  const model = displayModel.value
-  if (model && (model.type === 'image' || model.type === 'video'))
-    bits.push(`${t('模型')} ${model.model}`)
-  if (showRatio.value)
-    bits.push(`${t('比例')} ${genRatio.value}`)
-  if (showDuration.value)
-    bits.push(`${t('时长')} ${genSeconds.value}${t('秒')}`)
-  if (genResolution.value && resolutionChoices.value.length)
-    bits.push(`${t('分辨率')} ${genResolution.value}`)
-  return bits.length ? `\n[${t('canvas.chat.attach.genParams')}：${bits.join('，')}]` : ''
-}
-
 function stepSeconds(dir: -1 | 1) {
   const list = durationChoices.value
   const index = list.indexOf(genSeconds.value)
@@ -1035,12 +1028,6 @@ function loadSessions() {
   openTabIds.value = savedOpen.filter(id => sessions.value.some(session => session.id === id))
 }
 
-function applyOpenTabs(preferred: string[]) {
-  openTabIds.value = preferred.filter(id => sessions.value.some(session => session.id === id))
-  if (!openTabIds.value.length && sessions.value[0])
-    openTabIds.value = [sessions.value[0].id]
-}
-
 function persistOpenTabs() {
   if (useRemoteChat())
     return
@@ -1081,6 +1068,8 @@ function pickSkill(item: ChatSkill | null) {
 
 /** 这张画布留在本机的老会话，逐段交给账号接口，成功一段就从本机拿掉 */
 async function uploadLocalChats(canvasId: number) {
+  if (props.practice)
+    return
   const key = `easytv-chat-${canvasId}`
   let local = readStorage<ChatSession[]>(key, [])
   if (!local.length)
@@ -1155,7 +1144,7 @@ async function syncSessions() {
 }
 
 async function saveRemoteSession(canvasId: number, requestedId: string, payload: { title: string, messages: unknown[] }) {
-  if (!payload.messages.length)
+  if (!payload.messages.length || props.practice)
     return
   try {
     await uploadLocalChats(canvasId)
@@ -1194,6 +1183,9 @@ function persistLocalSessions() {
 }
 
 function persistSession() {
+  // 跟练期间的对话不落库也不写本机
+  if (props.practice)
+    return
   const clean = messages.value
     .filter(item => !item.pending)
     .map(({ undoToken: _token, ...item }) => (item.planState === 'applying' ? { ...item, planState: 'ready' as const } : item))
@@ -1710,15 +1702,18 @@ function activeReply() {
 }
 
 function lockedMediaReply() {
-  return [...messages.value].reverse().find(row => row.card?.kind === 'media-confirm' && row.card.locked && !row.card.skipped) ?? null
+  // 只认确实在「出片中」的那张：已出片成功的卡、还在等后端终态的卡都不算，「停止」的兜底解锁不能碰它们
+  return findRunningChatMedia(messages.value)
 }
 
 function markStopped(reply: ChatMsg | null) {
   if (!reply) {
     busy.value = false
     const last = lockedMediaReply()
-    if (last?.card?.kind === 'media-confirm')
+    if (last?.card?.kind === 'media-confirm') {
       last.card.locked = false
+      endChatMediaRun(last.card)
+    }
     persistSession()
     return
   }
@@ -1726,8 +1721,10 @@ function markStopped(reply: ChatMsg | null) {
     finishReply(reply, t('canvas.chat.msg.stopped'), false, false)
     return
   }
-  if (reply.card?.kind === 'media-confirm')
+  if (reply.card?.kind === 'media-confirm') {
     reply.card.locked = false
+    endChatMediaRun(reply.card)
+  }
   if (reply.planState === 'applying')
     reply.planState = 'ready'
   busy.value = false
@@ -1748,6 +1745,14 @@ async function stopReply() {
       const poll = res?.success ? null : await taskApi.get(taskId)
       const task = poll?.success ? poll.data : null
       const status = res?.success ? 'cancelled' : task?.status
+      if ((status === 'succeeded' || status === 'failed') && reply?.card?.kind === 'media-confirm' && adoptOrphanChatMediaRuns([reply])) {
+        // 取消没成、出片任务已到终态：按后端结果收尾（成功 → 已放到画布、卡保持锁定；失败 → 解锁）
+        nextRun()
+        stopPolling()
+        busy.value = false
+        await resumeWaitingMedia()
+        return
+      }
       if (status === 'succeeded') {
         nextRun()
         stopPolling()
@@ -3061,6 +3066,10 @@ async function confirmChatMedia(item: ChatMsg) {
   const card = item.card
   if (!card || card.kind !== 'media-confirm' || card.locked || busy.value)
     return
+  if (props.practice) {
+    notify(t('canvas.practice.chatSendBlocked'))
+    return
+  }
   const prompt = String(card.prompt || '').trim()
   if (!prompt) {
     notify(t('canvas.chat.media.needPrompt'), 'error')
@@ -3072,7 +3081,7 @@ async function confirmChatMedia(item: ChatMsg) {
     return
   }
   item.error = false
-  card.locked = true
+  beginChatMediaRun(card)
   persistSession()
   runFreeMedia(card, item, nextRun())
 }
@@ -3099,6 +3108,7 @@ function runFreeMedia(card: ChatMediaConfirmCard, reply: ChatMsg, id: number) {
   const model = modelForFreeMedia(kind, card.model)
   if (!model) {
     card.locked = false
+    endChatMediaRun(card)
     failReply(reply, t('canvas.chat.media.needModel'))
     return
   }
@@ -3119,16 +3129,27 @@ function runFreeMedia(card: ChatMediaConfirmCard, reply: ChatMsg, id: number) {
     label: thinking.slice(0, 24) || prompt.slice(0, 24),
     refs: card.refs,
   }, {
-    onTask: (taskId) => {
+    onTask: (taskId, nodeId) => {
+      // 任务 id 记在卡上并落盘：这一轮之后若被丢弃（切会话 / 刷新），回来能按它向后端问终态
+      noteChatMediaTask(card, taskId, nodeId)
       if (!runAlive(id) || stopping.value) {
         void taskApi.cancel(taskId)
         return
       }
       runTaskId = taskId
+      persistSession()
     },
     onDone: (report) => {
       if (!runAlive(id))
         return
+      endChatMediaRun(card)
+      if (report.pending) {
+        // 等待到时但任务还在排队 / 生成：不是失败。卡片保持锁定，交给画布盯到后端终态再更新
+        settleChatMediaMessage(reply, report, chatMediaTexts(kind))
+        finishReply(reply, reply.text, false, false)
+        watchWaitingMedia(reply)
+        return
+      }
       if (!report.ok) {
         card.locked = false
         failReply(reply, report.error || t('生成失败'))
@@ -3139,6 +3160,89 @@ function runFreeMedia(card: ChatMediaConfirmCard, reply: ChatMsg, id: number) {
     },
   })
 }
+
+function chatMediaTexts(kind: ChatFreeMediaKind) {
+  return {
+    placed: mediaPlacedText(kind),
+    waiting: t('canvas.chat.media.stillRunning'),
+    failed: t('生成失败'),
+    hints: [mediaRunningText(kind), t('canvas.chat.media.runningDetached')],
+  }
+}
+
+/** 正在盯的任务，同一条不重复挂 */
+const waitingMediaTasks = new Set<number>()
+
+/** 后端终态到了：只改这条气泡和它的卡，不动 busy / runTaskId（这时可能正有别的一轮在跑） */
+function settleWaitingMedia(taskId: number, report: ChatMediaReport) {
+  waitingMediaTasks.delete(taskId)
+  const reply = messages.value.find(row => row.card?.kind === 'media-confirm' && row.card.waitingTaskId === taskId)
+  const card = reply?.card
+  // 这条不在当前会话里了：不处理，下次打开那个会话时 resumeWaitingMedia 会再问一次后端
+  if (!reply || card?.kind !== 'media-confirm')
+    return
+  if (report.pending) {
+    // 任务还在跑，但画布上已经跟不到它：卡片继续锁着，告诉用户去哪看结果
+    settleChatMediaMessage(reply, report, { ...chatMediaTexts(card.mediaType), waiting: t('canvas.chat.media.runningDetached'), hints: [t('canvas.chat.media.stillRunning')] })
+  }
+  else {
+    settleChatMediaMessage(reply, report, chatMediaTexts(card.mediaType))
+  }
+  persistSession()
+  scrollToEnd()
+}
+
+async function askWaitingMedia(nodeId: string, taskId: number) {
+  const res = await rawTaskApi.get(taskId)
+  if (!res?.success || !res.data)
+    return null
+  return chatMediaReport(nodeId, {
+    taskId,
+    status: res.data.status,
+    url: res.data.result_url,
+    error: res.data.error_msg,
+  }, { stopped: t('canvas.chat.msg.stopped'), failed: t('生成失败') })
+}
+
+function watchWaitingMedia(reply: ChatMsg) {
+  const card = reply.card
+  if (card?.kind !== 'media-confirm')
+    return
+  const taskId = Number(card.waitingTaskId) || 0
+  const nodeId = String(card.waitingNodeId || '')
+  if (!taskId || waitingMediaTasks.has(taskId))
+    return
+  waitingMediaTasks.add(taskId)
+  emit('trackMedia', nodeId, taskId, async (report) => {
+    const final = report ?? await askWaitingMedia(nodeId, taskId)
+    if (final)
+      settleWaitingMedia(taskId, final)
+    else
+      waitingMediaTasks.delete(taskId)
+  })
+}
+
+/** 重新打开会话 / 刷新页面后：卡上还记着在等的任务，先问一次后端，仍在跑就接着让画布盯 */
+async function resumeWaitingMedia() {
+  // 出片途中被丢弃的那一轮（切会话 / 刷新）：卡上记着任务 id，转成「等后端终态」一并在下面问
+  if (adoptOrphanChatMediaRuns(messages.value, busy.value ? runTaskId : 0))
+    persistSession()
+  for (const row of messages.value) {
+    const card = row.card
+    if (card?.kind !== 'media-confirm' || !chatMediaCardAwaiting(card))
+      continue
+    const taskId = Number(card.waitingTaskId)
+    if (waitingMediaTasks.has(taskId))
+      continue
+    const report = await askWaitingMedia(String(card.waitingNodeId || ''), taskId)
+    if (report && !report.pending)
+      settleWaitingMedia(taskId, report)
+    else
+      watchWaitingMedia(row)
+  }
+}
+
+watch(() => messages.value, () => void resumeWaitingMedia())
 
 /** 短句带上文走普通文本任务。长剧本不走这里。出片由对话模型在回复里给出 GENERATE 动作后再执行 */
 function dispatchChat(value: string, reply: ChatMsg, attachments: ChatAttachment[] = [], id = runId) {
@@ -3182,6 +3286,10 @@ function send(text?: string) {
         })),
     })
     void navigateTo(localePath({ path: '/canvas', query: { from: 'agent' } }))
+    return
+  }
+  if (props.practice) {
+    notify(t('canvas.practice.chatSendBlocked'))
     return
   }
   if ((!raw && !attachments.value.length) || busy.value)
@@ -3238,6 +3346,10 @@ function questionBefore(item: ChatMsg) {
 async function rerunReply(item: ChatMsg) {
   if (busy.value || item.pending)
     return
+  if (props.practice) {
+    notify(t('canvas.practice.chatSendBlocked'))
+    return
+  }
   if (chatDisabled.value) {
     notify(t('canvas.chat.msg.disabled'))
     return
@@ -3398,43 +3510,6 @@ function assistHistory() {
     .slice(0, -1) // 末尾是刚发出的这句（占位回复是 pending，已被滤掉）
     .map(item => ({ role: item.role, content: messageHistoryText(item) }))
 }
-
-/**
- * 结合画布：走对话式工作流生成接口（API.md 32）。服务端在一个文本任务里跑多轮，
- * changes 里除四个旧动作外还可能带 apply_graph（整张图），落图 / 撤销复用同一条方案卡链路。
- * 空画布、或用户在对话栏打开了「从零搭图」→ generate；否则 patch（在现有图上小改）。
- */
-async function askAgent(value: string, reply: ChatMsg, attachments: ChatAttachment[] = [], id = runId) {
-  runTaskId = 0
-  const nodes = props.assist!.context()
-  const mode = agentModeFor(nodes.length, settings.value.buildFromScratch)
-  // 结合画布的 agent 接口没有 inputs 字段，媒体附件以「参考素材」清单写进问题文本
-  const mediaNote = attachments.length
-    ? `\n[${t('参考素材')}：${attachments.map(item => item.name).join('、')}]`
-    : ''
-  const res = await canvasApi.agent(props.canvasId, {
-    question: value + mediaNote,
-    mode,
-    // Agent 自动选模型开着时不指定，服务端按 AgentModel → 第一个已定价文本模型兜底
-    model: agentAutoModel.value ? undefined : (chatModel.value || undefined),
-    nodes,
-    history: assistHistory(),
-  })
-  if (!runAlive(id)) {
-    if (res?.success && res.data?.id)
-      void taskApi.cancel(res.data.id)
-    return
-  }
-  if (!res?.success || !res.data) {
-    failReply(reply, res?.message || t('canvas.chat.msg.sendFail'), res?.data as { reason?: string } | undefined)
-    return
-  }
-  reply.taskId = res.data.id
-  runTaskId = res.data.id
-  emit('taskStarted')
-  pollAgentPlan(reply, id)
-}
-
 /** 任务已经成功时补上方案卡。guard 有值时，这一轮已被停止就不再改气泡 */
 async function presentAgentPlan(reply: ChatMsg, taskId: number, guard?: number) {
   const plan = await canvasApi.agentPlan(props.canvasId, taskId)
@@ -3464,6 +3539,45 @@ async function presentAgentPlan(reply: ChatMsg, taskId: number, guard?: number) 
   msgFinish(reply, data.reply || fallback)
   if (settings.value.autoGenerate && !noChanges)
     void applyPlan(reply, true)
+}
+
+/**
+ * 结合画布：走对话式工作流生成接口（API.md 32）。服务端在一个文本任务里跑多轮，
+ * changes 里除四个旧动作外还可能带 apply_graph（整张图），落图 / 撤销复用同一条方案卡链路。
+ * 空画布、或用户在对话栏打开了「从零搭图」→ generate；否则 patch（在现有图上小改）。
+ */
+// 「结合画布」的 agent 调用链（askAgent → pollAgentPlan → assistHistory）目前没有任何入口调用：
+// 发消息一律走普通对话与出片确认卡。入口是否恢复由产品决定，在此之前保留实现。
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+async function askAgent(value: string, reply: ChatMsg, attachments: ChatAttachment[] = [], id = runId) {
+  runTaskId = 0
+  const nodes = props.assist!.context()
+  const mode = agentModeFor(nodes.length, settings.value.buildFromScratch)
+  // 结合画布的 agent 接口没有 inputs 字段，媒体附件以「参考素材」清单写进问题文本
+  const mediaNote = attachments.length
+    ? `\n[${t('参考素材')}：${attachments.map(item => item.name).join('、')}]`
+    : ''
+  const res = await canvasApi.agent(props.canvasId, {
+    question: value + mediaNote,
+    mode,
+    // Agent 自动选模型开着时不指定，服务端按 AgentModel → 第一个已定价文本模型兜底
+    model: agentAutoModel.value ? undefined : (chatModel.value || undefined),
+    nodes,
+    history: assistHistory(),
+  })
+  if (!runAlive(id)) {
+    if (res?.success && res.data?.id)
+      void taskApi.cancel(res.data.id)
+    return
+  }
+  if (!res?.success || !res.data) {
+    failReply(reply, res?.message || t('canvas.chat.msg.sendFail'), res?.data as { reason?: string } | undefined)
+    return
+  }
+  reply.taskId = res.data.id
+  runTaskId = res.data.id
+  emit('taskStarted')
+  pollAgentPlan(reply, id)
 }
 
 /** 轮询 agent 任务（2 秒一次，与服务端轮询口径一致），完成后取计划 */
@@ -3513,7 +3627,7 @@ async function applyPlan(msg: ChatMsg, generate: boolean) {
   const result = await props.assist.apply(changes, generate)
   if (!result.applied && !result.generated) {
     msg.planState = 'ready'
-    notify(result.skipped ? t('canvas.chat.plan.nodesGone') : t('canvas.chat.plan.nothing'), 'error')
+    notify(result.locked ? t('canvas.chat.plan.allLocked') : result.skipped ? t('canvas.chat.plan.nodesGone') : t('canvas.chat.plan.nothing'), 'error')
     return
   }
   msg.planState = 'applied'
@@ -3523,6 +3637,8 @@ async function applyPlan(msg: ChatMsg, generate: boolean) {
     parts.push(t('canvas.chat.plan.generated', { n: result.generated }))
   if (result.skipped)
     parts.push(t('canvas.chat.plan.skipped', { n: result.skipped }))
+  if (result.locked)
+    parts.push(t('canvas.chat.plan.lockedSkipped', { n: result.locked }))
   msg.applyNote = parts.join(' · ')
   persistSession()
 }
@@ -3680,7 +3796,7 @@ function promoOf(item: GenerationModel) {
 
     </header>
 
-    <div ref="bodyRef" class="canvas-chat__body">
+    <div ref="bodyRef" class="canvas-chat__body" :inert="practice || undefined">
       <div v-if="!entry && !messages.length" class="canvas-chat__hello">
         <h2>{{ t('Hi, {name}', { name: helloName }) }}</h2>
         <p>{{ t('canvas.chat.msg.welcome') }}</p>
@@ -4046,7 +4162,10 @@ function promoOf(item: GenerationModel) {
         </div>
       </div>
 
-      <div v-if="chatDisabled" class="canvas-chat__context">
+      <div v-if="practice" class="canvas-chat__context">
+        <span>{{ t('canvas.practice.chatSendBlocked') }}</span>
+      </div>
+      <div v-else-if="chatDisabled" class="canvas-chat__context">
         <span>{{ t('canvas.chat.msg.disabled') }}</span>
       </div>
       <div v-else-if="quotaLabel" class="canvas-chat__context">
@@ -4095,7 +4214,8 @@ function promoOf(item: GenerationModel) {
           ref="inputRef"
           v-model="prompt"
           rows="3"
-          :placeholder="!agentAutoModel && displayModel ? t('canvas.chat.skill.freeHint') : t('canvas.chat.skill.agentHint')"
+          :disabled="practice"
+          :placeholder="practice ? t('canvas.practice.chatSendBlocked') : !agentAutoModel && displayModel ? t('canvas.chat.skill.freeHint') : t('canvas.chat.skill.agentHint')"
           @keydown.enter.exact="onEnter"
         />
         <div class="canvas-chat__input-bar">
@@ -4394,8 +4514,8 @@ function promoOf(item: GenerationModel) {
             <button
               type="button"
               class="canvas-chat__send"
-              :class="{ 'is-on': stopping || busy || (prompt.trim() && !quotaExhausted && !chatDisabled), 'is-stop': busy || stopping }"
-              :disabled="stopping || (!busy && (quotaExhausted || chatDisabled))"
+              :class="{ 'is-on': stopping || busy || (prompt.trim() && !quotaExhausted && !chatDisabled && !practice), 'is-stop': busy || stopping }"
+              :disabled="stopping || (!busy && (quotaExhausted || chatDisabled || practice))"
               :aria-label="stopping ? t('canvas.chat.msg.stopping') : busy ? t('停止') : t('发送')"
               @click="busy ? stopReply() : send()"
             >

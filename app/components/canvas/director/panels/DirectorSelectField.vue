@@ -3,7 +3,7 @@
  * 下拉选择。原生 option 列表在 Windows 上是系统蓝条，跟站点黑色主题对不上，
  * 所以用手搓一层：按钮 + 浮层，点外面和 Esc 关掉。
  */
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 
 const props = withDefaults(defineProps<{
   /** 不传就只画触发器，工具条这种没空写标签的地方用 */

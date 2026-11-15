@@ -10,7 +10,6 @@
  */
 import { userManagement } from '~/api/user-management'
 import { userAuth } from '~/api/user-auth'
-import accountApi from '~/api/account'
 import assetApi from '~/api/asset'
 import { resolveMediaUrl } from '~/utils/media'
 import { readSettingAvatar, writeSettingAvatar } from '~/utils/user-setting'
@@ -27,7 +26,7 @@ const { wallet, refresh: refreshWallet } = useWallet()
 const { gotoPricing } = usePricingModal()
 const { secondsLeft, isActive: countingDown, start: startCountdown } = useAuthCountdown(60)
 
-const props = defineProps<{
+defineProps<{
   usage: UsageView | null
   /** 父页加载 usage 的状态，用于额度卡显隐 */
   usageReady: boolean

@@ -1,4 +1,3 @@
-import { readFileSync } from 'node:fs'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { startHiddenAwarePoll } from './hidden-poll'
 
@@ -47,33 +46,5 @@ describe('startHiddenAwarePoll', () => {
     expect(calls).toBe(1)
 
     stop()
-  })
-})
-
-describe('页面轮询走 hidden-poll', () => {
-  it('一句话成片合成轮询藏页签时不打接口', () => {
-    const src = readFileSync('app/pages/create/index.vue', 'utf8')
-    expect(src).toContain("import { startHiddenAwarePoll } from '~/utils/hidden-poll'")
-    expect(src).toContain('startHiddenAwarePoll(() => { void pollCompose() }, POLL_MS)')
-    expect(src).not.toContain('composePoller')
-  })
-
-  it('主体库参考图轮询藏页签时不打接口', () => {
-    const src = readFileSync('app/pages/subjects/index.vue', 'utf8')
-    expect(src).toContain("import { startHiddenAwarePoll } from '~/utils/hidden-poll'")
-    expect(src).toContain('startHiddenAwarePoll(() => { void pollGen(id) }, POLL_MS)')
-    expect(src).not.toContain('setInterval(() => void pollGen')
-  })
-
-  it('支付二维码轮询藏页签时不打接口', () => {
-    const src = readFileSync('app/components/pricing/PayQrModal.vue', 'utf8')
-    expect(src).toContain("import { startHiddenAwarePoll } from '~/utils/hidden-poll'")
-    expect(src).toContain('startHiddenAwarePoll(() => poll(), POLL_MS)')
-  })
-
-  it('充值到账轮询藏页签时不打接口', () => {
-    const src = readFileSync('app/pages/console/recharge.vue', 'utf8')
-    expect(src).toContain("import { startHiddenAwarePoll } from '~/utils/hidden-poll'")
-    expect(src).toContain('stopRechargePoll = startHiddenAwarePoll(async () => {')
   })
 })

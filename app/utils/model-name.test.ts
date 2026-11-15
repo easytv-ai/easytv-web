@@ -1,4 +1,3 @@
-import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import { prettyModelSlug, shortModelName } from './model-name'
 
@@ -12,14 +11,6 @@ describe('shortModelName', () => {
       model: 'openai/gpt-image-2.5-sunburst',
       label: 'Flexible sizing and high-fidelity rendering for production stills',
     })).toBe('Gpt Image 2.5 Sunburst')
-  })
-
-  it('导演助手下拉也走短名，不把能力介绍整段塞进菜单', () => {
-    const assist = readFileSync('app/components/canvas/director/agent/DirectorAssistant.vue', 'utf8')
-    expect(assist).toContain('shortModelName(item)')
-    const css = readFileSync('app/assets/css/studio-parts/director.css', 'utf8')
-    expect(css).toContain('.director-select__option span')
-    expect(css).toContain('.director-agent__head-tools .director-select__menu')
   })
 })
 

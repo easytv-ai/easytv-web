@@ -24,7 +24,7 @@ Closes #
 ## Checklist
 
 - [ ] I read [CONTRIBUTING.md](../blob/master/CONTRIBUTING.md) and agree my contribution is licensed under AGPL-3.0 and may be relicensed under the commercial terms
-- [ ] Local checks pass (pnpm typecheck, pnpm test)
+- [ ] Local checks pass (pnpm lint, pnpm typecheck, pnpm test)
 - [ ] Tests added or updated for behavior changes
 - [ ] Documentation updated (README, `.env.example`, API contract) where relevant
 - [ ] `CHANGELOG.md` updated under **Unreleased** for user-visible changes

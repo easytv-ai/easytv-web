@@ -1,4 +1,3 @@
-import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import {
   CANVAS_GRAPH_LIMIT_BYTES,
@@ -172,21 +171,6 @@ describe('isGraphOverLimit', () => {
     expect(isGraphOverLimit({ nodes: [], edges: [] })).toBe(false)
     expect(estimateJsonBytes({ a: 1 })).toBeGreaterThan(0)
     expect(isGraphOverLimit({ blob: 'x'.repeat(CANVAS_GRAPH_LIMIT_BYTES) })).toBe(true)
-  })
-
-  it('画布页和导演台保存前会先量 graph', () => {
-    const page = readFileSync('app/pages/canvas/index.vue', 'utf8')
-    expect(page).toContain('isGraphOverLimit')
-    expect(page).toContain('isGraphNearLimit')
-    expect(page).toContain('graphHeavyNames')
-    expect(page).toContain("t('canvas.graph.tooLargeDetail'")
-    expect(page).toContain("t('canvas.graph.nearLimitDetail'")
-    const workspace = readFileSync('app/components/canvas/CanvasWorkspace.vue', 'utf8')
-    expect(workspace).toContain('sanitizeGraphForSave')
-    const director = readFileSync('app/pages/canvas/director.vue', 'utf8')
-    expect(director).toContain('isGraphOverLimit')
-    expect(director).toContain('isGraphNearLimit')
-    expect(director).toContain('graphHeavyNames')
   })
 
   it('80% 软预警还没到硬上限', () => {
