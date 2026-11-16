@@ -266,6 +266,11 @@ export function factLabel(fact: BibleFact, n = 24): string {
   return text.length > n ? `${text.slice(0, n)}…` : text
 }
 
+/** 集目录只列还在生成、待确认、已建画布的集。失败的策划案没有场和镜，不占一行。 */
+export function isCatalogEpisode(status: ScreenplayStatus | number): boolean {
+  return status !== -1
+}
+
 /** 集目录状态文案（ScreenplayStatus：0 生成中 1 待确认 2 已建画布 -1 失败） */
 export function episodeStatusLabel(status: ScreenplayStatus | number, tr: Translate): string {
   switch (status) {

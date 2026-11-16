@@ -8,6 +8,7 @@ import type { Asset, CanvasDetail } from '~/types/creative'
 import skillApi from '~/api/skill'
 import assetApi from '~/api/asset'
 import canvasApi from '~/api/canvas'
+import bibleApi from '~/api/bible'
 import projectApi from '~/api/project'
 import type { CanvasGraph } from '~/types/creative'
 import { canvasMergeUploading, flushMergeUploads, hasPendingMergeUploads } from '~/utils/canvas-merge-state'
@@ -146,6 +147,23 @@ const savedName = ref(nameHint)
 const canvasId = ref(Number(route.query.id) || 0)
 const projectIdHint = Number(route.query.project_id) || 0
 const boundProjectId = ref(projectIdHint)
+const spineOpen = ref(false)
+let spineDismissedFor = 0
+
+async function considerSpine(projectId: number) {
+  if (!projectId || spineDismissedFor === projectId || loading.value)
+    return
+  const res = await bibleApi.episodes(projectId)
+  if (boundProjectId.value !== projectId || spineDismissedFor === projectId)
+    return
+  const rows = (res?.data?.episodes ?? []).filter(episode => episode.status !== -1 && episode.status !== 0 && episode.episode_no > 0)
+  spineOpen.value = rows.length > 0 && (!canvasId.value || savedNodeCount === 0)
+}
+
+function closeSpine() {
+  spineDismissedFor = boundProjectId.value
+  spineOpen.value = false
+}
 const rawPrompt = String(route.query.prompt ?? '').trim()
 const skillIdHint = canvasId.value ? 0 : Number(route.query.skill) || 0
 const assetIdHint = canvasId.value ? 0 : Number(route.query.asset) || 0
@@ -335,6 +353,7 @@ async function load() {
       }
     }
     await dropTransientQuery()
+    void considerSpine(boundProjectId.value)
     return
   }
   loading.value = true
@@ -365,6 +384,7 @@ async function load() {
   rememberNodeCount(res.data.graph)
   flushPendingGraph()
   loading.value = false
+  void considerSpine(boundProjectId.value)
   void refreshCommentMarks()
   await dropTransientQuery()
   if (nextName !== canvasName && !isPlaceholderName(nextName))
@@ -1137,6 +1157,17 @@ function onResizeStart(event: PointerEvent) {
         </span>
         <template v-else>
           <span class="canvas-editor__sep" />
+          <button
+            v-if="boundProjectId"
+            type="button"
+            class="canvas-editor__save-btn"
+            :aria-pressed="spineOpen"
+            :aria-label="t('各集画布')"
+            @click="spineOpen ? closeSpine() : (spineOpen = true)"
+          >
+            <UIcon name="i-lucide-layout-grid" class="size-4" />
+            <span class="canvas-tip canvas-tip--down">{{ t('各集画布') }}</span>
+          </button>
           <span v-if="teamShared" class="canvas-editor__save" data-state="team">
             {{ readonlyOwner ? t('{name} 的画布 · 可编辑', { name: readonlyOwner }) : t('队友的画布 · 可编辑') }}
           </span>
@@ -1210,6 +1241,12 @@ function onResizeStart(event: PointerEvent) {
           </ClientOnly>
         </div>
       </div>
+      <BibleSpineBoard
+        v-if="spineOpen && boundProjectId"
+        class="canvas-spine"
+        :project-id="boundProjectId"
+        @close="closeSpine"
+      />
       <ClientOnly>
         <CanvasWorkspace ref="workspace" :canvas-id="canvasId" :initial-prompt="initialPrompt" :readonly="readonly" :request-save="save" @change="markDirty" @history="openHistory" @comment="openComments" @assist="onWorkspaceAssist" @open-director="onOpenDirector" @chat-assets="onChatAssets" @chat-style="onChatStyle" @skill-start="onSkillStart" />
         <template #fallback>

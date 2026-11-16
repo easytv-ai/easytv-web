@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import bibleApi from '~/api/bible'
-import type { Bible, Episode } from '~/types/creative'
+import screenplayApi from '~/api/screenplay'
+import type { Bible, Episode, ScreenplayPlan } from '~/types/creative'
 import {
   BIBLE_LIMITS,
   bibleForSave,
@@ -8,6 +9,7 @@ import {
   emptyBible,
   episodeNoLabel,
   factLabel,
+  isCatalogEpisode,
   formatImpact,
   impactQueryOf,
   isBibleConflict,
@@ -48,6 +50,32 @@ const revision = ref(0)
 const dirty = ref(false)
 const saving = ref(false)
 const episodes = ref<Episode[]>([])
+const plans = ref<Record<number, ScreenplayPlan | null>>({})
+const plansLoading = ref(false)
+
+async function loadPlans() {
+  const rows = episodes.value.filter(episode => isCatalogEpisode(episode.status))
+  if (!rows.length) {
+    plans.value = {}
+    return
+  }
+  plansLoading.value = true
+  try {
+    const loaded = await Promise.all(rows.map(async (episode) => {
+      try {
+        const res = await screenplayApi.get(episode.id)
+        return [episode.id, res?.success ? res.data?.plan ?? null : null] as const
+      }
+      catch {
+        return [episode.id, null] as const
+      }
+    }))
+    plans.value = Object.fromEntries(loaded)
+  }
+  finally {
+    plansLoading.value = false
+  }
+}
 
 function touch() {
   dirty.value = true
@@ -73,6 +101,7 @@ async function load() {
       episodes.value = [...e.data.episodes].sort((x, y) => x.episode_no - y.episode_no)
     else if (e?.message)
       notify(e.message, 'error')
+    void loadPlans()
   }
   finally {
     loading.value = false
@@ -128,7 +157,10 @@ const editingNo = ref(0)
 const noDraft = ref('')
 const savingNo = ref(0)
 
-const newEpisodeHref = computed(() => localePath(`/create?project=${projectId.value}&use_bible=1`))
+const newEpisodeHref = computed(() => localePath({
+  path: '/create',
+  query: { project: String(projectId.value), use_bible: '1' },
+}))
 
 async function startEditNo(row: Episode) {
   editingNo.value = row.id
@@ -169,6 +201,9 @@ async function commitNo(row: Episode) {
 const recording = ref(false)
 const recordTarget = ref(0)
 
+/** 失败的生成没有场和镜，不进集目录，也不当作「最后一集」 */
+const catalogEpisodes = computed(() => episodes.value.filter(e => isCatalogEpisode(e.status)))
+
 /** 只有已生成策划案（待确认 / 已建画布）的集才能总结成记录 */
 const recordOptions = computed(() => episodes.value
   .filter(e => e.status === 1 || e.status === 2)
@@ -205,7 +240,7 @@ async function generateRecord() {
 }
 
 /** 新线索 / 事实默认落在最后一集 */
-const lastEpisodeNo = computed(() => episodes.value.reduce((max, e) => Math.max(max, e.episode_no), 0))
+const lastEpisodeNo = computed(() => catalogEpisodes.value.reduce((max, e) => Math.max(max, e.episode_no), 0))
 
 /** 标题下那一句：和容量条用同一组数字，说明下一集现在能沿用什么。 */
 const finding = computed(() => {
@@ -341,10 +376,17 @@ watch(projectId, () => void load())
         </dl>
       </div>
 
+      <BibleSpine
+        :episodes="catalogEpisodes"
+        :plans="plans"
+        :threads="bible.threads"
+        :loading="plansLoading"
+      />
+
       <div class="bible-board">
         <BibleCatalog
           class="bible-episodes"
-          :episodes="episodes"
+          :episodes="catalogEpisodes"
           :new-episode-href="newEpisodeHref"
           :editing-no="editingNo"
           :no-draft="noDraft"
@@ -392,6 +434,7 @@ watch(projectId, () => void load())
       :busy="impactBusy"
       :rows="impactRows"
       :total="impactTotal"
+      :episodes="episodes"
       @run="runImpact"
     />
   </section>

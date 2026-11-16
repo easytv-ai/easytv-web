@@ -742,6 +742,9 @@ async function resume(id: number) {
         composeJob.value = job.data
     }
     let target: Step = saved?.step ?? (res.data.status === 2 && canvasId.value ? 3 : 2)
+    // 待确认：从集目录进来就是改这一集的策划，不要停在「一句话成片」
+    if (res.data.status === 1)
+      target = 2
     if (target >= 3 && !canvasId.value)
       target = 2
     if (target === 5 && composeJob.value?.status !== 2)

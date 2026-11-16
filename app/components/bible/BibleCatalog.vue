@@ -8,6 +8,7 @@ const localePath = useLocalePath()
 defineProps<{
   episodes: Episode[]
   newEpisodeHref: string
+  creating: boolean
   editingNo: number
   noDraft: string
   savingNo: number
@@ -18,10 +19,19 @@ const emit = defineEmits<{
   edit: [row: Episode]
   commit: [row: Episode]
   cancel: []
+  create: []
 }>()
 
 function episodeHref(id: number) {
-  return localePath(`/create?screenplay=${id}`)
+  return localePath({ path: '/create', query: { screenplay: String(id) } })
+}
+
+/** 点这一行走进创作。集号按钮、输入框和标题链接自己处理，不重复跳。 */
+function openEpisode(event: MouseEvent, id: number) {
+  const target = event.target
+  if (target instanceof Element && target.closest('a, button, input'))
+    return
+  void navigateTo(episodeHref(id))
 }
 </script>
 
@@ -50,7 +60,7 @@ function episodeHref(id: number) {
           </tr>
         </thead>
         <tbody>
-          <tr v-for="row in episodes" :key="row.id">
+          <tr v-for="row in episodes" :key="row.id" class="bible-catalog__row" @click="openEpisode($event, row.id)">
             <td class="bible-catalog__no">
               <input
                 v-if="editingNo === row.id"

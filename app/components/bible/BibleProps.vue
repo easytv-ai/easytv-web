@@ -42,10 +42,6 @@ function setHolder(index: number, value: string | number) {
   <div class="create-card plan-editor__block">
     <header class="plan-editor__head">
       <h3>{{ t('道具') }}</h3>
-      <button v-if="bible.props.length" type="button" class="studio-chip" :disabled="bible.props.length >= BIBLE_LIMITS.props" @click="addProp">
-        <UIcon name="i-lucide-plus" class="size-4" />
-        {{ t('添加道具') }}
-      </button>
     </header>
     <button v-if="!bible.props.length" type="button" class="bible-empty" @click="addProp">
       <UIcon name="i-lucide-plus" class="size-4" />
@@ -81,5 +77,9 @@ function setHolder(index: number, value: string | number) {
         </label>
       </div>
     </article>
+    <button v-if="bible.props.length" type="button" class="bible-empty" :disabled="bible.props.length >= BIBLE_LIMITS.props" @click="addProp">
+      <UIcon name="i-lucide-plus" class="size-4" />
+      {{ t('添加道具') }}
+    </button>
   </div>
 </template>

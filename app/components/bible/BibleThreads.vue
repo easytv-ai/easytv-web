@@ -49,10 +49,6 @@ function episodeNoOf(event: Event) {
   <div class="create-card plan-editor__block">
     <header class="plan-editor__head">
       <h3>{{ t('线索') }}</h3>
-      <button v-if="bible.threads.length" type="button" class="studio-chip" :disabled="bible.threads.length >= BIBLE_LIMITS.threads" @click="addThread">
-        <UIcon name="i-lucide-plus" class="size-4" />
-        {{ t('添加线索') }}
-      </button>
     </header>
     <button v-if="!bible.threads.length" type="button" class="bible-empty" @click="addThread">
       <UIcon name="i-lucide-plus" class="size-4" />
@@ -84,5 +80,9 @@ function episodeNoOf(event: Event) {
         </label>
       </div>
     </article>
+    <button v-if="bible.threads.length" type="button" class="bible-empty" :disabled="bible.threads.length >= BIBLE_LIMITS.threads" @click="addThread">
+      <UIcon name="i-lucide-plus" class="size-4" />
+      {{ t('添加线索') }}
+    </button>
   </div>
 </template>

@@ -71,10 +71,6 @@ function toggleKnowledge(charKey: string, factKey: string) {
   <div class="create-card plan-editor__block">
     <header class="plan-editor__head">
       <h3>{{ t('人物') }}</h3>
-      <button v-if="bible.characters.length" type="button" class="studio-chip" :disabled="bible.characters.length >= BIBLE_LIMITS.characters" @click="addCharacter">
-        <UIcon name="i-lucide-plus" class="size-4" />
-        {{ t('添加人物') }}
-      </button>
     </header>
     <button v-if="!bible.characters.length" type="button" class="bible-empty" @click="addCharacter">
       <UIcon name="i-lucide-plus" class="size-4" />
@@ -99,7 +95,7 @@ function toggleKnowledge(charKey: string, factKey: string) {
           <textarea v-model="c.traits" rows="2" :maxlength="BIBLE_LIMITS.traits" :placeholder="t('性格与行事方式')" @input="emit('change')" />
         </label>
       </div>
-      <div class="bible-pair">
+      <div class="plan-editor__grid">
         <label class="publish-field">
           <span>{{ t('音色') }}</span>
           <StudioSelect
@@ -124,7 +120,7 @@ function toggleKnowledge(charKey: string, factKey: string) {
       <div class="bible-sub">
         <div class="bible-sub__head">
           <span>{{ t('关系') }}</span>
-          <button type="button" class="studio-chip" :disabled="bible.characters.length < 2" @click="addRelationship(c)">
+          <button type="button" class="studio-chip" @click="addRelationship(c)">
             <UIcon name="i-lucide-plus" class="size-4" />
             {{ t('添加关系') }}
           </button>
@@ -161,5 +157,9 @@ function toggleKnowledge(charKey: string, factKey: string) {
         </div>
       </div>
     </article>
+    <button v-if="bible.characters.length" type="button" class="bible-empty" :disabled="bible.characters.length >= BIBLE_LIMITS.characters" @click="addCharacter">
+      <UIcon name="i-lucide-plus" class="size-4" />
+      {{ t('添加人物') }}
+    </button>
   </div>
 </template>

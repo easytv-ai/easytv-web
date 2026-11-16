@@ -6,6 +6,7 @@ import {
   emptyBible,
   episodeNoLabel,
   episodeStatusLabel,
+  isCatalogEpisode,
   factLabel,
   formatImpact,
   formatImpactRow,
@@ -168,11 +169,18 @@ describe('setKnowledge / knows', () => {
 })
 
 describe('文案', () => {
-  it('episodeStatusLabel / episodeNoLabel', () => {
+  it('episodeStatusLabel', () => {
     expect(episodeStatusLabel(0, tr)).toBe('生成中')
     expect(episodeStatusLabel(1, tr)).toBe('待确认')
     expect(episodeStatusLabel(2, tr)).toBe('已建画布')
     expect(episodeStatusLabel(-1, tr)).toBe('失败')
+    expect(isCatalogEpisode(0)).toBe(true)
+    expect(isCatalogEpisode(1)).toBe(true)
+    expect(isCatalogEpisode(2)).toBe(true)
+    expect(isCatalogEpisode(-1)).toBe(false)
+  })
+
+  it('episodeNoLabel', () => {
     expect(episodeNoLabel(3, tr)).toBe('第 3 集')
     expect(episodeNoLabel(0, tr)).toBe('未编号')
   })

@@ -23,6 +23,11 @@ export const bibleApi = {
     return http.get(`/user/project/${projectId}/episodes`)
   },
 
+  /** 在目录里加一集，不生成策划案 */
+  createEpisode(projectId: number): Promise<ApiResponse<Episode>> {
+    return http.post(`/user/project/${projectId}/episodes`, {})
+  },
+
   /** 改集号（0 = 未编号，≤ 999） */
   setEpisode(screenplayId: number, episodeNo: number): Promise<ApiResponse<{ id: number, episode_no: number }>> {
     return http.put(`/user/screenplay/${screenplayId}/episode`, { episode_no: episodeNo })

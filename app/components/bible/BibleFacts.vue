@@ -42,10 +42,6 @@ function toggleKnowledge(charKey: string, factKey: string) {
   <div class="create-card plan-editor__block">
     <header class="plan-editor__head">
       <h3>{{ t('事实') }}</h3>
-      <button v-if="bible.facts.length" type="button" class="studio-chip" :disabled="bible.facts.length >= BIBLE_LIMITS.facts" @click="addFact">
-        <UIcon name="i-lucide-plus" class="size-4" />
-        {{ t('添加事实') }}
-      </button>
     </header>
     <button v-if="!bible.facts.length" type="button" class="bible-empty" @click="addFact">
       <UIcon name="i-lucide-plus" class="size-4" />
@@ -59,7 +55,7 @@ function toggleKnowledge(charKey: string, factKey: string) {
           <UIcon name="i-lucide-x" class="size-4" />
         </button>
       </header>
-      <div class="bible-inline">
+      <div class="bible-fact__meta">
         <label class="bible-no">
           <span>{{ t('揭示于第几集') }}</span>
           <input type="number" min="0" max="999" :value="f.revealed_in || ''" @input="f.revealed_in = episodeNoOf($event); emit('change')">
@@ -68,21 +64,21 @@ function toggleKnowledge(charKey: string, factKey: string) {
           type="button"
           class="bible-tag"
           :class="{ 'is-on': f.audience_knows }"
+          :aria-pressed="f.audience_knows"
           @click="f.audience_knows = !f.audience_knows; emit('change')"
         >
           {{ t('观众知道') }}
         </button>
       </div>
-      <div v-if="bible.characters.length" class="bible-sub">
-        <div class="bible-sub__head">
-          <span>{{ t('哪些角色知道') }}</span>
-        </div>
+      <div v-if="bible.characters.length" class="bible-fact__who">
+        <span>{{ t('哪些角色知道') }}</span>
         <div class="publish-tags">
           <button
             v-for="c in bible.characters"
             :key="c.key"
             type="button"
             :class="{ 'is-on': knows(bible, c.key, f.key) }"
+            :aria-pressed="knows(bible, c.key, f.key)"
             @click="toggleKnowledge(c.key, f.key)"
           >
             {{ bibleName(bible.characters, c.key) }}
@@ -90,5 +86,9 @@ function toggleKnowledge(charKey: string, factKey: string) {
         </div>
       </div>
     </article>
+    <button v-if="bible.facts.length" type="button" class="bible-empty" :disabled="bible.facts.length >= BIBLE_LIMITS.facts" @click="addFact">
+      <UIcon name="i-lucide-plus" class="size-4" />
+      {{ t('添加事实') }}
+    </button>
   </div>
 </template>
