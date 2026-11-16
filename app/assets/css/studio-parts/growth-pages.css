@@ -698,6 +698,104 @@ html.dark .canvas-promo__chip {
   padding: 16px 0 96px;
 }
 
+/* 策划案 / 生成 / 合成：标题和步骤钉在上面，底部操作钉住，中间区域滚动 */
+.studio-content:has(.create-page.is-dock) {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding-bottom: 0;
+}
+
+.create-page.is-dock {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  width: 100%;
+  min-height: 0;
+  padding-bottom: 0;
+  overflow: hidden;
+}
+
+.create-page.is-dock .create-head,
+.create-page.is-dock .create-stepper,
+.create-page.is-dock .create-stale,
+.create-page.is-dock .create-foot {
+  flex: none;
+}
+
+.create-page .create-stepper {
+  width: min(1040px, 100%);
+  max-width: 1040px;
+  flex: 0 0 auto;
+  align-self: center;
+  margin-right: auto;
+  margin-left: auto;
+}
+
+.create-page.is-dock .create-stepper {
+  width: min(1040px, 100%);
+  max-width: 1040px;
+}
+
+.create-page.is-dock .create-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  width: min(1160px, 100%);
+  min-height: 0;
+  align-self: center;
+}
+
+.create-page.is-dock .create-plan {
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+  align-items: stretch;
+  grid-template-columns: minmax(0, 1fr) 280px;
+  grid-template-rows: minmax(0, 1fr);
+}
+
+.create-page.is-dock .create-plan__main,
+.create-page.is-dock .create-plan__side {
+  min-height: 0;
+  overflow: auto;
+}
+
+.create-page.is-dock .create-plan__main > *,
+.create-page.is-dock .create-plan__side > *,
+.create-page.is-dock .create-body > .create-card > * {
+  flex-shrink: 0;
+}
+
+.create-page.is-dock .create-plan__side {
+  position: static;
+  align-self: start;
+  max-height: 100%;
+}
+
+.create-page.is-dock .create-body > .create-card {
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+  overflow: auto;
+}
+
+.create-page:not(.is-dock) .create-body > .create-card {
+  max-width: 1160px;
+  margin-inline: auto;
+}
+
+.create-page.is-dock .create-foot {
+  align-items: center;
+  align-self: center;
+  width: min(1160px, 100%);
+  padding-bottom: 20px;
+}
+
+.create-page.is-dock .create-foot .create-plan__save {
+  margin-right: auto;
+}
+
 .create-head {
   display: flex;
   align-items: flex-start;
@@ -750,6 +848,12 @@ html.dark .canvas-promo__chip {
   font-size: 14px;
 }
 
+.create-head.is-hero .create-head__canvas {
+  position: absolute;
+  top: 0;
+  right: 0;
+}
+
 .create-head__eyebrow {
   display: inline-flex;
   align-items: center;
@@ -765,7 +869,7 @@ html.dark .canvas-promo__chip {
 
 .create-stepper {
   display: flex;
-  max-width: 760px;
+  max-width: 1040px;
   margin: 0 auto 28px;
   padding: 0;
   list-style: none;
@@ -806,6 +910,10 @@ html.dark .canvas-promo__chip {
   font: inherit;
   font-size: 12px;
   cursor: pointer;
+}
+
+.create-stepper button span {
+  white-space: nowrap;
 }
 
 .create-stepper button:disabled {
@@ -882,6 +990,11 @@ html.dark .canvas-promo__chip {
   border: 1px solid var(--st-border);
   border-radius: 18px;
   background: var(--st-card);
+}
+
+.create-page:not(.bible-page) .create-card {
+  border-radius: 22px;
+  box-shadow: var(--st-shadow);
 }
 
 .create-card h3 {
@@ -962,7 +1075,7 @@ html.dark .canvas-promo__chip {
 /* 第 1 步：输入框为视觉中心，参数与提交收进底部工具栏 */
 .create-start {
   display: flex;
-  max-width: 880px;
+  max-width: 1160px;
   flex-direction: column;
   gap: 28px;
   margin: 0 auto;
@@ -1844,6 +1957,14 @@ html.dark .canvas-promo__chip {
   background: #ef4444;
 }
 
+.create-merge {
+  margin: 12px 0 0;
+  padding-left: 1.2em;
+  color: var(--st-text);
+  font-size: 14px;
+  line-height: 1.7;
+}
+
 .create-done {
   align-items: center;
   text-align: center;
@@ -1972,6 +2093,18 @@ html.dark .canvas-promo__chip {
     position: static;
   }
 
+  .create-page.is-dock .create-plan {
+    grid-template-columns: 1fr;
+    overflow: auto;
+    align-items: start;
+  }
+
+  .create-page.is-dock .create-plan__main,
+  .create-page.is-dock .create-plan__side {
+    min-height: auto;
+    overflow: visible;
+  }
+
   .plan-editor__row {
     grid-template-columns: 36px minmax(0, 1fr) 32px;
   }
@@ -2000,6 +2133,11 @@ html.dark .canvas-promo__chip {
 
   .create-head.is-hero h1 {
     font-size: 26px;
+  }
+
+  .create-head.is-hero .create-head__canvas {
+    position: static;
+    margin-top: 8px;
   }
 
   .create-card {

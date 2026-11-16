@@ -828,6 +828,21 @@ const openTabIds = ref<string[]>([])
 const sessionId = ref('')
 const batch = ref(0)
 const inputRef = ref<HTMLTextAreaElement | null>(null)
+
+/** 首页输入框按内容增高。空着时不再留出能上下滚的空白。 */
+function fitEntryInput() {
+  const el = inputRef.value
+  if (!props.entry || !el)
+    return
+  el.style.height = 'auto'
+  const cap = 220
+  const next = Math.min(el.scrollHeight, cap)
+  el.style.height = `${Math.max(next, 0)}px`
+  el.style.overflowY = el.scrollHeight > cap ? 'auto' : 'hidden'
+}
+
+watch(prompt, () => nextTick(fitEntryInput))
+onMounted(() => nextTick(fitEntryInput))
 const bodyRef = ref<HTMLElement | null>(null)
 const busy = ref(false)
 /** 正在取消当前这一轮，按钮变灰，避免连点 */

@@ -2721,19 +2721,25 @@
 
 .plan-dialogue__row {
   display: grid;
-  grid-template-columns: 132px minmax(0, 1fr) 110px 32px;
+  grid-template-columns: minmax(0, 132px) minmax(0, 1fr) minmax(72px, 110px) 32px;
   gap: 8px;
   align-items: center;
 }
 
-.plan-dialogue__row .studio-select {
-  width: auto;
+.plan-dialogue__row > .studio-select.is-compact {
+  width: 100%;
   min-width: 0;
+  max-width: none;
+  flex: none;
 }
 
-.plan-dialogue__text,
-.plan-dialogue__emotion {
+.plan-dialogue__row > .studio-select.is-compact .studio-select__trigger,
+.plan-dialogue__row > .plan-dialogue__text,
+.plan-dialogue__row > .plan-dialogue__emotion {
+  width: 100%;
   min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .dialogue-modal {
@@ -2768,13 +2774,24 @@
   vertical-align: middle;
 }
 
-@media (max-width: 640px) {
+@media (max-width: 720px) {
   .plan-dialogue__row {
     grid-template-columns: minmax(0, 1fr) 32px;
   }
 
-  .plan-dialogue__row .plan-dialogue__text {
-    grid-column: 1 / span 2;
+  .plan-dialogue__row > .studio-select {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .plan-dialogue__row > .plan-editor__remove {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .plan-dialogue__row > .plan-dialogue__text,
+  .plan-dialogue__row > .plan-dialogue__emotion {
+    grid-column: 1 / -1;
   }
 }
 

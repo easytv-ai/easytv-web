@@ -5211,6 +5211,7 @@ html.dark .cnode__preview .github-markdown-body .hljs-literal {
 
 .canvas-chat.is-entry .canvas-chat__input textarea {
   min-height: 112px;
+  overflow-y: hidden;
   font-size: 16px;
   line-height: 1.65;
 }
@@ -5348,6 +5349,7 @@ html.dark .canvas-chat.is-entry .canvas-chat__input:focus-within {
   .canvas-chat.is-entry .canvas-chat__tools {
     min-width: 0;
     overflow-x: auto;
+    overflow-y: clip;
     scrollbar-width: none;
     -webkit-overflow-scrolling: touch;
   }
