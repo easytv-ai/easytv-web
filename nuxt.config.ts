@@ -94,6 +94,11 @@ export default defineNuxtConfig({
       { code: 'vi', language: 'vi', name: 'Tiếng Việt', file: 'vi.json' },
     ],
     detectBrowserLanguage: false,
+    // 10.3 的服务端语言检测会在 request 钩子还没写入上下文时就读它，页面直接 500。
+    // 浏览器语言检测已关闭，这里不需要 Nitro 侧再检测和跳转。
+    experimental: {
+      nitroContextDetection: false,
+    },
     vueI18n: './i18n.config.ts',
   } as any,
   css: [
