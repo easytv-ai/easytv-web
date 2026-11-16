@@ -347,14 +347,16 @@ const canInsertDialogue = computed(() => Boolean(props.screenplayId) && props.pl
         </button>
       </header>
       <p v-if="!plan.characters.length" class="plan-editor__empty">{{ t('没有角色时只生成分镜图') }}</p>
-      <div v-for="(c, i) in plan.characters" :key="c.key" class="plan-editor__row plan-editor__row--character">
-        <span class="plan-editor__key">{{ c.key }}</span>
-        <input v-model="c.name" class="plan-editor__name" maxlength="20" :disabled="disabled" :placeholder="t('角色名')" @input="touch">
-        <textarea v-model="c.look" rows="2" maxlength="500" :disabled="disabled" :placeholder="t('外貌与服装提示词')" @input="touch" />
-        <button type="button" class="plan-editor__remove" :aria-label="t('删除')" :disabled="disabled" @click="removeCharacter(i)">
-          <UIcon name="i-lucide-x" class="size-4" />
-        </button>
-        <div class="plan-voice">
+      <article v-for="(c, i) in plan.characters" :key="c.key" class="plan-card">
+        <header class="plan-card__bar">
+          <span class="plan-card__key">{{ c.key }}</span>
+          <input v-model="c.name" class="plan-card__name" maxlength="20" :disabled="disabled" :placeholder="t('角色名')" @input="touch">
+          <button type="button" class="plan-editor__remove" :aria-label="t('删除')" :disabled="disabled" @click="removeCharacter(i)">
+            <UIcon name="i-lucide-x" class="size-4" />
+          </button>
+        </header>
+        <textarea v-model="c.look" class="plan-card__look" rows="2" maxlength="500" :disabled="disabled" :placeholder="t('外貌与服装提示词')" @input="touch" />
+        <div class="plan-card__meta plan-voice">
           <span class="plan-voice__label">{{ t('音色') }}</span>
           <StudioSelect
             size="compact"
@@ -373,7 +375,7 @@ const canInsertDialogue = computed(() => Boolean(props.screenplayId) && props.pl
             @input="touch"
           >
         </div>
-      </div>
+      </article>
     </section>
 
     <section class="plan-editor__block">
@@ -384,13 +386,15 @@ const canInsertDialogue = computed(() => Boolean(props.screenplayId) && props.pl
           {{ t('添加场景') }}
         </button>
       </header>
-      <div v-for="(s, i) in plan.scenes" :key="s.key" class="plan-editor__row">
-        <span class="plan-editor__key">{{ s.key }}</span>
-        <input v-model="s.name" class="plan-editor__name" maxlength="20" :disabled="disabled" :placeholder="t('场景名')" @input="touch">
-        <textarea v-model="s.look" rows="2" maxlength="500" :disabled="disabled" :placeholder="t('场景提示词')" @input="touch" />
-        <button type="button" class="plan-editor__remove" :aria-label="t('删除')" :disabled="disabled" @click="removeScene(i)">
-          <UIcon name="i-lucide-x" class="size-4" />
-        </button>
+      <article v-for="(s, i) in plan.scenes" :key="s.key" class="plan-card">
+        <header class="plan-card__bar">
+          <span class="plan-card__key">{{ s.key }}</span>
+          <input v-model="s.name" class="plan-card__name" maxlength="20" :disabled="disabled" :placeholder="t('场景名')" @input="touch">
+          <button type="button" class="plan-editor__remove" :aria-label="t('删除')" :disabled="disabled" @click="removeScene(i)">
+            <UIcon name="i-lucide-x" class="size-4" />
+          </button>
+        </header>
+        <textarea v-model="s.look" class="plan-card__look" rows="2" maxlength="500" :disabled="disabled" :placeholder="t('场景提示词')" @input="touch" />
         <!-- 场次表（API.md 27.1）：这一场谁想得到什么、被什么挡住、结束时发生了什么 -->
         <div class="plan-beats">
           <label>
@@ -406,7 +410,7 @@ const canInsertDialogue = computed(() => Boolean(props.screenplayId) && props.pl
             <input v-model="s.turn" :maxlength="SCENE_BEAT_MAX" :disabled="disabled" :placeholder="t('结束时发生了什么')" @input="touch">
           </label>
         </div>
-      </div>
+      </article>
     </section>
 
     <section class="plan-editor__block">

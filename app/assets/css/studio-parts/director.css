@@ -2620,7 +2620,31 @@
 
 /* 短剧（API.md 25）：角色音色、对白条目、本镜人物状态、正反打弹窗 */
 .plan-editor__row--character {
-  grid-template-rows: auto auto;
+  grid-template-columns: 32px minmax(112px, 160px) auto minmax(128px, 168px) minmax(0, 1fr) 32px;
+  grid-template-areas:
+    "key name voiceLabel voiceSel voiceStyle remove"
+    ". look look look look look";
+}
+
+.plan-editor__row--character .plan-voice {
+  display: contents;
+}
+
+.plan-editor__row--character .plan-voice__label {
+  grid-area: voiceLabel;
+}
+
+.plan-editor__row--character .plan-voice .studio-select {
+  grid-area: voiceSel;
+  width: 100%;
+  min-width: 0;
+  max-width: none;
+}
+
+.plan-editor__row--character .plan-voice__style {
+  grid-area: voiceStyle;
+  width: 100%;
+  min-width: 0;
 }
 
 .plan-voice {

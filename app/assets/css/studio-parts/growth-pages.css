@@ -1528,8 +1528,9 @@ html.dark .canvas-promo__chip {
 
 .plan-editor__grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  grid-template-columns: minmax(140px, 200px) minmax(0, 1fr) auto;
   gap: 12px;
+  align-items: end;
 }
 
 .plan-editor__head {
@@ -1559,18 +1560,126 @@ html.dark .canvas-promo__chip {
   color: var(--st-muted);
 }
 
+.plan-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border-radius: 16px;
+  background: var(--st-elevated);
+}
+
+.plan-card__bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.plan-card__key {
+  flex: none;
+  min-width: 28px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--st-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.plan-card__name,
+.plan-card__look,
+.plan-card .plan-beats input,
+.plan-card .plan-voice__style {
+  border: 0;
+  border-radius: 12px;
+  background: var(--st-card);
+  color: inherit;
+  font: inherit;
+  font-size: 13px;
+  outline: none;
+}
+
+.plan-card__name,
+.plan-card .plan-beats input,
+.plan-card .plan-voice__style {
+  height: 36px;
+  padding: 0 12px;
+}
+
+.plan-card__name {
+  flex: 1;
+  min-width: 0;
+}
+
+.plan-card__name:focus,
+.plan-card__look:focus,
+.plan-card .plan-beats input:focus,
+.plan-card .plan-voice__style:focus {
+  box-shadow: 0 0 0 1px var(--st-chip-border);
+}
+
+.plan-card__look {
+  min-height: 72px;
+  padding: 12px 14px;
+  line-height: 1.6;
+  resize: vertical;
+}
+
+.plan-card .plan-voice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+}
+
+.plan-card .plan-voice .studio-select.is-compact {
+  flex: none;
+  width: 168px;
+  min-width: 0;
+  max-width: none;
+}
+
+.plan-card .plan-voice__style {
+  flex: 1;
+  min-width: 0;
+}
+
+.plan-card .plan-beats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+}
+
 .plan-editor__row {
   display: grid;
-  grid-template-columns: 36px 140px minmax(0, 1fr) 32px;
+  grid-template-columns: 32px minmax(0, 1fr) 32px;
+  grid-template-areas:
+    "key name remove"
+    ". look look";
   gap: 8px;
-  align-items: start;
+  align-items: center;
 }
 
 .plan-editor__key {
-  padding-top: 9px;
+  grid-area: key;
   font-size: 12px;
   color: var(--st-muted);
   font-variant-numeric: tabular-nums;
+}
+
+.plan-editor__name {
+  grid-area: name;
+  width: 100%;
+}
+
+.plan-editor__row > textarea {
+  grid-area: look;
+  min-height: 64px;
+  line-height: 1.55;
+}
+
+.plan-editor__remove {
+  grid-area: remove;
 }
 
 .plan-editor__row input,
@@ -2105,16 +2214,16 @@ html.dark .canvas-promo__chip {
     overflow: visible;
   }
 
-  .plan-editor__row {
-    grid-template-columns: 36px minmax(0, 1fr) 32px;
-  }
-
-  .plan-editor__row textarea {
-    grid-column: 2 / span 2;
+  .plan-editor__grid {
+    grid-template-columns: 1fr;
   }
 }
 
 @media (max-width: 640px) {
+  .plan-card .plan-beats {
+    grid-template-columns: 1fr;
+  }
+
   .create-page {
     padding-bottom: 88px;
   }
