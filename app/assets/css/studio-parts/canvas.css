@@ -188,6 +188,62 @@
   user-select: none;
 }
 
+.canvas-live-cursors {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  overflow: visible;
+  pointer-events: none;
+  transform-origin: 0 0;
+}
+
+.canvas-live-cursor {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: flex;
+  align-items: flex-start;
+  gap: 2px;
+  transform-origin: 0 0;
+}
+
+.canvas-live-cursor svg {
+  display: block;
+  flex: none;
+  filter: drop-shadow(0 1px 1px rgb(0 0 0 / 35%));
+}
+
+.canvas-live-cursor span,
+.canvas-live-people__name {
+  max-width: 120px;
+  overflow: hidden;
+  padding: 1px 6px;
+  border-radius: 999px;
+  color: #1c1917;
+  font-size: 11px;
+  font-weight: 650;
+  line-height: 16px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.canvas-live-cursor span {
+  margin-top: 12px;
+}
+
+.canvas-live-people {
+  position: absolute;
+  top: 64px;
+  right: 16px;
+  z-index: 8;
+  display: flex;
+  max-width: 280px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+  pointer-events: none;
+}
+
 .canvas-mark-bar {
   position: absolute;
   top: 16px;
@@ -7412,6 +7468,16 @@ html.dark .canvas-brief {
   border: 1px solid var(--st-border);
   border-radius: 18px;
   background: var(--st-card);
+}
+
+html.dark .watch-side,
+html.dark .watch-comments-inline .watch-comments,
+html.dark .watch-comments-inline .watch-comments__input {
+  background: #141414;
+}
+
+html.dark .watch-comments-inline .watch-comments__list::-webkit-scrollbar-thumb {
+  border-color: #141414;
 }
 
 .watch-side__author {

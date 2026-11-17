@@ -1,3 +1,10 @@
+import {
+  buildCanvasSpatialIndex,
+  queryCanvasSpatialEdges,
+  queryCanvasSpatialNodes,
+  type CanvasSpatialIndex,
+} from './canvas-spatial-index'
+
 /** 少于这么多张卡片时不裁，避免小画布多一次样式写入 */
 export const CANVAS_CULL_MIN_NODES = 16
 /** 视口外再留这么多屏。只多留不到半屏，屏幕外的卡片不再跟着画 */
@@ -78,13 +85,6 @@ export function canvasCullNeedsReveal(
     || live.bottom > prepared.bottom
 }
 
-function intersects(node: { x: number, y: number, w: number, h: number }, rect: CanvasCullRect) {
-  return node.x < rect.right
-    && node.x + node.w > rect.left
-    && node.y < rect.bottom
-    && node.y + node.h > rect.top
-}
-
 /** 子节点坐标是相对父组的，裁剪前先换成画布绝对坐标 */
 export function canvasAbsBoxes(nodes: CanvasCullInput[]): CanvasCullNode[] {
   const byId = new Map(nodes.map(node => [node.id, node]))
@@ -122,8 +122,45 @@ export function canvasAbsBoxes(nodes: CanvasCullInput[]): CanvasCullNode[] {
 }
 
 /**
+ * 用已经建好的格子表决定这一屏要藏哪些卡片和连线。
+ * 平移过程中不调用；停稳后查一次，再分批写样式。
+ */
+export function canvasCullFromIndex(
+  index: CanvasSpatialIndex,
+  viewport: CanvasCullViewport,
+  view: CanvasCullView,
+  marginPx: number,
+): { plan: CanvasCullPlan, rect: CanvasCullRect } {
+  const rect = canvasFlowViewRect(viewport, view, marginPx)
+  if (index.nodes.size < CANVAS_CULL_MIN_NODES || view.width < 10 || view.height < 10)
+    return { plan: emptyPlan(), rect }
+  const shown = new Set<string>()
+  for (const node of index.nodes.values()) {
+    if (node.pin)
+      shown.add(node.id)
+  }
+  for (const node of queryCanvasSpatialNodes(index, rect))
+    shown.add(node.id)
+  if (shown.size >= index.nodes.size)
+    return { plan: emptyPlan(), rect }
+  const hiddenNodes = new Set<string>()
+  for (const node of index.nodes.values()) {
+    if (!shown.has(node.id))
+      hiddenNodes.add(node.id)
+  }
+  const visibleEdges = queryCanvasSpatialEdges(index, rect, shown)
+  const hiddenEdges = new Set<string>()
+  for (const id of index.edges.keys()) {
+    if (!visibleEdges.has(id))
+      hiddenEdges.add(id)
+  }
+  return { plan: { hiddenNodes, hiddenEdges }, rect }
+}
+
+/**
  * 视口外的节点 / 连线只跳过绘制，组件仍挂着。
  * 不走 Vue Flow 的 onlyRenderVisibleElements，避免进出视口反复挂载。
+ * 卡片多时先落成格子表再查，结果和逐张测量一致。
  */
 export function canvasCullPlan(
   nodes: CanvasCullNode[],
@@ -134,38 +171,7 @@ export function canvasCullPlan(
 ): CanvasCullPlan {
   if (nodes.length < CANVAS_CULL_MIN_NODES || view.width < 10 || view.height < 10)
     return emptyPlan()
-  const rect = canvasFlowViewRect(viewport, view, marginPx)
-  const shown = new Set<string>()
-  for (const node of nodes) {
-    if (node.pin || intersects(node, rect))
-      shown.add(node.id)
-  }
-  if (shown.size >= nodes.length)
-    return emptyPlan()
-  const byId = new Map(nodes.map(node => [node.id, node]))
-  const hiddenNodes = new Set<string>()
-  for (const node of nodes) {
-    if (!shown.has(node.id))
-      hiddenNodes.add(node.id)
-  }
-  const hiddenEdges = new Set<string>()
-  for (const edge of edges) {
-    const source = byId.get(edge.source)
-    const target = byId.get(edge.target)
-    if (!source || !target)
-      continue
-    if (shown.has(source.id) || shown.has(target.id))
-      continue
-    const box = {
-      x: Math.min(source.x, target.x),
-      y: Math.min(source.y, target.y),
-      w: Math.abs(source.x - target.x) + Math.max(source.w, target.w),
-      h: Math.abs(source.y - target.y) + Math.max(source.h, target.h),
-    }
-    if (!intersects(box, rect))
-      hiddenEdges.add(edge.id)
-  }
-  return { hiddenNodes, hiddenEdges }
+  return canvasCullFromIndex(buildCanvasSpatialIndex(nodes, edges), viewport, view, marginPx).plan
 }
 
 /**
@@ -173,13 +179,19 @@ export function canvasCullPlan(
  * content-visibility 不在 Vue Flow 的 style 绑定里，后续补丁不会把它清掉。
  * auto 记住上次真实尺寸，避免裁掉之后 ResizeObserver 把节点量成 0。
  */
+export type CanvasCullElements = {
+  nodes: Iterable<HTMLElement>
+  edges: Iterable<SVGElement>
+}
+
 export function applyCanvasCullDom(
   root: ParentNode,
   plan: CanvasCullPlan,
   sizes: Map<string, { w: number, h: number }>,
   budget = Number.POSITIVE_INFINITY,
+  elements?: CanvasCullElements,
 ): 'miss' | 'partial' | 'done' {
-  const nodeEls = root.querySelectorAll<HTMLElement>('.vue-flow__node')
+  const nodeEls = elements?.nodes ?? root.querySelectorAll<HTMLElement>('.vue-flow__node')
   if (!nodeEls.length && plan.hiddenNodes.size)
     return 'miss'
   let left = budget
@@ -213,7 +225,7 @@ export function applyCanvasCullDom(
     el.style.containIntrinsicSize = `auto ${w}px auto ${h}px`
     el.style.contentVisibility = 'hidden'
   }
-  const edgeEls = root.querySelectorAll<SVGElement>('.vue-flow__edge')
+  const edgeEls = elements?.edges ?? root.querySelectorAll<SVGElement>('.vue-flow__edge')
   for (const el of edgeEls) {
     const id = el.getAttribute('data-id') || ''
     const next = plan.hiddenEdges.has(id) ? 'none' : ''
@@ -232,6 +244,7 @@ export function revealCanvasCullDom(
   shownNodes: Set<string>,
   shownEdges: Set<string>,
   budget = Number.POSITIVE_INFINITY,
+  elements?: CanvasCullElements,
 ): 'partial' | 'done' {
   let left = budget
   let pending = false
@@ -243,7 +256,7 @@ export function revealCanvasCullDom(
     left -= 1
     return true
   }
-  const nodeEls = root.querySelectorAll<HTMLElement>('.vue-flow__node')
+  const nodeEls = elements?.nodes ?? root.querySelectorAll<HTMLElement>('.vue-flow__node')
   for (const el of nodeEls) {
     const id = el.getAttribute('data-id') || ''
     if (!shownNodes.has(id) || !el.style.contentVisibility)
@@ -253,7 +266,7 @@ export function revealCanvasCullDom(
     el.style.contentVisibility = ''
     el.style.containIntrinsicSize = ''
   }
-  const edgeEls = root.querySelectorAll<SVGElement>('.vue-flow__edge')
+  const edgeEls = elements?.edges ?? root.querySelectorAll<SVGElement>('.vue-flow__edge')
   for (const el of edgeEls) {
     const id = el.getAttribute('data-id') || ''
     if (!shownEdges.has(id) || el.style.display !== 'none')

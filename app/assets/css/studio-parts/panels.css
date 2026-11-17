@@ -61,6 +61,11 @@
   cursor: default;
 }
 
+.canvas-editor__save-btn.is-count {
+  width: auto;
+  padding: 0 6px;
+}
+
 /* ===== 项目/资产卡片操作菜单 ===== */
 .projects-card__menu {
   position: absolute;

@@ -14,7 +14,7 @@ import TeamRecharge from './team-recharge.vue'
 const { t } = useI18n()
 const toast = useToast()
 const { confirm } = useConfirm()
-const { gotoPricing } = usePricingModal()
+const { gotoPricing, pricingOpen } = usePricingModal()
 
 const emit = defineEmits<{ teamChanged: [] }>()
 
@@ -318,9 +318,29 @@ function pct(used: number, limit: number) {
   return Math.min(100, Math.round((used / limit) * 100))
 }
 
+async function refreshTeamView() {
+  await Promise.all([loadTeam(), loadTeamUsage()])
+}
+
+// 面板被 KeepAlive 留着：第一次挂载走 onMounted，再切回「团队」标签走 onActivated。
+let skipActivate = false
 onMounted(() => {
-  void loadTeam()
-  void loadTeamUsage()
+  skipActivate = true
+  void refreshTeamView()
+})
+onActivated(() => {
+  if (skipActivate) {
+    skipActivate = false
+    return
+  }
+  void refreshTeamView()
+})
+
+// 从套餐弹窗回来（开通 / 续费团队版）时，席位、有效期和积分池要重拉。
+watch(pricingOpen, (open, wasOpen) => {
+  if (!wasOpen || open)
+    return
+  void refreshTeamView()
 })
 </script>
 

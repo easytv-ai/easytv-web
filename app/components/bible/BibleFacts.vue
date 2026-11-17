@@ -51,8 +51,8 @@ function toggleKnowledge(charKey: string, factKey: string) {
       <header class="bible-item__head">
         <span class="plan-editor__key">{{ f.key }}</span>
         <input v-model="f.text" class="bible-item__name bible-item__name--wide" :maxlength="BIBLE_LIMITS.factText" :placeholder="t('事实内容，如：手机里有录音')" @input="emit('change')">
-        <button type="button" class="plan-editor__remove" :aria-label="t('删除')" @click="removeFact(i)">
-          <UIcon name="i-lucide-x" class="size-4" />
+        <button type="button" class="plan-editor__icon is-danger" :aria-label="t('删除')" @click="removeFact(i)">
+          <UIcon name="i-lucide-trash-2" class="size-4" />
         </button>
       </header>
       <div class="bible-fact__meta">

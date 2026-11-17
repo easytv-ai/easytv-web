@@ -3048,7 +3048,7 @@
 
 .bible-rel {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr) 32px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr) 36px;
   gap: 8px;
   align-items: center;
 }
@@ -3406,7 +3406,7 @@ html.dark .bible-impact__status.is-failed {
 
 @media (max-width: 640px) {
   .bible-rel {
-    grid-template-columns: minmax(0, 1fr) 32px;
+    grid-template-columns: minmax(0, 1fr) 36px;
   }
 
   .bible-page .bible-item .plan-voice {
@@ -3678,6 +3678,11 @@ html.dark .bible-impact__status.is-failed {
   align-items: center;
   gap: 8px;
   min-width: 0;
+}
+
+.bible-page .bible-item__head .plan-editor__icon {
+  margin-left: auto;
+  flex: none;
 }
 
 .bible-page .bible-inline {

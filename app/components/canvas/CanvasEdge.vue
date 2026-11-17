@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { EdgeLabelRenderer, getBezierPath, useVueFlow } from '@vue-flow/core'
+import { EdgeLabelRenderer, useVueFlow } from '@vue-flow/core'
 import type { EdgeProps } from '@vue-flow/core'
+import { canvasCachedEdgePath } from '~/utils/canvas-edge-path'
 import { CANVAS_NODE_VIEW_KEY, EMPTY_CANVAS_NODE_VIEW } from '~/utils/canvas-node-view'
 import { setCanvasEdgeFlowLive } from '~/utils/canvas-edge-flow-live'
 
@@ -17,17 +18,16 @@ const cutPos = ref({ x: 0, y: 0 })
 let leaveTimer = 0
 let cutTimer = 0
 
-const pathInfo = computed(() => getBezierPath({
+const pathInfo = computed(() => canvasCachedEdgePath({
   sourceX: props.sourceX,
   sourceY: props.sourceY,
   targetX: props.targetX,
   targetY: props.targetY,
   sourcePosition: props.sourcePosition,
   targetPosition: props.targetPosition,
-  curvature: 0.4,
 }))
 
-const path = computed(() => pathInfo.value[0])
+const path = computed(() => pathInfo.value.d)
 
 /** 少选保留流光。框进很多张后再滚动，整网描边一起动画会卡很久 */
 const FLOW_MAX_SELECTED = 6
@@ -148,7 +148,7 @@ function onCut(event: MouseEvent) {
 
 watch(() => pathInfo.value, (info) => {
   if (!hovered.value)
-    cutPos.value = { x: info[1], y: info[2] }
+    cutPos.value = { x: info.labelX, y: info.labelY }
 }, { immediate: true })
 
 onUnmounted(() => {

@@ -178,7 +178,7 @@ async function moveProject(item: Project) {
       notify(res?.message || t('移动失败'), 'error')
       return
     }
-    projects.value = projects.value.filter(row => row.id !== item.id)
+    await load()
     notify(toTeam ? t('已移到团队「{team}」，切到团队空间可以看到', { team: target!.name }) : t('已移回个人空间'))
   }
   finally {
@@ -200,7 +200,7 @@ async function removeProject(item: Project) {
     notify(res?.message || t('删除失败'), 'error')
     return
   }
-  projects.value = projects.value.filter(row => row.id !== item.id)
+  await load()
   notify(t('已移到回收站'))
 }
 

@@ -164,11 +164,29 @@ async function checkRechargePay(tradeNo: string) {
   }
 }
 
+const { pricingOpen } = usePricingModal()
+
+let skipOrdersActivate = false
 onMounted(() => {
+  skipOrdersActivate = true
   if (!ordersLoaded.value)
     void reloadOrders()
   if (!rechargesLoaded.value)
     void reloadRecharges()
+})
+onActivated(() => {
+  if (skipOrdersActivate) {
+    skipOrdersActivate = false
+    return
+  }
+  void reloadOrders()
+  void reloadRecharges()
+})
+watch(pricingOpen, (open, wasOpen) => {
+  if (!wasOpen || open)
+    return
+  void reloadOrders()
+  void reloadRecharges()
 })
 </script>
 

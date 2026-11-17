@@ -132,6 +132,7 @@ import {
 import { runQueueBadge } from '~/utils/canvas-run-queue'
 import { canvasMediaFilesFromDataTransfer } from '~/utils/canvas-drop-files'
 import { canvasFlowPaneRect, canvasFlowToClient, canvasPanelBelowNode } from '~/utils/canvas-panel-layout'
+import { canvasLivePositionUpdates } from '~/utils/canvas-live-collab'
 import { canvasBarMode } from '~/utils/canvas-bar-mode'
 import { dispatchCanvasSelAction } from '~/utils/canvas-sel-actions'
 import { dispatchCanvasShortcut } from '~/utils/canvas-shortcuts'
@@ -163,17 +164,25 @@ import {
 import {
   CANVAS_CULL_FRAME_BUDGET,
   CANVAS_CULL_MARGIN_SCREENS,
+  CANVAS_CULL_MIN_NODES,
   CANVAS_CULL_REVEAL_PAD,
   applyCanvasCullDom,
   canvasAbsBoxes,
+  canvasCullFromIndex,
   canvasCullNeedsReveal,
-  canvasCullPlan,
   canvasFlowViewRect,
   revealCanvasCullDom,
   type CanvasCullEdge,
+  type CanvasCullElements,
   type CanvasCullInput,
+  type CanvasCullPlan,
   type CanvasCullRect,
 } from '~/utils/canvas-viewport-cull'
+import {
+  buildCanvasSpatialIndex,
+  queryCanvasSpatialNodes,
+  type CanvasSpatialIndex,
+} from '~/utils/canvas-spatial-index'
 import CanvasEmpty from '~/components/canvas/CanvasEmpty.vue'
 import CanvasToolsRail from '~/components/canvas/CanvasToolsRail.vue'
 import CanvasDock from '~/components/canvas/CanvasDock.vue'
@@ -846,8 +855,28 @@ function canvasTransformPane() {
   return paneEl
 }
 
+function paintLiveCursorLayer(vp: CanvasLiveViewport) {
+  const el = liveCursorLayer.value
+  if (!el)
+    return
+  const zoom = vp.zoom || 1
+  el.style.transformOrigin = '0 0'
+  el.style.transform = canvasPaneTransform({ x: vp.x, y: vp.y, zoom })
+  const inv = 1 / zoom
+  for (const node of el.children) {
+    const item = node as HTMLElement
+    const x = item.dataset.x
+    const y = item.dataset.y
+    if (x == null || y == null)
+      continue
+    item.style.transformOrigin = '0 0'
+    item.style.transform = `translate(${x}px, ${y}px) scale(${inv})`
+  }
+}
+
 function paintWheelPan(shown: CanvasLiveViewport) {
   applyCanvasPaneTransform(canvasTransformPane(), shown)
+  paintLiveCursorLayer(shown)
   if (!liveHudStart)
     return
   applyCanvasLiveHud(
@@ -859,14 +888,120 @@ function paintWheelPan(shown: CanvasLiveViewport) {
 
 /**
  * 视口外卡片用 content-visibility 跳过绘制，组件不卸载。
- * 拖动过程中不改样式，停稳后再藏起离开的、揭开进入的。
+ * 拖动过程中不改样式。停稳后用格子表查出这一屏要画的，再分批写上。
+ * 卡片位置没变就不重建格子表，同一屏也不重复决定。
  */
+type CullLayout = {
+  stamp: string
+  index: CanvasSpatialIndex
+  boxes: ReturnType<typeof canvasAbsBoxes>
+  edges: CanvasCullEdge[]
+  sizes: Map<string, { w: number, h: number }>
+  nodeById: Map<string, CanvasFlowNode>
+}
+type CullJob = {
+  key: string
+  plan: CanvasCullPlan
+  rect: CanvasCullRect
+  shownNodes: Set<string>
+  shownEdges: Set<string>
+  sizes: Map<string, { w: number, h: number }>
+  applied: boolean
+}
+let layoutCache: CullLayout | null = null
+let cullJob: CullJob | null = null
+let cullElements: { stamp: string, nodes: HTMLElement[], edges: SVGElement[] } | null = null
 let cullPrepared: CanvasCullRect | null = null
-let lastCullKey = ''
 let cullTimer = 0
 let cullPump = 0
 let settleFrame = 0
 let nodeDragging = false
+let collabSendCursor: (x: number, y: number) => void = () => {}
+let collabSendNodes: (items: { id: string, x: number, y: number }[]) => void = () => {}
+const localDragIds = new Set<string>()
+let liveCursorAt = 0
+const liveCursorLayer = ref<HTMLElement | null>(null)
+
+function mixStamp(hash: number, value: number) {
+  return Math.imul(hash ^ value, 16777619)
+}
+
+function mixStampId(hash: number, id: string) {
+  for (let i = 0; i < id.length; i++)
+    hash = mixStamp(hash, id.charCodeAt(i))
+  return mixStamp(hash, 31)
+}
+
+function pinIds() {
+  return [
+    gridSplitNodeId.value,
+    cropNodeId.value,
+    eraseNodeId.value,
+    mattingNodeId.value,
+    viralNodeId.value,
+    extendStripNodeId.value,
+    clipStripNodeId.value,
+    splitStripNodeId.value,
+    lightNodeId.value,
+    angleNodeId.value,
+    pending.value?.nodeId || '',
+  ]
+}
+
+function layoutStamp() {
+  let hash = mixStamp(2166136261, nodes.value.length)
+  for (const node of nodes.value) {
+    const size = nodeSize(node)
+    hash = mixStampId(hash, node.id)
+    hash = mixStamp(hash, Math.round(node.position.x))
+    hash = mixStamp(hash, Math.round(node.position.y))
+    hash = mixStamp(hash, Math.round(size.w))
+    hash = mixStamp(hash, Math.round(size.h))
+    hash = mixStamp(hash, node.hidden ? 1 : 2)
+    hash = mixStampId(hash, node.parentNode || '')
+  }
+  for (const id of pinIds())
+    hash = mixStampId(hash, id)
+  return (hash >>> 0).toString(36)
+}
+
+function ensureLayout() {
+  const stamp = layoutStamp()
+  if (layoutCache?.stamp === stamp)
+    return layoutCache
+  const pins = new Set(pinIds().filter(Boolean))
+  const nodeById = new Map<string, CanvasFlowNode>()
+  const inputs: CanvasCullInput[] = []
+  for (const node of nodes.value) {
+    nodeById.set(node.id, node)
+    const size = nodeSize(node)
+    inputs.push({
+      id: node.id,
+      parentId: node.parentNode,
+      x: node.position.x,
+      y: node.position.y,
+      w: size.w,
+      h: size.h,
+      pin: pins.has(node.id),
+      skip: Boolean(node.hidden),
+    })
+  }
+  const boxes = canvasAbsBoxes(inputs)
+  const edgeList: CanvasCullEdge[] = []
+  for (const edge of edges.value)
+    edgeList.push({ id: edge.id, source: edge.source, target: edge.target })
+  layoutCache = {
+    stamp,
+    index: buildCanvasSpatialIndex(boxes, edgeList),
+    boxes,
+    edges: edgeList,
+    sizes: new Map(boxes.map(box => [box.id, { w: box.w, h: box.h }])),
+    nodeById,
+  }
+  cullJob = null
+  cullElements = null
+  return layoutCache
+}
 
 function scheduleCullPump() {
   if (cullPump || typeof window === 'undefined')
@@ -888,57 +1023,72 @@ function cullViewSize() {
   }
 }
 
-function buildCull(vp: CanvasLiveViewport) {
+function rectKey(rect: CanvasCullRect) {
+  return `${Math.round(rect.left)}:${Math.round(rect.top)}:${Math.round(rect.right)}:${Math.round(rect.bottom)}`
+}
+
+/** 同一布局、同一屏只决定一次。分批写样式时不再扫全部卡片 */
+function ensureCullJob(vp: CanvasLiveViewport) {
   const view = cullViewSize()
   if (view.width < 10 || view.height < 10)
     return null
-  const pins = new Set<string>()
-  const extra = [
-    gridSplitNodeId.value,
-    cropNodeId.value,
-    eraseNodeId.value,
-    mattingNodeId.value,
-    viralNodeId.value,
-    extendStripNodeId.value,
-    clipStripNodeId.value,
-    splitStripNodeId.value,
-    lightNodeId.value,
-    angleNodeId.value,
-    pending.value?.nodeId || '',
-  ]
-  for (const id of extra) {
-    if (id)
-      pins.add(id)
-  }
-  const boxes = canvasAbsBoxes(nodes.value.map((node): CanvasCullInput => {
-    const size = nodeSize(node)
-    return {
-      id: node.id,
-      parentId: node.parentNode,
-      x: node.position.x,
-      y: node.position.y,
-      w: size.w,
-      h: size.h,
-      pin: pins.has(node.id),
-      skip: Boolean(node.hidden),
-    }
-  }))
-  const edgeList: CanvasCullEdge[] = []
-  for (const edge of edges.value) {
-    edgeList.push({
-      id: edge.id,
-      source: edge.source,
-      target: edge.target,
-    })
-  }
+  const layout = ensureLayout()
   const margin = Math.max(view.width, view.height) * CANVAS_CULL_MARGIN_SCREENS
-  return {
-    boxes,
-    edges: edgeList,
-    sizes: new Map(boxes.map(box => [box.id, { w: box.w, h: box.h }])),
-    rect: canvasFlowViewRect(vp, view, margin),
-    plan: canvasCullPlan(boxes, edgeList, vp, view, margin),
+  const rect = canvasFlowViewRect(vp, view, margin)
+  const key = `${layout.stamp}|${rectKey(rect)}`
+  if (cullJob?.key === key)
+    return cullJob
+  if (nodes.value.length < CANVAS_CULL_MIN_NODES) {
+    cullJob = {
+      key,
+      plan: { hiddenNodes: new Set(), hiddenEdges: new Set() },
+      rect,
+      shownNodes: new Set(nodes.value.map(node => node.id)),
+      shownEdges: new Set(edges.value.map(edge => edge.id)),
+      sizes: layout.sizes,
+      applied: false,
+    }
+    return cullJob
   }
+  const built = canvasCullFromIndex(layout.index, vp, view, margin)
+  const shownNodes = new Set<string>()
+  for (const box of layout.boxes) {
+    if (!built.plan.hiddenNodes.has(box.id))
+      shownNodes.add(box.id)
+  }
+  const shownEdges = new Set<string>()
+  for (const edge of layout.edges) {
+    if (!built.plan.hiddenEdges.has(edge.id))
+      shownEdges.add(edge.id)
+  }
+  cullJob = {
+    key,
+    plan: built.plan,
+    rect: built.rect,
+    shownNodes,
+    shownEdges,
+    sizes: layout.sizes,
+    applied: false,
+  }
+  return cullJob
+}
+
+function elementsFor(root: ParentNode, stamp: string): CanvasCullElements | undefined {
+  const expect = layoutCache?.stamp === stamp ? layoutCache.boxes.length : 0
+  const first = cullElements?.nodes[0]
+  const ready = Boolean(cullElements && cullElements.stamp === stamp && first?.isConnected && cullElements.nodes.length >= expect)
+  if (!ready) {
+    const nodes = [...root.querySelectorAll<HTMLElement>('.vue-flow__node')]
+    const edges = [...root.querySelectorAll<SVGElement>('.vue-flow__edge')]
+    if (nodes.length >= expect)
+      cullElements = { stamp, nodes, edges }
+    else
+      cullElements = null
+    if (!nodes.length && !edges.length)
+      return undefined
+    return { nodes, edges }
+  }
+  return cullElements || undefined
 }
 
 function revealCull(vp: CanvasLiveViewport) {
@@ -949,49 +1099,61 @@ function revealCull(vp: CanvasLiveViewport) {
     return 'skip' as const
   if (cullPrepared && !canvasCullNeedsReveal(cullPrepared, vp, view, CANVAS_CULL_REVEAL_PAD))
     return 'done' as const
-  const built = buildCull(vp)
+  const job = ensureCullJob(vp)
   const root = document.querySelector('.canvas-flow')
-  if (!built || !root)
+  if (!job || !root)
     return 'skip' as const
-  const shownNodes = new Set<string>()
-  for (const box of built.boxes) {
-    if (!built.plan.hiddenNodes.has(box.id))
-      shownNodes.add(box.id)
+  const els = layoutCache ? elementsFor(root, layoutCache.stamp) : undefined
+  if (layoutCache && !cullElements) {
+    scheduleCullPump()
+    return 'partial' as const
   }
-  const shownEdges = new Set<string>()
-  for (const edge of built.edges) {
-    if (!built.plan.hiddenEdges.has(edge.id))
-      shownEdges.add(edge.id)
-  }
-  const status = revealCanvasCullDom(root, shownNodes, shownEdges, CANVAS_CULL_FRAME_BUDGET)
+  const status = revealCanvasCullDom(
+    root,
+    job.shownNodes,
+    job.shownEdges,
+    CANVAS_CULL_FRAME_BUDGET,
+    els,
+  )
   if (status === 'partial') {
     scheduleCullPump()
     return 'partial' as const
   }
-  cullPrepared = built.rect
-  lastCullKey = ''
+  cullPrepared = job.rect
   return 'done' as const
 }
 
 function fullCull(vp: CanvasLiveViewport) {
   if (liveHudStart || nodeDragging)
     return 'skip' as const
-  const built = buildCull(vp)
+  const job = ensureCullJob(vp)
   const root = document.querySelector('.canvas-flow')
-  if (!built || !root)
+  if (!job || !root)
     return 'skip' as const
-  const key = `${built.plan.hiddenNodes.size}:${[...built.plan.hiddenNodes].sort().join('\0')}\n${[...built.plan.hiddenEdges].sort().join('\0')}`
-  if (key === lastCullKey)
+  if (job.applied)
     return 'done' as const
-  const status = applyCanvasCullDom(root, built.plan, built.sizes, CANVAS_CULL_FRAME_BUDGET)
+  const els = layoutCache ? elementsFor(root, layoutCache.stamp) : undefined
+  if (layoutCache && !cullElements) {
+    scheduleCullPump()
+    return 'partial' as const
+  }
+  const status = applyCanvasCullDom(
+    root,
+    job.plan,
+    job.sizes,
+    CANVAS_CULL_FRAME_BUDGET,
+    els,
+  )
   if (status === 'partial') {
     scheduleCullPump()
     return 'partial' as const
   }
-  if (status !== 'done')
+  if (status !== 'done') {
+    cullElements = null
     return 'skip' as const
-  lastCullKey = key
-  cullPrepared = built.rect
+  }
+  job.applied = true
+  cullPrepared = job.rect
   return 'done' as const
 }
 
@@ -1010,7 +1172,6 @@ function scheduleFullCull() {
 }
 
 watch(() => nodes.value.length, () => {
-  lastCullKey = ''
   scheduleFullCull()
 })
 
@@ -1022,6 +1183,7 @@ watch(() => [dimensions.value.width, dimensions.value.height] as const, () => {
 
 function paintDragPan(shown: CanvasLiveViewport) {
   applyCanvasPaneTransform(canvasTransformPane(), shown)
+  paintLiveCursorLayer(shown)
   if (!liveHudStart)
     return
   applyCanvasLiveHud(
@@ -1199,6 +1361,26 @@ function onMarqueeMove(event: PointerEvent) {
     paintMarquee(drag)
 }
 
+/** 框选松手只在视口格子里找卡片，不再把整张画布逐张测一遍 */
+function marqueePool(area: { x: number, y: number, width: number, height: number }) {
+  if (nodes.value.length < CANVAS_CULL_MIN_NODES)
+    return undefined
+  const layout = ensureLayout()
+  const hits = queryCanvasSpatialNodes(layout.index, {
+    left: area.x,
+    top: area.y,
+    right: area.x + area.width,
+    bottom: area.y + area.height,
+  })
+  const pool: CanvasFlowNode[] = []
+  for (const hit of hits) {
+    const node = layout.nodeById.get(hit.id)
+    if (node && !node.hidden)
+      pool.push(node)
+  }
+  return pool
+}
+
 function finishMarquee(event?: PointerEvent, commit = true) {
   const drag = marqueeDrag
   if (!drag)
@@ -1223,12 +1405,13 @@ function finishMarquee(event?: PointerEvent, commit = true) {
   const y2 = y1 + drag.height
   const a = screenToFlowCoordinate({ x: x1, y: y1 })
   const b = screenToFlowCoordinate({ x: x2, y: y2 })
-  const hits = getIntersectingNodes({
+  const area = {
     x: Math.min(a.x, b.x),
     y: Math.min(a.y, b.y),
     width: Math.abs(b.x - a.x),
     height: Math.abs(b.y - a.y),
-  }, true).filter(node => !node.hidden)
+  }
+  const hits = getIntersectingNodes(area, true, marqueePool(area)).filter(node => !node.hidden)
   requestAnimationFrame(() => {
     addSelectedNodes(hits)
   })
@@ -1343,11 +1526,28 @@ function onCanvasPointerDown(event: PointerEvent) {
   onMarqueeDown(event)
 }
 
+function publishLiveCursor(event: PointerEvent) {
+  if (!event.isPrimary)
+    return
+  const now = performance.now()
+  if (now - liveCursorAt < 40)
+    return
+  const el = event.target
+  if (!(el instanceof Element) || !el.closest('.canvas-workspace'))
+    return
+  liveCursorAt = now
+  const live = dragPan?.shown || wheelPanShown || viewport.value
+  const pane = canvasFlowPaneRect()
+  const zoom = live.zoom || 1
+  collabSendCursor((event.clientX - pane.left - live.x) / zoom, (event.clientY - pane.top - live.y) / zoom)
+}
+
 function onCanvasPointerMove(event: PointerEvent) {
   onDragPanMove(event)
   onMarqueeMove(event)
   onSelGapMove(event)
   syncSelectionGapCursor(event)
+  publishLiveCursor(event)
 }
 
 function onCanvasPointerUp(event: PointerEvent) {
@@ -1390,6 +1590,7 @@ function commitWheelPan() {
   if (!next)
     return
   applyCanvasPaneTransform(canvasTransformPane(), next)
+  paintLiveCursorLayer(next)
   setViewport({ x: next.x, y: next.y, zoom: next.zoom || 1 })
 }
 
@@ -1622,6 +1823,8 @@ const emit = defineEmits<{
   'skill-start': [skill: CanvasStartSkill]
   /** 对话栏选风格：风格库点中后交给页面写回对话 */
   'chat-style': [style: Style | null]
+  /** 别人把这张画布存上了。页面在自己没有未保存改动时悄悄载入 */
+  'peer-saved': [version: number]
 }>()
 
 const {
@@ -2819,6 +3022,38 @@ const practiceView = practice.view
  * 构成跟练的场景必须保留平移与缩放这两条读操作）。
  */
 const practiceLocked = computed(() => practiceSession.value.active)
+
+function applyRemoteNodes(items: { id: string, x: number, y: number }[]) {
+  const updates = canvasLivePositionUpdates(
+    items,
+    nodes.value.map(node => ({ id: node.id, x: node.position.x, y: node.position.y })),
+    localDragIds,
+  )
+  for (const item of updates)
+    updateNode(item.id, { position: { x: item.x, y: item.y } })
+}
+
+const liveCollab = useCanvasCollab({
+  canvasId: () => props.canvasId,
+  enabled: () => !practiceLocked.value,
+  onNodes: applyRemoteNodes,
+  onSaved: (version) => {
+    if (nodeDragging || localDragIds.size)
+      return
+    emit('peer-saved', version)
+  },
+})
+collabSendCursor = liveCollab.sendCursor
+collabSendNodes = liveCollab.sendNodes
+const livePeople = computed(() => liveCollab.peers.value)
+const liveCursors = computed(() => {
+  const now = liveCollab.clock.value
+  return liveCollab.peers.value.filter(peer => peer.seen && now - peer.at < 8000)
+})
+watch(() => [viewport.value.x, viewport.value.y, viewport.value.zoom] as const, () => {
+  const vp = viewport.value
+  paintLiveCursorLayer({ x: vp.x, y: vp.y, zoom: vp.zoom || 1 })
+})
 
 /**
  * 只读闸的统一出口：被跟练拦下时提示一句并返回 true，调用方一行早退即可。
@@ -4037,8 +4272,34 @@ function onNodeClick({ event, node }: NodeMouseEvent) {
   updateNode(node.id, { selected: false } as Parameters<typeof updateNode>[1])
 }
 
-function onNodeDragStart() {
+function dragIdsOf(event: NodeDragEvent) {
+  const list = event.nodes?.length ? event.nodes : event.node ? [event.node] : []
+  return list.map(item => item.id).filter((id): id is string => Boolean(id))
+}
+
+function publishDragPositions(ids: string[]) {
+  if (props.readonly || practiceLocked.value || !ids.length)
+    return
+  const items: { id: string, x: number, y: number }[] = []
+  for (const id of ids) {
+    const node = nodes.value.find(item => item.id === id)
+    if (!node)
+      continue
+    const x = node.position.x
+    const y = node.position.y
+    if (!Number.isFinite(x) || !Number.isFinite(y))
+      continue
+    items.push({ id, x, y })
+  }
+  if (items.length)
+    collabSendNodes(items)
+}
+
+function onNodeDragStart(event: NodeDragEvent) {
   nodeDragging = true
+  localDragIds.clear()
+  for (const id of dragIdsOf(event))
+    localDragIds.add(id)
   practiceCamera.cancel()
   alignGuides.value = []
   dragAlignOthers = null
@@ -4110,6 +4371,7 @@ function applyNodeDragAlign({ node, nodes: dragging }: NodeDragEvent) {
     }
   }
   alignGuides.value = snapped.guides
+  publishDragPositions(dragging.map(item => item.id))
 }
 
 function onNodeDrag(event: NodeDragEvent) {
@@ -4125,7 +4387,7 @@ function onNodeDrag(event: NodeDragEvent) {
   })
 }
 
-function onNodeDragStop() {
+function onNodeDragStop(event: NodeDragEvent) {
   if (dragAlignRaf) {
     cancelAnimationFrame(dragAlignRaf)
     dragAlignRaf = 0
@@ -4137,6 +4399,8 @@ function onNodeDragStop() {
   dragAlignOthers = null
   dragAlignKey = ''
   alignGuides.value = []
+  publishDragPositions(dragIdsOf(event))
+  localDragIds.clear()
   nodeDragging = false
   refreshCanvasNodeView()
   scheduleFullCull()
@@ -4391,6 +4655,7 @@ function toggleHideEdges() {
 let flowPaneResizeObserver: ResizeObserver | null = null
 
 onMounted(() => {
+  paintLiveCursorLayer(viewport.value)
   try {
     hideEdges.value = localStorage.getItem('easytv-hide-edges') === '1'
   }
@@ -7125,6 +7390,29 @@ const styleLibValue = computed(() => {
     @drop="onCanvasDrop"
   >
     <div ref="marqueeEl" class="canvas-marquee" />
+    <div ref="liveCursorLayer" class="canvas-live-cursors">
+      <div
+        v-for="cursor in liveCursors"
+        :key="cursor.id"
+        class="canvas-live-cursor"
+        :data-x="cursor.x"
+        :data-y="cursor.y"
+        :style="{ transform: `translate(${cursor.x}px, ${cursor.y}px) scale(${1 / (viewport.zoom || 1)})` }"
+      >
+        <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+          <path d="M2.2 1.2 13.6 8.1 8.4 9.1 6.6 14.4Z" :fill="cursor.color" />
+        </svg>
+        <span :style="{ background: cursor.color }">{{ cursor.name }}</span>
+      </div>
+    </div>
+    <div v-if="livePeople.length" class="canvas-live-people">
+      <span
+        v-for="person in livePeople"
+        :key="person.id"
+        class="canvas-live-people__name"
+        :style="{ background: person.color }"
+      >{{ person.name }}</span>
+    </div>
     <VueFlow
       id="easytv-canvas"
       v-model:nodes="nodes"

@@ -52,8 +52,8 @@ function setHolder(index: number, value: string | number) {
         <span class="plan-editor__key">{{ p.key }}</span>
         <input v-model="p.name" class="bible-item__name" :maxlength="BIBLE_LIMITS.propName" :placeholder="t('道具名')" @input="emit('change')">
         <span class="plan-shot__spacer" />
-        <button type="button" class="plan-editor__remove" :aria-label="t('删除')" @click="removeProp(i)">
-          <UIcon name="i-lucide-x" class="size-4" />
+        <button type="button" class="plan-editor__icon is-danger" :aria-label="t('删除')" @click="removeProp(i)">
+          <UIcon name="i-lucide-trash-2" class="size-4" />
         </button>
       </header>
       <div class="plan-editor__grid">

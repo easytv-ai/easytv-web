@@ -14,8 +14,9 @@ const { t } = useI18n()
 const route = useRoute()
 const { user } = useAuth()
 const { refresh: refreshWallet } = useWallet()
-const { gotoPricing } = usePricingModal()
+const { gotoPricing, pricingOpen } = usePricingModal()
 const { settingsOpen, settingsTab, closeSettings } = useSettingsModal()
+const { loadTeams } = useWorkspace()
 /** 发票入口跟 /app/config 的 invoice_enabled 走；关闭时标签里显示「暂未开放」 */
 const { invoiceEnabled, loaded: appConfigLoaded, loading: appConfigLoading } = useStudioAppConfig()
 
@@ -159,6 +160,17 @@ watch(settingsTab, () => {
   void revealActiveTab()
 })
 
+function refreshAccountSurfaces() {
+  void refreshWallet()
+  void loadUsage()
+  void loadTeams(true)
+}
+
+watch(pricingOpen, (open, wasOpen) => {
+  if (wasOpen && !open && settingsOpen.value)
+    refreshAccountSurfaces()
+})
+
 watch(settingsOpen, (open) => {
   if (!import.meta.client)
     return
@@ -243,7 +255,7 @@ onUnmounted(() => {
                     :panel="activePanel"
                     :panel-props="activePanelProps"
                     @refreshed="refreshWallet"
-                    @team-changed="refreshWallet"
+                    @team-changed="refreshAccountSurfaces"
                     @paid="refreshWallet"
                     @goto-invoice="selectTab('invoice')"
                     @goto-pricing="(kind: 'membership' | 'points') => gotoPricing(kind)"

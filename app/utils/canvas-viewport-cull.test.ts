@@ -48,6 +48,15 @@ describe('canvasCullPlan', () => {
     expect(plan.hiddenNodes.has('n0')).toBe(false)
   })
 
+  it('横跨很远、穿过视口的连线留着', () => {
+    const nodes = Array.from({ length: 20 }, (_, index) => card(`n${index}`, index * 30, 40))
+    nodes.push(card('a', -20000, 40))
+    nodes.push(card('b', 20000, 40))
+    const plan = canvasCullPlan(nodes, [{ id: 'long', source: 'a', target: 'b' }], viewport, view, 200)
+    expect(plan.hiddenNodes.has('a')).toBe(true)
+    expect(plan.hiddenEdges.has('long')).toBe(false)
+  })
+
   it('缩放到能看见全部时不裁', () => {
     const nodes = Array.from({ length: 45 }, (_, index) => card(`n${index}`, index * 40, 20))
     const plan = canvasCullPlan(nodes, [], { x: -200, y: -200, zoom: 0.2 }, { width: 1200, height: 800 }, 400)

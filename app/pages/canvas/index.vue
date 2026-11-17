@@ -189,6 +189,8 @@ const commentOpen = ref(false)
 const commentNodeId = ref('')
 /** 未解决的节点批注数量，卡片右上角的批注钉读这份 */
 const canvasCommentMarks = useState<Record<string, number>>('canvas-comment-marks', () => ({}))
+/** 这个项目还没解决的批注，和项目卡片角标同一口径 */
+const canvasOpenComments = ref(0)
 const canvasCommentFocus = useState('canvas-comment-focus', () => '')
 const canvasCommentOpen = useState('canvas-comment-open', () => ({ seq: 0, nodeId: '' }))
 const commentProject = computed(() => (boundProjectId.value
@@ -204,21 +206,23 @@ async function refreshCommentMarks() {
   const id = canvasId.value
   if (!projectId || !id) {
     canvasCommentMarks.value = {}
+    canvasOpenComments.value = 0
     return
   }
   const res = await projectApi.comments(projectId, {
     page: 1,
     page_size: 100,
-    canvas_id: id,
     only_open: 1,
   })
+  const items = res?.success && res.data ? res.data.items : []
   const marks: Record<string, number> = {}
-  for (const item of res?.success && res.data ? res.data.items : []) {
-    if (!item.node_id)
+  for (const item of items) {
+    if (!item.node_id || (item.canvas_id && item.canvas_id !== id))
       continue
     marks[item.node_id] = (marks[item.node_id] || 0) + 1
   }
   canvasCommentMarks.value = marks
+  canvasOpenComments.value = res?.success && res.data ? res.data.total : 0
 }
 
 function openComments(nodeId = '') {
@@ -665,6 +669,38 @@ async function runSave(manual: boolean) {
   // 保存途中又有改动、而对应的定时器已经在途中触发过（被合并掉了）时，补排一次
   if (needsFollowUp(saveMachine.value) && !autosaveTimer)
     scheduleAutosave()
+}
+
+/** 别人刚保存，自己这边没有未落库的改动：悄悄换成新版本，不打断正在看的位置 */
+let peerAdoptSerial = 0
+async function onPeerSaved(remoteVersion: number) {
+  if (!canvasId.value || !Number.isFinite(remoteVersion))
+    return
+  const machine = saveMachine.value
+  if (hasPendingChanges(machine) || machine.inFlight || machine.conflict)
+    return
+  if (remoteVersion <= version.value)
+    return
+  const serial = ++peerAdoptSerial
+  const res = await canvasApi.get(canvasId.value)
+  if (serial !== peerAdoptSerial)
+    return
+  const again = saveMachine.value
+  if (hasPendingChanges(again) || again.inFlight || again.conflict)
+    return
+  if (!res?.success || !res.data?.graph || res.data.version === version.value)
+    return
+  clearAutosave()
+  version.value = res.data.version
+  historyVersionId.value = 0
+  savedAt.value = res.data.updated_at
+  const canvasName = nameFromCanvas(res.data)
+  if (!isPlaceholderName(canvasName)) {
+    draftName.value = canvasName
+    savedName.value = canvasName
+  }
+  workspace.value?.loadGraph({ ...res.data.graph, viewport: undefined })
+  rememberNodeCount(res.data.graph)
 }
 
 /** 冲突：放弃本地改动，载入服务端最新版本 */
@@ -1226,10 +1262,12 @@ function onResizeStart(event: PointerEvent) {
             v-if="canvasId"
             type="button"
             class="canvas-editor__save-btn"
-            :aria-label="t('批注')"
+            :class="{ 'is-count': canvasOpenComments > 0 }"
+            :aria-label="canvasOpenComments ? t('{n} 条批注', { n: canvasOpenComments }) : t('批注')"
             @click="openComments()"
           >
             <UIcon name="i-lucide-message-square-text" class="size-4" />
+            <span v-if="canvasOpenComments">{{ canvasOpenComments }}</span>
             <span class="canvas-tip canvas-tip--down">{{ t('查看和发表这张画布的批注') }}</span>
           </button>
           <span class="canvas-editor__sep" />
@@ -1248,7 +1286,7 @@ function onResizeStart(event: PointerEvent) {
         @close="closeSpine"
       />
       <ClientOnly>
-        <CanvasWorkspace ref="workspace" :canvas-id="canvasId" :initial-prompt="initialPrompt" :readonly="readonly" :request-save="save" @change="markDirty" @history="openHistory" @comment="openComments" @assist="onWorkspaceAssist" @open-director="onOpenDirector" @chat-assets="onChatAssets" @chat-style="onChatStyle" @skill-start="onSkillStart" />
+        <CanvasWorkspace ref="workspace" :canvas-id="canvasId" :initial-prompt="initialPrompt" :readonly="readonly" :request-save="save" @change="markDirty" @history="openHistory" @comment="openComments" @assist="onWorkspaceAssist" @open-director="onOpenDirector" @chat-assets="onChatAssets" @chat-style="onChatStyle" @skill-start="onSkillStart" @peer-saved="onPeerSaved" />
         <template #fallback>
           <div class="canvas-editor__stage" />
         </template>
@@ -1336,7 +1374,7 @@ function onResizeStart(event: PointerEvent) {
     <ProjectCommentPanel
       :open="commentOpen"
       :project="commentProject"
-      :canvas-id="canvasId"
+      :canvas-id="commentNodeId ? canvasId : 0"
       :node-id="commentNodeId"
       :node-hint="commentNodeHint"
       @close="closeComments"

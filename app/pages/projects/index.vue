@@ -45,7 +45,6 @@ const {
   hasMore,
   reload,
   loadMore,
-  removeById,
 } = useStudioPaged<Project>({
   pageSize: PAGE_SIZE,
   async fetch(page, pageSize) {
@@ -168,7 +167,7 @@ async function moveProject(item: Project) {
       notify(res?.message || t('移动失败'), 'error')
       return
     }
-    removeById(item.id)
+    await reload()
     notify(toTeam ? t('已移到团队「{team}」，切到团队空间可以看到', { team: target!.name }) : t('已移回个人空间'))
   }
   finally {
@@ -256,7 +255,7 @@ async function removeProject(item: Project) {
     notify(res?.message || t('删除失败'), 'error')
     return
   }
-  removeById(item.id)
+  await reload()
   notify(t('已移到回收站'))
 }
 

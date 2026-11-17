@@ -81,8 +81,8 @@ function toggleKnowledge(charKey: string, factKey: string) {
         <span class="plan-editor__key">{{ c.key }}</span>
         <input v-model="c.name" class="bible-item__name" :maxlength="BIBLE_LIMITS.name" :placeholder="t('名字')" @input="emit('change')">
         <span class="plan-shot__spacer" />
-        <button type="button" class="plan-editor__remove" :aria-label="t('删除')" @click="removeCharacter(i)">
-          <UIcon name="i-lucide-x" class="size-4" />
+        <button type="button" class="plan-editor__icon is-danger" :aria-label="t('删除')" @click="removeCharacter(i)">
+          <UIcon name="i-lucide-trash-2" class="size-4" />
         </button>
       </header>
       <div class="plan-editor__grid">
@@ -134,8 +134,8 @@ function toggleKnowledge(charKey: string, factKey: string) {
             @update:model-value="setRelationTo(c, ri, $event)"
           />
           <input v-model="rel.relation" :maxlength="BIBLE_LIMITS.relation" :placeholder="t('什么关系，如：前女友，仍有旧情')" @input="emit('change')">
-          <button type="button" class="plan-editor__remove" :aria-label="t('删除')" @click="removeRelationship(c, ri)">
-            <UIcon name="i-lucide-x" class="size-4" />
+          <button type="button" class="plan-editor__icon is-danger" :aria-label="t('删除')" @click="removeRelationship(c, ri)">
+            <UIcon name="i-lucide-trash-2" class="size-4" />
           </button>
         </div>
       </div>

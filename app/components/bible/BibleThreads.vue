@@ -58,8 +58,8 @@ function episodeNoOf(event: Event) {
       <header class="bible-item__head">
         <span class="plan-editor__key">{{ th.key }}</span>
         <input v-model="th.title" class="bible-item__name bible-item__name--wide" :maxlength="BIBLE_LIMITS.threadTitle" :placeholder="t('线索标题，如：录音里到底是谁的声音')" @input="emit('change')">
-        <button type="button" class="plan-editor__remove" :aria-label="t('删除')" @click="removeThread(i)">
-          <UIcon name="i-lucide-x" class="size-4" />
+        <button type="button" class="plan-editor__icon is-danger" :aria-label="t('删除')" @click="removeThread(i)">
+          <UIcon name="i-lucide-trash-2" class="size-4" />
         </button>
       </header>
       <div class="bible-inline">
