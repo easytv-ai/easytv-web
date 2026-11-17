@@ -3,7 +3,7 @@ import bibleApi from '~/api/bible'
 import screenplayApi from '~/api/screenplay'
 import type { Episode, ScreenplayPlan, ScreenplayShot } from '~/types/creative'
 import { isCatalogEpisode } from '~/utils/bible'
-import { FILM_COLORS } from '~/utils/spine'
+import { SPINE_COLORS } from '~/utils/spine'
 
 const props = defineProps<{ projectId: number }>()
 const emit = defineEmits<{ close: [] }>()
@@ -18,8 +18,13 @@ const current = ref(0)
 const catalog = computed(() => episodes.value.filter(episode => isCatalogEpisode(episode.status)))
 const episode = computed(() => catalog.value[current.value] ?? null)
 const plan = computed(() => episode.value ? plans.value[episode.value.id] ?? null : null)
+const shots = computed(() => plan.value?.shots ?? [])
+const cast = computed(() => (plan.value?.characters ?? []).filter(character => character.name))
+const totalSeconds = computed(() => shots.value.reduce((sum, shot) => sum + (Number(shot.seconds) || 0), 0))
 
-const colors = ['#1e3a5f', '#8a5a2b', '#5b4b78', '#0f766e', '#9f1239', '#155e75']
+function laneColor(index: number) {
+  return SPINE_COLORS[index % SPINE_COLORS.length] ?? SPINE_COLORS[0]
+}
 
 function names(keys: string[]) {
   const characters = plan.value?.characters ?? []
@@ -93,102 +98,306 @@ watch(() => props.projectId, () => { void load() }, { immediate: true })
 
     <p v-if="loading" class="boards__empty">{{ t('正在读取各集策划案…') }}</p>
     <p v-else-if="!episode" class="boards__empty">{{ t('这个项目还没有集。先生成一集策划案，画布才排得出来。') }}</p>
-    <div v-else class="boards__stage">
-      <p class="boards__note">
-        <NuxtLink v-if="episode.canvas_id" :to="canvasTo(episode.canvas_id)">{{ t('打开这一集的画布') }}</NuxtLink>
-        <span v-else>{{ t('尚未建画布') }}</span>
-        {{ t('下面是这一集生成后的节点，用的是策划案里的真人、真镜头。图和视频要在节点上跑完才填进去。') }}
-      </p>
-      <div class="boards__cols">
+    <div v-else class="boards__sheet">
+      <div class="boards__mast">
         <div>
-          <div class="boards__col">{{ t('策划案') }}</div>
-          <article class="boards__card boards__plan">
-            <b>{{ plan?.title || episode.title }}</b>
-            <p>{{ t('第 {n} 集', { n: episode.episode_no }) }} · {{ plan?.shots?.length ?? 0 }} {{ t('镜') }}</p>
-            <p>{{ (plan?.characters ?? []).map(character => character.name).filter(Boolean).join('、') || t('无') }}</p>
-          </article>
+          <h2>{{ plan?.title || episode.title }}</h2>
+          <p>
+            {{ t('第 {n} 集', { n: episode.episode_no }) }}
+            · {{ t('bible.board.shots', { n: shots.length }) }}
+            <template v-if="totalSeconds"> · {{ t('{n} 秒', { n: totalSeconds }) }}</template>
+            <template v-if="plan?.aspect"> · {{ plan.aspect }}</template>
+          </p>
         </div>
-        <div>
-          <div class="boards__col">{{ t('角色') }}</div>
-          <div class="boards__stack">
-            <article v-for="(character, index) in plan?.characters ?? []" :key="character.key" class="boards__card">
-              <div class="boards__well" :style="{ background: colors[index % colors.length] }">
-                {{ character.name }}<small>{{ t('角色图') }}</small>
-              </div>
-              <div class="boards__body"><b>{{ t('角色') }} · {{ character.name }}</b><span>{{ character.look }}</span></div>
-            </article>
-          </div>
-        </div>
-        <div>
-          <div class="boards__col">{{ t('分镜') }}</div>
-          <div class="boards__stack">
-            <article v-for="(shot, index) in plan?.shots ?? []" :key="shot.id || shot.no" class="boards__card">
-              <div class="boards__well" :style="{ background: FILM_COLORS[index % FILM_COLORS.length] }">
-                {{ t('分镜') }} {{ shot.no || index + 1 }}<small>{{ names(shot.characters) }}</small>
-              </div>
-              <div class="boards__body"><b>{{ t('分镜') }} {{ shot.no || index + 1 }}</b><span>{{ shot.prompt }}</span></div>
-            </article>
-          </div>
-        </div>
-        <div>
-          <div class="boards__col">{{ t('镜头') }}</div>
-          <div class="boards__stack">
-            <article v-for="(shot, index) in plan?.shots ?? []" :key="`v-${shot.id || shot.no}`" class="boards__card">
-              <div class="boards__well boards__well--video">
-                {{ t('镜头') }} {{ shot.no || index + 1 }}<small>{{ shot.motion }}</small>
-              </div>
-              <div class="boards__body"><b>{{ t('镜头') }} {{ shot.no || index + 1 }}</b><span>{{ shot.prompt }}</span></div>
-            </article>
-          </div>
-        </div>
-        <div>
-          <div class="boards__col">{{ t('配音') }}</div>
-          <div class="boards__stack">
-            <template v-for="(shot, index) in plan?.shots ?? []" :key="`a-${shot.id || shot.no}`">
-              <article v-if="spoken(shot)" class="boards__card">
-                <div class="boards__well boards__well--audio">
-                  {{ t('配音') }} {{ shot.no || index + 1 }}<small>{{ t('有台词') }}</small>
-                </div>
-                <div class="boards__body"><b>{{ t('配音') }} {{ shot.no || index + 1 }}</b><span>{{ spoken(shot) }}</span></div>
-              </article>
-              <div v-else class="boards__miss">{{ t('这一镜没有台词') }}</div>
-            </template>
-          </div>
-        </div>
+        <NuxtLink v-if="episode.canvas_id" :to="canvasTo(episode.canvas_id)" class="boards__open">{{ t('打开这一集的画布') }}</NuxtLink>
+        <span v-else class="boards__pending">{{ t('尚未建画布') }}</span>
       </div>
+
+      <section v-if="cast.length" class="boards__cast" :aria-label="t('bible.board.cast')">
+        <h3>{{ t('bible.board.cast') }}</h3>
+        <ul>
+          <li v-for="(character, index) in cast" :key="character.key">
+            <i :style="{ background: laneColor(index) }" />
+            <div>
+              <b>{{ character.name }}</b>
+              <span>{{ character.look }}</span>
+            </div>
+          </li>
+        </ul>
+      </section>
+
+      <ol v-if="shots.length" class="boards__shots">
+        <li v-for="(shot, index) in shots" :key="shot.id || shot.no" class="boards__shot">
+          <span class="boards__no">{{ String(shot.no || index + 1).padStart(2, '0') }}</span>
+          <div class="boards__cols">
+            <div class="boards__picture">
+              <b v-if="names(shot.characters)">{{ names(shot.characters) }}</b>
+              <p>{{ shot.prompt || t('bible.board.noPicture') }}</p>
+            </div>
+            <div class="boards__motion">
+              <p>{{ shot.motion || '—' }}</p>
+              <small v-if="shot.seconds">{{ t('{n} 秒', { n: shot.seconds }) }}</small>
+            </div>
+            <p class="boards__line" :class="{ 'is-quiet': !spoken(shot) }">{{ spoken(shot) || t('这一镜没有台词') }}</p>
+          </div>
+        </li>
+      </ol>
+      <p v-else class="boards__empty">{{ t('bible.board.noShots') }}</p>
     </div>
   </section>
 </template>
 
 <style scoped>
-.boards { height: 100%; overflow: auto; padding: 64px 20px 32px; background: #eef1f4; color: #1c1c1f; }
-.boards__bar { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
-.boards__tabs { display: flex; flex-wrap: wrap; gap: 6px; }
-.boards__tabs button, .boards__back { border: 1px solid #e4e7eb; background: #fff; border-radius: 999px; padding: 5px 12px; font: inherit; cursor: pointer; color: #6b7280; }
-.boards__tabs button.is-on { color: #1c1c1f; border-color: #1c1c1f; font-weight: 650; }
-.boards__back { margin-left: auto; color: #18c1d6; border-color: transparent; background: transparent; font-weight: 650; }
-.boards__empty, .boards__note { margin: 0 0 12px; color: #6b7280; font-size: 13px; }
-.boards__note a { margin-right: 8px; font-weight: 650; }
-.boards__stage {
-  min-height: 640px;
-  padding: 16px;
-  border-radius: 16px;
-  background-image: radial-gradient(#d5dbe1 1px, transparent 1px);
-  background-size: 22px 22px;
+.boards {
+  height: 100%;
+  overflow: auto;
+  padding: 72px 28px 32px 88px;
+  background: var(--st-canvas);
+  color: var(--st-text);
 }
-.boards__cols { display: grid; grid-template-columns: 180px repeat(4, minmax(150px, 1fr)); gap: 18px; align-items: start; }
-.boards__col { margin-bottom: 8px; font-size: 11px; letter-spacing: .08em; color: #6b7280; }
-.boards__stack { display: flex; flex-direction: column; gap: 12px; }
-.boards__card { background: #fff; border: 1px solid #e3e6ea; border-radius: 14px; overflow: hidden; box-shadow: 0 8px 22px rgba(20, 24, 30, .06); }
-.boards__plan { padding: 12px; }
-.boards__plan b { font-size: 15px; }
-.boards__plan p { margin: 6px 0 0; color: #3f3f46; font-size: 12px; }
-.boards__well { min-height: 52px; display: grid; place-items: center; color: #fff; font-size: 12px; text-align: center; padding: 6px; }
-.boards__well small { display: block; opacity: .85; }
-.boards__well--video { background: #111827; }
-.boards__well--audio { background: #f4efe4; color: #92400e; }
-.boards__body { padding: 8px 10px 10px; }
-.boards__body b { display: block; font-size: 12px; }
-.boards__body span { display: -webkit-box; overflow: hidden; -webkit-line-clamp: 3; -webkit-box-orient: vertical; color: #6b7280; font-size: 11px; }
-.boards__miss { min-height: 74px; border: 1px dashed #d5dbe1; border-radius: 14px; color: #a1a8b0; display: grid; place-items: center; font-size: 11px; background: rgba(255, 255, 255, .55); }
+
+.boards__bar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.boards__tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+}
+
+.boards__tabs button,
+.boards__back {
+  border: 0;
+  background: transparent;
+  padding: 6px 0;
+  font: inherit;
+  font-size: 14px;
+  color: var(--st-muted);
+  cursor: pointer;
+}
+
+.boards__tabs button.is-on {
+  color: var(--st-text);
+  font-weight: 600;
+}
+
+.boards__tabs button:hover,
+.boards__back:hover {
+  color: var(--st-text);
+}
+
+.boards__tabs button:focus-visible,
+.boards__back:focus-visible,
+.boards__open:focus-visible {
+  outline: 2px solid var(--st-text);
+  outline-offset: 3px;
+}
+
+.boards__back {
+  margin-left: auto;
+  color: var(--st-text-soft);
+}
+
+.boards__empty {
+  margin: 0;
+  color: var(--st-text-soft);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.boards__sheet {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  width: min(1120px, 100%);
+}
+
+.boards__mast {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.boards__mast h2 {
+  margin: 0;
+  font-size: 32px;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+}
+
+.boards__mast p {
+  margin: 8px 0 0;
+  color: var(--st-muted);
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+
+.boards__open {
+  flex: none;
+  padding: 7px 14px;
+  border: 1px solid rgb(212 175 55 / 45%);
+  border-radius: 999px;
+  background: transparent;
+  color: #d4af37;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.boards__open:hover {
+  border-color: #d4af37;
+  background: rgb(212 175 55 / 8%);
+}
+
+.boards__pending {
+  flex: none;
+  color: var(--st-muted);
+  font-size: 14px;
+}
+
+.boards__cast h3 {
+  margin: 0 0 12px;
+  color: var(--st-muted);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.boards__cast ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.boards__cast li {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  width: min(240px, 100%);
+  padding: 14px 16px;
+  border: 1px solid rgb(255 255 255 / 8%);
+  border-radius: 14px;
+  background: rgb(14 14 16 / 72%);
+  backdrop-filter: blur(16px);
+}
+
+.boards__cast i {
+  width: 8px;
+  height: 8px;
+  margin-top: 6px;
+  flex: none;
+  border-radius: 999px;
+}
+
+.boards__cast b {
+  color: #fff;
+  font-size: 15px;
+  font-weight: 650;
+}
+
+.boards__cast span {
+  display: -webkit-box;
+  overflow: hidden;
+  margin-top: 4px;
+  color: #a1a1aa;
+  font-size: 13px;
+  line-height: 1.45;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.boards__shots {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.boards__shot {
+  padding: 18px 22px 20px;
+  border: 0;
+  border-top: 1px solid rgb(255 255 255 / 5%);
+  border-radius: 16px;
+  background: linear-gradient(180deg, #18181b 0%, #111111 100%);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 80%);
+}
+
+.boards__no {
+  display: inline-flex;
+  margin-bottom: 14px;
+  padding: 2px 9px;
+  border: 1px solid rgb(212 175 55 / 40%);
+  border-radius: 999px;
+  color: #d4af37;
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.boards__cols {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(140px, 0.7fr) minmax(160px, 0.78fr);
+  gap: 28px;
+  align-items: start;
+}
+
+.boards__picture b {
+  display: block;
+  margin-bottom: 6px;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.boards__shot p {
+  margin: 0;
+  color: #a1a1aa;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.boards__shot small {
+  display: block;
+  margin-top: 8px;
+  color: #8a8a93;
+  font-size: 12px;
+}
+
+.boards__shot .boards__line {
+  color: #9fd4e8;
+}
+
+.boards__shot .boards__line.is-quiet {
+  color: #6b6b73;
+}
+
+@media (max-width: 860px) {
+  .boards {
+    padding: 64px 16px 24px 72px;
+  }
+
+  .boards__mast {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .boards__mast h2 {
+    font-size: 26px;
+  }
+
+  .boards__cols {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+}
 </style>

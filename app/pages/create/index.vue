@@ -550,7 +550,7 @@ watch(lang, () => persistState())
 
 // ---- 第 4 步：合成 ----
 /** 浏览器拼接成片，和画布「合并选中视频」同一条路，不走服务端合成。 */
-type MergeClip = { id: string, url: string, shot: number, assetId: number }
+type MergeClip = { id: string, url: string, shot: number, assetId: number, seconds: number }
 const mergeClips = ref<MergeClip[]>([])
 const clipsLoading = ref(false)
 const composing = ref(false)
@@ -559,6 +559,14 @@ const mergePhase = ref<MergeVideoProgress['phase'] | ''>('')
 const mergeRead = ref({ n: 0, total: 0 })
 const outputUrl = ref('')
 const outputAssetId = ref(0)
+
+function clipSeconds(node: LayerFlowNode) {
+  const own = Number(node.data.seconds)
+  if (own > 0)
+    return own
+  const sp = Number((node.data.sp as { seconds?: unknown } | undefined)?.seconds)
+  return sp > 0 ? sp : 0
+}
 
 function videoReady(node: LayerFlowNode) {
   const status = node.data.taskStatus
@@ -588,7 +596,7 @@ async function loadMergeClips() {
       const url = resolveMediaUrl(String(node.data.content || ''))
       if (!url)
         return []
-      return [{ id: node.id, url, shot: shotNoOf(node), assetId: Number(node.data.assetId) || 0 }]
+      return [{ id: node.id, url, shot: shotNoOf(node), assetId: Number(node.data.assetId) || 0, seconds: clipSeconds(node) }]
     })
     videoOrder.value = mergeClips.value.map(clip => clip.id)
   }
@@ -1054,8 +1062,19 @@ function onPrimary() {
     <!-- 4 合成：浏览器里按镜头顺序拼接，和画布合并视频同一条路 -->
     <div v-else-if="step === 4" class="create-card create-compose">
       <p class="create-hint">{{ clipsLoading ? t('加载中…') : t('canvas.merge.prompt', { n: mergeClips.length }) }}</p>
-      <ol v-if="mergeClips.length" class="create-merge">
-        <li v-for="(clip, index) in mergeClips" :key="clip.id">{{ t('镜头 {n}', { n: clip.shot > 0 ? clip.shot : index + 1 }) }}</li>
+      <ol
+        v-if="mergeClips.length"
+        class="create-merge"
+        :class="{ 'is-one': mergeClips.length === 1, 'is-portrait': plan?.aspect === '9:16', 'is-square': plan?.aspect === '1:1' }"
+      >
+        <li v-for="(clip, index) in mergeClips" :key="clip.id">
+          <video :src="clip.url" controls muted playsinline preload="metadata" />
+          <div class="create-merge__meta">
+            <b>{{ index + 1 }}</b>
+            <span>{{ t('镜头 {n}', { n: clip.shot > 0 ? clip.shot : index + 1 }) }}</span>
+            <small v-if="clip.seconds">{{ clip.seconds }}{{ t('秒') }}</small>
+          </div>
+        </li>
       </ol>
       <div v-if="composing" class="create-progress">
         <div class="create-progress__bar"><i :style="{ width: `${mergeProgress}%` }" /></div>

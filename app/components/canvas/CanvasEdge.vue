@@ -28,6 +28,7 @@ const pathInfo = computed(() => getBezierPath({
 }))
 
 const path = computed(() => pathInfo.value[0])
+const gradId = computed(() => `edge-grad-${String(props.id).replace(/[^a-zA-Z0-9_-]/g, '')}`)
 
 const isLive = computed(() => {
   const selected = nodeView.value.selected
@@ -166,8 +167,16 @@ onUnmounted(() => {
     @mousemove="onMove"
     @mouseleave="onLeave"
   >
+    <defs>
+      <linearGradient :id="gradId" gradientUnits="userSpaceOnUse" :x1="sourceX" :y1="sourceY" :x2="targetX" :y2="targetY">
+        <stop offset="0%" stop-color="rgb(70 78 88 / 8%)" />
+        <stop offset="50%" stop-color="rgb(150 176 196 / 70%)" />
+        <stop offset="100%" stop-color="rgb(70 78 88 / 8%)" />
+      </linearGradient>
+    </defs>
     <path ref="hitRef" class="canvas-edge__hit" :d="path" fill="none" />
-    <path class="canvas-edge__line" :d="path" fill="none" />
+    <path class="canvas-edge__glow" :d="path" fill="none" />
+    <path class="canvas-edge__line" :d="path" fill="none" :stroke="`url(#${gradId})`" />
     <EdgeLabelRenderer>
       <div
         v-if="showCut"

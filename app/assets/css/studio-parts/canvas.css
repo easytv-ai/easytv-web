@@ -28,10 +28,11 @@
   gap: 2px;
   padding: 0 8px 0 10px;
   overflow: visible;
-  border: 1px solid var(--st-float-border);
-  border-radius: 12px;
-  background: var(--st-float);
-  box-shadow: var(--st-shadow);
+  border: 1px solid color-mix(in srgb, var(--st-text) 12%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--st-float) 68%, transparent);
+  box-shadow: 0 16px 40px rgb(0 0 0 / 16%);
+  backdrop-filter: blur(18px);
 }
 
 .canvas-editor__brand {
@@ -123,10 +124,11 @@
   gap: 4px;
   padding: 0 6px 0 8px;
   overflow: visible;
-  border: 1px solid var(--st-float-border);
-  border-radius: 12px;
-  background: var(--st-float);
-  box-shadow: var(--st-shadow);
+  border: 1px solid color-mix(in srgb, var(--st-text) 12%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--st-float) 68%, transparent);
+  box-shadow: 0 16px 40px rgb(0 0 0 / 16%);
+  backdrop-filter: blur(18px);
 }
 
 .canvas-editor__tools .canvas-editor__save-btn {
@@ -380,15 +382,22 @@ html.dark .canvas-flow .vue-flow__connection-path {
   pointer-events: stroke;
 }
 
-.canvas-edge__line {
-  stroke: #c4c4c8;
-  stroke-width: 1.25;
-  stroke-linecap: round;
+.canvas-edge__glow {
+  stroke: rgb(120 150 170 / 28%);
+  stroke-width: 6;
+  filter: blur(3px);
   pointer-events: none;
 }
 
+.canvas-edge__line {
+  stroke-width: 1.4;
+  stroke-linecap: round;
+  pointer-events: none;
+  filter: drop-shadow(0 0 4px rgb(130 160 180 / 28%));
+}
+
 html.dark .canvas-edge__line {
-  stroke: #6e6e76;
+  filter: drop-shadow(0 0 5px rgb(150 185 205 / 32%));
 }
 
 .canvas-edge.is-over .canvas-edge__line,
@@ -1205,18 +1214,19 @@ html.dark .canvas-empty__icon {
   position: absolute;
   top: 50%;
   left: 16px;
-  z-index: 5;
+  z-index: 7;
   display: flex;
   width: max-content;
   flex-direction: column;
   align-items: center;
-  gap: 2px;
-  padding: 4px;
+  gap: 8px;
+  padding: 10px 8px;
   overflow: visible;
-  border-radius: 12px;
-  background: var(--st-float);
-  border: 1px solid var(--st-float-border);
-  box-shadow: var(--st-shadow);
+  border-radius: 22px;
+  border: 1px solid rgb(255 255 255 / 10%);
+  background: rgb(14 14 18 / 62%);
+  box-shadow: 0 18px 44px rgb(0 0 0 / 28%);
+  backdrop-filter: blur(16px);
   transform: translateY(-50%);
 }
 
@@ -1238,6 +1248,11 @@ html.dark .canvas-empty__icon {
   cursor: pointer;
 }
 
+.canvas-tools > button,
+.canvas-tools__item > button {
+  color: rgb(255 255 255 / 72%);
+}
+
 .canvas-tools > button:hover,
 .canvas-tools > button:focus-visible,
 .canvas-tools > button.is-on,
@@ -1253,6 +1268,16 @@ html.dark .canvas-empty__icon {
   z-index: 2;
   background: var(--st-hover);
   color: var(--st-text);
+}
+
+.canvas-tools > button:hover,
+.canvas-tools > button:focus-visible,
+.canvas-tools > button.is-on,
+.canvas-tools__item > button:hover,
+.canvas-tools__item > button:focus-visible,
+.canvas-tools__item > button.is-on {
+  background: rgb(255 255 255 / 10%);
+  color: #fff;
 }
 
 .canvas-tools__add,

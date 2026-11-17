@@ -222,8 +222,8 @@ function submit() {
                 :disabled="submitting"
                 :placeholder="t('情绪')"
               >
-              <button type="button" class="plan-editor__remove" :aria-label="t('删除')" :disabled="submitting || form.lines.length <= 1" @click="removeLine(i)">
-                <UIcon name="i-lucide-x" class="size-4" />
+              <button type="button" class="plan-editor__icon is-danger" :aria-label="t('删除')" :disabled="submitting || form.lines.length <= 1" @click="removeLine(i)">
+                <UIcon name="i-lucide-trash-2" class="size-4" />
               </button>
             </div>
           </div>

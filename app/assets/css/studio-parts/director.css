@@ -2745,7 +2745,7 @@
 
 .plan-dialogue__row {
   display: grid;
-  grid-template-columns: minmax(0, 132px) minmax(0, 1fr) minmax(72px, 110px) 32px;
+  grid-template-columns: minmax(0, 132px) minmax(0, 1fr) minmax(72px, 110px) 36px;
   gap: 8px;
   align-items: center;
 }
@@ -2761,9 +2761,18 @@
 .plan-dialogue__row > .plan-dialogue__text,
 .plan-dialogue__row > .plan-dialogue__emotion {
   width: 100%;
+  height: 36px;
   min-width: 0;
   max-width: 100%;
   box-sizing: border-box;
+}
+
+/* 角色行把删除钮定在名为 remove 的格子里，对白行没有这块区域，叉号会被挤到下一行 */
+.plan-dialogue__row > .plan-editor__icon,
+.plan-dialogue__row > .plan-editor__remove {
+  grid-area: auto;
+  align-self: center;
+  justify-self: center;
 }
 
 .dialogue-modal {
@@ -2800,7 +2809,7 @@
 
 @media (max-width: 720px) {
   .plan-dialogue__row {
-    grid-template-columns: minmax(0, 1fr) 32px;
+    grid-template-columns: minmax(0, 1fr) 36px;
   }
 
   .plan-dialogue__row > .studio-select {
@@ -2808,7 +2817,9 @@
     grid-row: 1;
   }
 
+  .plan-dialogue__row > .plan-editor__icon,
   .plan-dialogue__row > .plan-editor__remove {
+    grid-area: auto;
     grid-column: 2;
     grid-row: 1;
   }

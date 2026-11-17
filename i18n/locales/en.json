@@ -3661,7 +3661,16 @@
     "summaryEmpty": "No characters, props or threads yet, so the next episode has nothing to carry over.",
     "summaryCounts": "{c} characters, {p} props, {n} threads and {f} facts are on the bible.",
     "recordsCost": "Uses the text model to summarize the episode's plan into a continuity record and merges it into the bible above (new characters, revealed facts, open threads, prop hand-offs). Charged once at the text model's rate.",
-    "recordsEmpty": "No episode records yet. After a plan is generated, use AI to merge that episode's characters, facts and threads into the bible."
+    "recordsEmpty": "No episode records yet. After a plan is generated, use AI to merge that episode's characters, facts and threads into the bible.",
+    "board": {
+      "shots": "{n} shots",
+      "cast": "Cast",
+      "picture": "Picture",
+      "motion": "Motion",
+      "line": "Line",
+      "noPicture": "No picture for this shot yet",
+      "noShots": "This episode has no shots yet."
+    }
   },
   "canvas": {
     "practice": {

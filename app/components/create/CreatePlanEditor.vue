@@ -2,7 +2,6 @@
 import { screenplayApi } from '~/api/screenplay'
 import type { Screenplay, ScreenplayLine, ScreenplayPlan, ScreenplayShot } from '~/types/creative'
 import {
-  dialogueSummary,
   dropShotCharacter,
   ensureDialogue,
   joinDialogue,
@@ -115,6 +114,9 @@ function setCharacterVoice(index: number, value: string | number) {
 const MAX_CHARACTERS = 4
 const MAX_SCENES = 4
 const MAX_SHOTS = 12
+/** 与 model.PlanShotMinSeconds / PlanShotMaxSeconds 一致。超出区间保存时会被收边界，不能按输入原样留下。 */
+const MIN_SHOT_SECONDS = 3
+const MAX_SHOT_SECONDS = 10
 const ASPECTS = ['16:9', '9:16', '1:1'] as const
 
 function touch() {
@@ -186,25 +188,90 @@ function addShot() {
     seconds: last?.seconds || 5,
   }
   props.plan.shots.push(shot)
+  shotIndex.value = props.plan.shots.length - 1
+  pane.value = 'shots'
   touch()
 }
 
 function removeShot(index: number) {
+  if (props.plan.shots.length <= 1)
+    return
   props.plan.shots.splice(index, 1)
   renumber()
+  if (shotIndex.value > index || shotIndex.value >= props.plan.shots.length)
+    shotIndex.value = Math.max(0, shotIndex.value - 1)
   touch()
 }
 
-function moveShot(index: number, dir: -1 | 1) {
-  const target = index + dir
-  if (target < 0 || target >= props.plan.shots.length)
+const dragFrom = ref(-1)
+const dragOver = ref(-1)
+/** 系统默认的拖动图是透明的，会把下面的镜头和场景名透出来 */
+let dragGhost: HTMLElement | null = null
+
+function clearDragGhost() {
+  dragGhost?.remove()
+  dragGhost = null
+}
+
+/** 把镜头从 from 放到 to。先删再按原下标插入，落点就是松手的那一行 */
+function reorderShot(from: number, to: number) {
+  if (props.disabled || from === to || from < 0 || to < 0)
     return
   const list = props.plan.shots
-  const [item] = list.splice(index, 1)
-  if (item)
-    list.splice(target, 0, item)
+  if (from >= list.length || to >= list.length)
+    return
+  const [item] = list.splice(from, 1)
+  if (!item)
+    return
+  list.splice(to, 0, item)
   renumber()
+  const selected = shotIndex.value
+  if (selected === from)
+    shotIndex.value = to
+  else if (from < to && selected > from && selected <= to)
+    shotIndex.value = selected - 1
+  else if (from > to && selected >= to && selected < from)
+    shotIndex.value = selected + 1
   touch()
+}
+
+function onReelDragStart(index: number, event: DragEvent) {
+  if (props.disabled)
+    return
+  const row = event.currentTarget
+  if (row instanceof HTMLElement && event.dataTransfer) {
+    clearDragGhost()
+    const ghost = row.cloneNode(true) as HTMLElement
+    ghost.classList.remove('is-on', 'is-drag', 'is-over')
+    ghost.classList.add('plan-reel__ghost')
+    ghost.style.width = `${row.offsetWidth}px`
+    document.body.appendChild(ghost)
+    event.dataTransfer.setDragImage(ghost, 20, Math.round(row.offsetHeight / 2))
+    dragGhost = ghost
+    event.dataTransfer.setData('text/plain', String(index))
+    event.dataTransfer.effectAllowed = 'move'
+  }
+  dragFrom.value = index
+}
+
+function onReelDragOver(index: number, event: DragEvent) {
+  event.preventDefault()
+  if (event.dataTransfer)
+    event.dataTransfer.dropEffect = 'move'
+  dragOver.value = index
+}
+
+function onReelDrop(index: number) {
+  reorderShot(dragFrom.value, index)
+  dragFrom.value = -1
+  dragOver.value = -1
+  clearDragGhost()
+}
+
+function onReelDragEnd() {
+  dragFrom.value = -1
+  dragOver.value = -1
+  clearDragGhost()
 }
 
 function toggleShotCharacter(shot: ScreenplayShot, key: string) {
@@ -217,7 +284,7 @@ function toggleShotCharacter(shot: ScreenplayShot, key: string) {
 
 function onSeconds(shot: ScreenplayShot, event: Event) {
   const raw = Number((event.target as HTMLInputElement).value)
-  shot.seconds = Math.min(15, Math.max(1, Math.round(raw) || 1))
+  shot.seconds = Math.min(MAX_SHOT_SECONDS, Math.max(MIN_SHOT_SECONDS, Math.round(raw) || MIN_SHOT_SECONDS))
   touch()
 }
 
@@ -291,10 +358,6 @@ function onLineEmotion(shot: ScreenplayShot, index: number, event: Event) {
   touch()
 }
 
-function summaryOf(shot: ScreenplayShot) {
-  return dialogueSummary(shot, characterName, t('旁白'))
-}
-
 function linesOf(shot: ScreenplayShot): ScreenplayLine[] {
   return shot.dialogue?.length ? shot.dialogue : shotDialogue(shot)
 }
@@ -306,134 +369,135 @@ function onState(shot: ScreenplayShot, key: string, event: Event) {
 }
 
 const canInsertDialogue = computed(() => Boolean(props.screenplayId) && props.plan.characters.length >= 2 && props.plan.shots.length < MAX_SHOTS)
+
+/** 一次只改一件事：镜头是默认工作区，角色和场景各自一页 */
+const pane = ref<'shots' | 'characters' | 'scenes'>('shots')
+const shotIndex = ref(0)
+const statesOpen = ref(false)
+/** 四个角色色相拉开，只用于名字首字，不进数据色 */
+const CAST_HUES = [24, 200, 152, 332]
+
+const openShot = computed(() => props.plan.shots[shotIndex.value] ?? null)
+
+watch(shotIndex, (index) => {
+  const shot = props.plan.shots[index]
+  statesOpen.value = Boolean(shot?.characters.some(key => (shot.states?.[key] ?? '').trim()))
+}, { immediate: true })
+
+watch(() => props.plan.shots.length, (count) => {
+  if (shotIndex.value >= count)
+    shotIndex.value = Math.max(0, count - 1)
+})
+
+function sceneLabel(key: string) {
+  if (!key)
+    return t('未指定场景')
+  return props.plan.scenes.find(item => item.key === key)?.name || key
+}
+
+function speakerLabel(key: string) {
+  if (!key || key === 'narrator')
+    return t('旁白')
+  return characterName(key)
+}
+
+function shotBlurb(shot: ScreenplayShot) {
+  const line = linesOf(shot).find(item => item.text.trim())
+  if (line)
+    return `${speakerLabel(line.speaker)}：${line.text.trim()}`
+  return shot.prompt.trim()
+}
+
+function shotNo(shot: ScreenplayShot) {
+  return String(shot.no).padStart(2, '0')
+}
+
+function initialOf(name: string, key: string) {
+  const text = name.trim() || key
+  return text.slice(0, 1) || '?'
+}
+
+function castHue(key: string) {
+  const index = props.plan.characters.findIndex(item => item.key === key)
+  return CAST_HUES[(index < 0 ? 0 : index) % CAST_HUES.length]
+}
+
+/** 连续同一场景的镜头收成一组，换场才再写一次场景名 */
+const reelGroups = computed(() => {
+  const groups: { key: string, label: string, items: { shot: ScreenplayShot, index: number }[] }[] = []
+  props.plan.shots.forEach((shot, index) => {
+    const key = shot.scene || ''
+    const last = groups[groups.length - 1]
+    let group = groups[groups.length - 1]
+    if (!group || group.key !== key) {
+      group = { key, label: sceneLabel(key), items: [] }
+      groups.push(group)
+    }
+    group.items.push({ shot, index })
+  })
+  return groups
+})
+
+function selectShot(index: number) {
+  shotIndex.value = index
+}
 </script>
 
 <template>
   <div class="plan-editor" :class="{ 'is-disabled': disabled }">
-    <section class="plan-editor__block">
-      <div class="plan-editor__grid">
-        <label class="publish-field">
-          <span>{{ t('标题') }}</span>
-          <input v-model="plan.title" maxlength="60" :disabled="disabled" :placeholder="t('给作品起个名字')" @input="touch">
-        </label>
-        <label class="publish-field">
-          <span>{{ t('风格') }}</span>
-          <input v-model="plan.style" maxlength="60" :disabled="disabled" :placeholder="t('例如：电影感 · 冷色调')" @input="touch">
-        </label>
-        <label class="publish-field">
-          <span>{{ t('画幅') }}</span>
-          <div class="publish-tags">
-            <button
-              v-for="a in ASPECTS"
-              :key="a"
-              type="button"
-              :class="{ 'is-on': plan.aspect === a }"
-              :disabled="disabled"
-              @click="plan.aspect = a; touch()"
-            >
-              {{ a }}
-            </button>
-          </div>
-        </label>
-      </div>
-    </section>
-
-    <section class="plan-editor__block">
-      <header class="plan-editor__head">
-        <h3>{{ t('角色') }} <small>{{ plan.characters.length }}/{{ MAX_CHARACTERS }}</small></h3>
-        <button type="button" class="studio-chip" :disabled="disabled || plan.characters.length >= MAX_CHARACTERS" @click="addCharacter">
-          <UIcon name="i-lucide-plus" class="size-4" />
-          {{ t('添加角色') }}
-        </button>
-      </header>
-      <p v-if="!plan.characters.length" class="plan-editor__empty">{{ t('没有角色时只生成分镜图') }}</p>
-      <article v-for="(c, i) in plan.characters" :key="c.key" class="plan-card">
-        <header class="plan-card__bar">
-          <span class="plan-card__key">{{ c.key }}</span>
-          <input v-model="c.name" class="plan-card__name" maxlength="20" :disabled="disabled" :placeholder="t('角色名')" @input="touch">
-          <button type="button" class="plan-editor__remove" :aria-label="t('删除')" :disabled="disabled" @click="removeCharacter(i)">
-            <UIcon name="i-lucide-x" class="size-4" />
-          </button>
-        </header>
-        <textarea v-model="c.look" class="plan-card__look" rows="2" maxlength="500" :disabled="disabled" :placeholder="t('外貌与服装提示词')" @input="touch" />
-        <div class="plan-card__meta plan-voice">
-          <span class="plan-voice__label">{{ t('音色') }}</span>
-          <StudioSelect
-            size="compact"
-            :model-value="c.voice || ''"
-            :options="voiceOptions"
-            :disabled="disabled"
-            :sr-label="t('音色')"
-            @update:model-value="setCharacterVoice(i, $event)"
-          />
-          <input
-            v-model="c.voice_style"
-            class="plan-voice__style"
-            :maxlength="MAX_VOICE_STYLE"
-            :disabled="disabled"
-            :placeholder="t('说话风格，如：沉稳')"
-            @input="touch"
-          >
-        </div>
-      </article>
-    </section>
-
-    <section class="plan-editor__block">
-      <header class="plan-editor__head">
-        <h3>{{ t('场景') }} <small>{{ plan.scenes.length }}/{{ MAX_SCENES }}</small></h3>
-        <button type="button" class="studio-chip" :disabled="disabled || plan.scenes.length >= MAX_SCENES" @click="addScene">
-          <UIcon name="i-lucide-plus" class="size-4" />
-          {{ t('添加场景') }}
-        </button>
-      </header>
-      <article v-for="(s, i) in plan.scenes" :key="s.key" class="plan-card">
-        <header class="plan-card__bar">
-          <span class="plan-card__key">{{ s.key }}</span>
-          <input v-model="s.name" class="plan-card__name" maxlength="20" :disabled="disabled" :placeholder="t('场景名')" @input="touch">
-          <button type="button" class="plan-editor__remove" :aria-label="t('删除')" :disabled="disabled" @click="removeScene(i)">
-            <UIcon name="i-lucide-x" class="size-4" />
-          </button>
-        </header>
-        <textarea v-model="s.look" class="plan-card__look" rows="2" maxlength="500" :disabled="disabled" :placeholder="t('场景提示词')" @input="touch" />
-        <!-- 场次表（API.md 27.1）：这一场谁想得到什么、被什么挡住、结束时发生了什么 -->
-        <div class="plan-beats">
-          <label>
-            <span>{{ t('目标') }}</span>
-            <input v-model="s.objective" :maxlength="SCENE_BEAT_MAX" :disabled="disabled" :placeholder="t('谁想得到什么')" @input="touch">
-          </label>
-          <label>
-            <span>{{ t('阻碍') }}</span>
-            <input v-model="s.conflict" :maxlength="SCENE_BEAT_MAX" :disabled="disabled" :placeholder="t('被什么挡住')" @input="touch">
-          </label>
-          <label>
-            <span>{{ t('变化') }}</span>
-            <input v-model="s.turn" :maxlength="SCENE_BEAT_MAX" :disabled="disabled" :placeholder="t('结束时发生了什么')" @input="touch">
-          </label>
-        </div>
-      </article>
-    </section>
-
-    <section class="plan-editor__block">
-      <header class="plan-editor__head">
-        <h3>{{ t('镜头') }} <small>{{ plan.shots.length }}/{{ MAX_SHOTS }} · {{ t('共 {n} 秒', { n: totalSeconds }) }}</small></h3>
-        <div class="plan-editor__actions">
+    <header class="plan-mast">
+      <input
+        v-model="plan.title"
+        class="plan-mast__title"
+        maxlength="60"
+        :disabled="disabled"
+        :placeholder="t('给作品起个名字')"
+        :aria-label="t('标题')"
+        @input="touch"
+      >
+      <input
+        v-model="plan.style"
+        class="plan-mast__style"
+        maxlength="60"
+        :disabled="disabled"
+        :placeholder="t('例如：电影感 · 冷色调')"
+        :aria-label="t('风格')"
+        @input="touch"
+      >
+      <div class="plan-mast__row">
+        <div class="publish-tags" role="group" :aria-label="t('画幅')">
           <button
+            v-for="a in ASPECTS"
+            :key="a"
             type="button"
-            class="studio-chip"
-            :disabled="disabled || !canInsertDialogue"
-            :title="plan.characters.length < 2 ? t('至少需要两个角色') : ''"
-            @click="emit('insert-dialogue')"
+            :class="{ 'is-on': plan.aspect === a }"
+            :disabled="disabled"
+            @click="plan.aspect = a; touch()"
           >
-            <UIcon name="i-lucide-messages-square" class="size-4" />
-            {{ t('插入双人对白') }}
-          </button>
-          <button type="button" class="studio-chip" :disabled="disabled || plan.shots.length >= MAX_SHOTS" @click="addShot">
-            <UIcon name="i-lucide-plus" class="size-4" />
-            {{ t('添加镜头') }}
+            {{ a }}
           </button>
         </div>
-      </header>
-      <div class="plan-lang">
+        <p class="plan-mast__meta num">{{ t('共 {n} 秒', { n: totalSeconds }) }}</p>
+      </div>
+    </header>
+
+    <div class="plan-tabs" role="tablist">
+      <button type="button" role="tab" :aria-selected="pane === 'shots'" :class="{ 'is-on': pane === 'shots' }" @click="pane = 'shots'">
+        {{ t('镜头') }}
+        <small class="num">{{ plan.shots.length }}/{{ MAX_SHOTS }}</small>
+      </button>
+      <button type="button" role="tab" :aria-selected="pane === 'characters'" :class="{ 'is-on': pane === 'characters' }" @click="pane = 'characters'">
+        {{ t('角色') }}
+        <small class="num">{{ plan.characters.length }}/{{ MAX_CHARACTERS }}</small>
+      </button>
+      <button type="button" role="tab" :aria-selected="pane === 'scenes'" :class="{ 'is-on': pane === 'scenes' }" @click="pane = 'scenes'">
+        {{ t('场景') }}
+        <small class="num">{{ plan.scenes.length }}/{{ MAX_SCENES }}</small>
+      </button>
+    </div>
+
+    <div class="plan-toolbar">
+      <div v-if="pane === 'shots'" class="plan-lang">
         <span class="plan-lang__label">{{ t('语言') }}</span>
         <StudioSelect
           size="compact"
@@ -447,90 +511,174 @@ const canInsertDialogue = computed(() => Boolean(props.screenplayId) && props.pl
           type="button"
           class="studio-chip"
           :disabled="disabled || translating || !screenplayId || lang === DEFAULT_LANG"
+          :title="lang === DEFAULT_LANG ? t('中文即原文，选其它语种后可整份翻译台词') : t('译文会显示在每个镜头台词下方，可继续修改并随策划案保存')"
           @click="translateLines"
         >
           <UIcon name="i-lucide-languages" class="size-4" />
           {{ translating ? t('翻译中…') : t('翻译台词') }}
         </button>
-        <small>{{ lang === DEFAULT_LANG ? t('中文即原文，选其它语种后可整份翻译台词') : t('译文会显示在每个镜头台词下方，可继续修改并随策划案保存') }}</small>
       </div>
-      <div class="plan-shots">
-        <article v-for="(shot, i) in plan.shots" :key="`${shot.no}-${i}`" class="plan-shot">
+      <button v-else-if="pane === 'characters'" type="button" class="studio-chip" :disabled="disabled || plan.characters.length >= MAX_CHARACTERS" @click="addCharacter">
+        <UIcon name="i-lucide-plus" class="size-4" />
+        {{ t('添加角色') }}
+      </button>
+      <button v-else type="button" class="studio-chip" :disabled="disabled || plan.scenes.length >= MAX_SCENES" @click="addScene">
+        <UIcon name="i-lucide-plus" class="size-4" />
+        {{ t('添加场景') }}
+      </button>
+    </div>
+
+    <div class="plan-stage">
+      <div v-if="pane === 'shots'" class="plan-board">
+        <div class="plan-reel">
+          <div class="plan-reel__scroll">
+            <section v-for="group in reelGroups" :key="`${group.key}-${group.items[0]?.index}`" class="plan-reel__group">
+              <h3>{{ group.label }}</h3>
+              <div
+                v-for="item in group.items"
+                :key="item.shot.id || item.index"
+                class="plan-reel__item"
+                :class="{
+                  'is-on': item.index === shotIndex,
+                  'is-drag': dragFrom === item.index,
+                  'is-before': dragOver === item.index && dragFrom > item.index,
+                  'is-after': dragOver === item.index && dragFrom < item.index,
+                }"
+                :draggable="!disabled"
+                role="button"
+                tabindex="0"
+                :aria-current="item.index === shotIndex ? 'true' : undefined"
+                :title="t('拖拽排序')"
+                @click="selectShot(item.index)"
+                @keydown.enter.prevent="selectShot(item.index)"
+                @keydown.space.prevent="selectShot(item.index)"
+                @dragstart="onReelDragStart(item.index, $event)"
+                @dragover="onReelDragOver(item.index, $event)"
+                @drop.prevent="onReelDrop(item.index)"
+                @dragend="onReelDragEnd"
+              >
+                <span class="plan-reel__grip" aria-hidden="true">
+                  <UIcon name="i-lucide-grip-vertical" class="size-3.5" />
+                </span>
+                <span class="plan-reel__no num">{{ shotNo(item.shot) }}</span>
+                <span class="plan-reel__body">
+                  <span class="plan-reel__line" :class="{ 'is-empty': !shotBlurb(item.shot) }">{{ shotBlurb(item.shot) || t('还没有画面') }}</span>
+                  <span class="plan-reel__sub">
+                    <span class="num">{{ item.shot.seconds }}{{ t('秒') }}</span>
+                    <span v-if="item.shot.characters.length" class="plan-reel__cast">
+                      <i
+                        v-for="key in item.shot.characters"
+                        :key="key"
+                        :style="{ '--hue': castHue(key) }"
+                      >{{ initialOf(characterName(key), key) }}</i>
+                    </span>
+                  </span>
+                </span>
+              </div>
+            </section>
+            <p v-if="!plan.shots.length" class="plan-editor__empty">{{ t('还没有镜头') }}</p>
+          </div>
+          <div class="plan-reel__foot">
+            <button type="button" class="studio-chip" :disabled="disabled || plan.shots.length >= MAX_SHOTS" @click="addShot">
+              <UIcon name="i-lucide-plus" class="size-4" />
+              {{ t('添加镜头') }}
+            </button>
+            <button
+              type="button"
+              class="studio-chip"
+              :disabled="disabled || !canInsertDialogue"
+              :title="plan.characters.length < 2 ? t('至少需要两个角色') : ''"
+              @click="emit('insert-dialogue')"
+            >
+              <UIcon name="i-lucide-messages-square" class="size-4" />
+              {{ t('插入双人对白') }}
+            </button>
+          </div>
+        </div>
+
+        <article v-if="openShot" :key="openShot.id || openShot.no" class="plan-shot-page">
           <header class="plan-shot__head">
-            <strong>#{{ shot.no }}</strong>
+            <strong class="num">{{ t('镜头') }} {{ shotNo(openShot) }}</strong>
             <StudioSelect
               size="compact"
-              :model-value="shot.scene"
+              :model-value="openShot.scene"
               :options="sceneOptions"
               :disabled="disabled"
               :sr-label="t('场景')"
-              @update:model-value="setShotScene(shot, $event)"
+              @update:model-value="setShotScene(openShot, $event)"
             />
             <label class="plan-shot__seconds">
-              <input type="number" min="1" max="15" :value="shot.seconds" :disabled="disabled" @change="onSeconds(shot, $event)">
+              <input type="number" :min="MIN_SHOT_SECONDS" :max="MAX_SHOT_SECONDS" :value="openShot.seconds" :disabled="disabled" :title="t('每镜 {min}–{max} 秒', { min: MIN_SHOT_SECONDS, max: MAX_SHOT_SECONDS })" @change="onSeconds(openShot, $event)">
               <span>{{ t('秒') }}</span>
             </label>
             <span class="plan-shot__spacer" />
-            <button type="button" class="plan-editor__icon" :aria-label="t('上移')" :disabled="disabled || i === 0" @click="moveShot(i, -1)">
-              <UIcon name="i-lucide-chevron-up" class="size-4" />
-            </button>
-            <button type="button" class="plan-editor__icon" :aria-label="t('下移')" :disabled="disabled || i === plan.shots.length - 1" @click="moveShot(i, 1)">
-              <UIcon name="i-lucide-chevron-down" class="size-4" />
-            </button>
-            <button type="button" class="plan-editor__icon is-danger" :aria-label="t('删除')" :disabled="disabled || plan.shots.length <= 1" @click="removeShot(i)">
+            <button type="button" class="plan-editor__icon is-danger" :aria-label="t('删除')" :disabled="disabled || plan.shots.length <= 1" @click="removeShot(shotIndex)">
               <UIcon name="i-lucide-trash-2" class="size-4" />
             </button>
           </header>
-          <p v-if="summaryOf(shot)" class="plan-shot__summary" :title="summaryOf(shot)">{{ summaryOf(shot) }}</p>
-          <div v-if="plan.characters.length" class="publish-tags plan-shot__cast">
-            <button
-              v-for="c in plan.characters"
-              :key="c.key"
-              type="button"
-              :class="{ 'is-on': shot.characters.includes(c.key) }"
-              :disabled="disabled"
-              @click="toggleShotCharacter(shot, c.key)"
-            >
-              {{ characterName(c.key) }}
-            </button>
-          </div>
-          <div v-if="shot.characters.length" class="plan-states">
-            <label v-for="key in shot.characters" :key="key" class="plan-state">
-              <span>{{ t('{name} 本镜状态', { name: characterName(key) }) }}</span>
-              <input
-                :value="shot.states?.[key] ?? ''"
-                :maxlength="MAX_STATE"
-                :disabled="disabled"
-                :placeholder="t('如：穿病号服，左手缠绷带')"
-                @input="onState(shot, key, $event)"
-              >
-            </label>
-          </div>
-          <label class="publish-field">
+
+          <label class="publish-field plan-shot-page__prompt">
             <span>{{ t('画面提示词') }}</span>
-            <textarea v-model="shot.prompt" rows="2" maxlength="800" :disabled="disabled" @input="touch" />
+            <textarea v-model="openShot.prompt" rows="4" maxlength="800" :disabled="disabled" :placeholder="t('这一镜里看得见什么')" @input="touch" />
           </label>
           <label class="publish-field">
             <span>{{ t('镜头运动') }}</span>
-            <input v-model="shot.motion" maxlength="60" :disabled="disabled" :placeholder="t('例如：缓慢推进')" @input="touch">
+            <input v-model="openShot.motion" maxlength="60" :disabled="disabled" :placeholder="t('例如：缓慢推进')" @input="touch">
           </label>
+
+          <div v-if="plan.characters.length" class="plan-shot-page__cast">
+            <span>{{ t('出场') }}</span>
+            <div class="publish-tags">
+              <button
+                v-for="c in plan.characters"
+                :key="c.key"
+                type="button"
+                :class="{ 'is-on': openShot.characters.includes(c.key) }"
+                :disabled="disabled"
+                @click="toggleShotCharacter(openShot, c.key)"
+              >
+                <i class="plan-mark" :style="{ '--hue': castHue(c.key) }">{{ initialOf(c.name, c.key) }}</i>
+                {{ characterName(c.key) }}
+              </button>
+            </div>
+          </div>
+
+          <div v-if="openShot.characters.length" class="plan-states-fold">
+            <button type="button" class="plan-states-fold__toggle" :aria-expanded="statesOpen" @click="statesOpen = !statesOpen">
+              <UIcon :name="statesOpen ? 'i-lucide-chevron-down' : 'i-lucide-chevron-right'" class="size-4" />
+              {{ t('本镜状态') }}
+            </button>
+            <div v-if="statesOpen" class="plan-states">
+              <label v-for="key in openShot.characters" :key="key" class="plan-state">
+                <span>{{ t('{name} 本镜状态', { name: characterName(key) }) }}</span>
+                <input
+                  :value="openShot.states?.[key] ?? ''"
+                  :maxlength="MAX_STATE"
+                  :disabled="disabled"
+                  :placeholder="t('如：穿病号服，左手缠绷带')"
+                  @input="onState(openShot, key, $event)"
+                >
+              </label>
+            </div>
+          </div>
+
           <div class="plan-dialogue">
             <div class="plan-dialogue__head">
-              <span>{{ t('对白') }} <small>{{ linesOf(shot).length }}/{{ MAX_DIALOGUE }}</small></span>
-              <button type="button" class="studio-chip" :disabled="disabled || linesOf(shot).length >= MAX_DIALOGUE" @click="addLine(shot)">
+              <span>{{ t('对白') }} <small class="num">{{ linesOf(openShot).length }}/{{ MAX_DIALOGUE }}</small></span>
+              <button type="button" class="studio-chip" :disabled="disabled || linesOf(openShot).length >= MAX_DIALOGUE" @click="addLine(openShot)">
                 <UIcon name="i-lucide-plus" class="size-4" />
                 {{ t('添加对白') }}
               </button>
             </div>
-            <p v-if="!linesOf(shot).length" class="plan-editor__empty">{{ t('没有对白则该镜头不配音') }}</p>
-            <div v-for="(item, li) in linesOf(shot)" :key="li" class="plan-dialogue__row">
+            <p v-if="!linesOf(openShot).length" class="plan-editor__empty">{{ t('没有对白则该镜头不配音') }}</p>
+            <div v-for="(item, li) in linesOf(openShot)" :key="li" class="plan-dialogue__row">
               <StudioSelect
                 size="compact"
                 :model-value="item.speaker"
-                :options="speakerOptions(shot)"
+                :options="speakerOptions(openShot)"
                 :disabled="disabled"
                 :sr-label="t('说话人')"
-                @update:model-value="setLineSpeaker(shot, li, $event)"
+                @update:model-value="setLineSpeaker(openShot, li, $event)"
               />
               <input
                 class="plan-dialogue__text"
@@ -538,7 +686,7 @@ const canInsertDialogue = computed(() => Boolean(props.screenplayId) && props.pl
                 :maxlength="MAX_LINE_TEXT"
                 :disabled="disabled"
                 :placeholder="t('台词正文')"
-                @input="onLineText(shot, li, $event)"
+                @input="onLineText(openShot, li, $event)"
               >
               <input
                 class="plan-dialogue__emotion"
@@ -546,25 +694,87 @@ const canInsertDialogue = computed(() => Boolean(props.screenplayId) && props.pl
                 :maxlength="MAX_EMOTION"
                 :disabled="disabled"
                 :placeholder="t('情绪')"
-                @input="onLineEmotion(shot, li, $event)"
+                @input="onLineEmotion(openShot, li, $event)"
               >
-              <button type="button" class="plan-editor__remove" :aria-label="t('删除')" :disabled="disabled" @click="removeLine(shot, li)">
-                <UIcon name="i-lucide-x" class="size-4" />
+              <button type="button" class="plan-editor__icon is-danger" :aria-label="t('删除')" :disabled="disabled" @click="removeLine(openShot, li)">
+                <UIcon name="i-lucide-trash-2" class="size-4" />
               </button>
             </div>
           </div>
+
           <label v-if="showTranslated" class="publish-field plan-shot__line-i18n">
             <span>{{ t('{lang}台词', { lang: langLabel(lang) }) }}</span>
             <input
-              :value="translatedLine(shot)"
+              :value="translatedLine(openShot)"
               maxlength="200"
               :disabled="disabled"
               :placeholder="t('留空则该语种回落到原文')"
-              @input="onTranslatedInput(shot, $event)"
+              @input="onTranslatedInput(openShot, $event)"
             >
           </label>
         </article>
       </div>
-    </section>
+
+      <section v-else-if="pane === 'characters'" class="plan-people">
+        <p v-if="!plan.characters.length" class="plan-editor__empty">{{ t('没有角色时只生成分镜图') }}</p>
+        <article v-for="(c, i) in plan.characters" :key="c.key" class="plan-card">
+          <header class="plan-card__bar">
+            <i class="plan-mark" :style="{ '--hue': castHue(c.key) }">{{ initialOf(c.name, c.key) }}</i>
+            <input v-model="c.name" class="plan-card__name" maxlength="20" :disabled="disabled" :placeholder="t('角色名')" @input="touch">
+            <button type="button" class="plan-editor__icon is-danger" :aria-label="t('删除')" :disabled="disabled" @click="removeCharacter(i)">
+              <UIcon name="i-lucide-trash-2" class="size-4" />
+            </button>
+          </header>
+          <textarea v-model="c.look" class="plan-card__look" rows="2" maxlength="500" :disabled="disabled" :placeholder="t('外貌与服装提示词')" @input="touch" />
+          <div class="plan-card__meta plan-voice">
+            <span class="plan-voice__label">{{ t('音色') }}</span>
+            <StudioSelect
+              size="compact"
+              :model-value="c.voice || ''"
+              :options="voiceOptions"
+              :disabled="disabled"
+              :sr-label="t('音色')"
+              @update:model-value="setCharacterVoice(i, $event)"
+            />
+            <input
+              v-model="c.voice_style"
+              class="plan-voice__style"
+              :maxlength="MAX_VOICE_STYLE"
+              :disabled="disabled"
+              :placeholder="t('说话风格，如：沉稳')"
+              @input="touch"
+            >
+          </div>
+        </article>
+      </section>
+
+      <section v-else class="plan-people">
+        <p v-if="!plan.scenes.length" class="plan-editor__empty">{{ t('还没有场景') }}</p>
+        <article v-for="(s, i) in plan.scenes" :key="s.key" class="plan-card">
+          <header class="plan-card__bar">
+            <span class="plan-card__key num">{{ String(i + 1).padStart(2, '0') }}</span>
+            <input v-model="s.name" class="plan-card__name" maxlength="20" :disabled="disabled" :placeholder="t('场景名')" @input="touch">
+            <button type="button" class="plan-editor__icon is-danger" :aria-label="t('删除')" :disabled="disabled" @click="removeScene(i)">
+              <UIcon name="i-lucide-trash-2" class="size-4" />
+            </button>
+          </header>
+          <textarea v-model="s.look" class="plan-card__look" rows="2" maxlength="500" :disabled="disabled" :placeholder="t('场景提示词')" @input="touch" />
+          <div class="plan-beats">
+            <label>
+              <span>{{ t('目标') }}</span>
+              <input v-model="s.objective" :maxlength="SCENE_BEAT_MAX" :disabled="disabled" :placeholder="t('谁想得到什么')" @input="touch">
+            </label>
+            <label>
+              <span>{{ t('阻碍') }}</span>
+              <input v-model="s.conflict" :maxlength="SCENE_BEAT_MAX" :disabled="disabled" :placeholder="t('被什么挡住')" @input="touch">
+            </label>
+            <label>
+              <span>{{ t('变化') }}</span>
+              <input v-model="s.turn" :maxlength="SCENE_BEAT_MAX" :disabled="disabled" :placeholder="t('结束时发生了什么')" @input="touch">
+            </label>
+          </div>
+        </article>
+      </section>
+    </div>
   </div>
 </template>

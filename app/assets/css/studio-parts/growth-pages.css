@@ -737,6 +737,12 @@ html.dark .canvas-promo__chip {
   max-width: 1040px;
 }
 
+.create-body {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
 .create-page.is-dock .create-body {
   display: flex;
   flex: 1;
@@ -761,10 +767,20 @@ html.dark .canvas-promo__chip {
   overflow: auto;
 }
 
+.create-page.is-dock .create-plan__main {
+  overflow: hidden;
+}
+
 .create-page.is-dock .create-plan__main > *,
 .create-page.is-dock .create-plan__side > *,
 .create-page.is-dock .create-body > .create-card > * {
   flex-shrink: 0;
+}
+
+.create-page.is-dock .create-plan__main > .plan-editor {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .create-page.is-dock .create-plan__side {
@@ -780,7 +796,17 @@ html.dark .canvas-promo__chip {
   overflow: auto;
 }
 
+.create-page.is-dock .create-body > .create-card.create-compose {
+  flex: 0 1 auto;
+  max-height: 100%;
+}
+
+.create-page:not(.is-dock) .plan-board {
+  min-height: 480px;
+}
+
 .create-page:not(.is-dock) .create-body > .create-card {
+  width: 100%;
   max-width: 1160px;
   margin-inline: auto;
 }
@@ -1530,7 +1556,31 @@ html.dark .canvas-promo__chip {
   display: grid;
   grid-template-columns: minmax(140px, 200px) minmax(0, 1fr) auto;
   gap: 12px;
-  align-items: end;
+  align-items: start;
+}
+
+.plan-editor .publish-field > span {
+  line-height: 16px;
+}
+
+.plan-editor .publish-field input {
+  box-sizing: border-box;
+  height: 40px;
+  padding: 0 12px;
+}
+
+.plan-mast .publish-tags {
+  flex-wrap: nowrap;
+  align-items: stretch;
+  height: 32px;
+}
+
+.plan-mast .publish-tags button {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  height: 100%;
+  padding: 0 12px;
 }
 
 .plan-editor__head {
@@ -1716,6 +1766,14 @@ html.dark .canvas-promo__chip {
   cursor: pointer;
 }
 
+.plan-editor__icon.is-danger {
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--st-border);
+  border-radius: 10px;
+  background: var(--st-card);
+}
+
 .plan-editor__remove:hover:not(:disabled),
 .plan-editor__icon:hover:not(:disabled) {
   background: var(--st-hover);
@@ -1783,6 +1841,398 @@ html.dark .canvas-promo__chip {
 
 .plan-shot__grid {
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+/* 策划案：片头 + 分镜条。一次只打开一镜，角色和场景各自一页。 */
+.plan-editor {
+  gap: 14px;
+  min-height: 0;
+}
+
+.plan-mast {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.plan-mast__title,
+.plan-mast__style {
+  width: 100%;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  outline: none;
+}
+
+.plan-mast__title {
+  height: 32px;
+  color: var(--st-text);
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+
+.plan-mast__title::placeholder,
+.plan-mast__style::placeholder {
+  color: var(--st-text-soft);
+}
+
+.plan-mast__style {
+  height: 24px;
+  color: var(--st-text-soft);
+  font-size: 14px;
+}
+
+.plan-mast__style:focus {
+  color: var(--st-text);
+}
+
+.plan-mast__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+}
+
+.plan-mast__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  margin: 0;
+  font-size: 13px;
+  color: var(--st-text-soft);
+}
+
+.plan-mast__meta b {
+  font-weight: 600;
+  color: var(--st-text);
+}
+
+.plan-tabs {
+  display: flex;
+  align-items: flex-end;
+  gap: 18px;
+  border-bottom: 1px solid var(--st-border);
+}
+
+.plan-tabs [role="tab"] {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  margin-bottom: -1px;
+  padding: 0 0 8px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--st-text-soft);
+  font: inherit;
+  font-size: 14px;
+  line-height: 20px;
+  cursor: pointer;
+}
+
+.plan-tabs [role="tab"] small {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--st-text-soft);
+}
+
+.plan-tabs [role="tab"].is-on {
+  border-bottom-color: var(--st-text);
+  color: var(--st-text);
+  font-weight: 600;
+}
+
+.plan-editor > .plan-toolbar {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: flex-end;
+  height: 32px;
+  margin-bottom: 0;
+}
+
+.plan-toolbar .plan-lang {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  flex-wrap: nowrap;
+  gap: 8px;
+}
+
+.plan-toolbar .plan-lang__label {
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 32px;
+}
+
+.plan-toolbar .studio-select.is-compact {
+  flex: none;
+  width: 148px;
+  height: 32px;
+}
+
+.plan-toolbar .studio-select.is-compact .studio-select__trigger,
+.plan-toolbar .studio-chip {
+  height: 32px;
+}
+
+.plan-stage {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  overflow: auto;
+}
+
+.plan-stage:has(.plan-board) {
+  overflow: hidden;
+}
+
+.plan-board {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr);
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid var(--st-border);
+  border-radius: 14px;
+  background: var(--st-card);
+}
+
+.plan-reel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--st-bg);
+  border-right: 1px solid var(--st-border);
+}
+
+.plan-reel__scroll {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 8px;
+}
+
+.plan-reel__group h3 {
+  margin: 8px 8px 4px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--st-text-soft);
+}
+
+.plan-reel__group:first-child h3 {
+  margin-top: 4px;
+}
+
+.plan-reel__item {
+  display: grid;
+  grid-template-columns: 14px 28px minmax(0, 1fr);
+  gap: 8px;
+  width: 100%;
+  margin: 0 0 2px;
+  padding: 8px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: grab;
+}
+
+.plan-reel__item:active {
+  cursor: grabbing;
+}
+
+.plan-reel__grip {
+  display: flex;
+  align-items: center;
+  height: 20px;
+  color: var(--st-text-soft);
+}
+
+.plan-reel__item.is-drag {
+  opacity: 0.35;
+}
+
+/* 往上拖：镜头会插到这一行前面，线画在上沿。往下拖：会排到这一行后面，线画在下沿。 */
+.plan-reel__item.is-before {
+  box-shadow: inset 0 2px 0 var(--st-text);
+}
+
+.plan-reel__item.is-after {
+  box-shadow: inset 0 -2px 0 var(--st-text);
+}
+
+.plan-reel__ghost {
+  position: fixed;
+  top: -1000px;
+  left: 0;
+  z-index: 10000;
+  margin: 0;
+  opacity: 1;
+  background: var(--st-card);
+  border: 1px solid var(--st-border);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
+  pointer-events: none;
+}
+
+.plan-reel__item:hover {
+  background: var(--st-hover);
+}
+
+.plan-reel__item.is-on {
+  background: var(--st-card);
+}
+
+.plan-reel__no {
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 20px;
+  color: var(--st-text);
+}
+
+.plan-reel__body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.plan-reel__line {
+  overflow: hidden;
+  font-size: 13px;
+  line-height: 20px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--st-text);
+}
+
+.plan-reel__item:not(.is-on) .plan-reel__line,
+.plan-reel__line.is-empty {
+  color: var(--st-text-soft);
+}
+
+.plan-reel__sub {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--st-text-soft);
+}
+
+.plan-reel__cast {
+  display: inline-flex;
+  gap: 3px;
+}
+
+.plan-reel__cast i,
+.plan-mark {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  background: hsl(var(--hue) 42% 90%);
+  color: hsl(var(--hue) 32% 26%);
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 600;
+  line-height: 1;
+}
+
+html.dark .plan-reel__cast i,
+html.dark .plan-mark {
+  background: hsl(var(--hue) 24% 24%);
+  color: hsl(var(--hue) 45% 86%);
+}
+
+.plan-mark {
+  width: 22px;
+  height: 22px;
+  font-size: 12px;
+}
+
+.plan-reel__foot {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  border-top: 1px solid var(--st-border);
+}
+
+.plan-reel__foot .studio-chip {
+  justify-content: center;
+}
+
+.plan-shot-page {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+  overflow: auto;
+  padding: 14px 16px 16px;
+}
+
+.plan-shot-page__prompt textarea {
+  min-height: 96px;
+  line-height: 1.6;
+}
+
+.plan-shot-page__cast {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.plan-shot-page__cast > span {
+  font-size: 12px;
+  color: var(--st-text-soft);
+}
+
+.plan-shot-page__cast .publish-tags button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.plan-states-fold__toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--st-text-soft);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.plan-states-fold__toggle:hover {
+  color: var(--st-text);
+}
+
+.plan-people {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.num {
+  font-variant-numeric: tabular-nums;
 }
 
 /* 分层生成 */
@@ -1866,6 +2316,10 @@ html.dark .canvas-promo__chip {
 
 .create-layer__model.studio-select.is-compact {
   width: 220px;
+}
+
+.create-layer__duration.studio-select.is-compact {
+  width: 88px;
 }
 
 .create-layer__grid {
@@ -2067,11 +2521,80 @@ html.dark .canvas-promo__chip {
 }
 
 .create-merge {
-  margin: 12px 0 0;
-  padding-left: 1.2em;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.create-merge.is-one {
+  grid-template-columns: minmax(0, 720px);
+  justify-content: center;
+}
+
+.create-merge.is-one.is-portrait {
+  grid-template-columns: minmax(0, 320px);
+}
+
+.create-merge.is-one.is-square {
+  grid-template-columns: minmax(0, 480px);
+}
+
+.create-merge li {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--st-border);
+  border-radius: 12px;
+  background: #000;
+}
+
+.create-merge video {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: #000;
+  object-fit: contain;
+}
+
+.create-merge.is-portrait video {
+  aspect-ratio: 9 / 16;
+}
+
+.create-merge.is-square video {
+  aspect-ratio: 1;
+}
+
+.create-merge__meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  background: var(--st-card);
   color: var(--st-text);
-  font-size: 14px;
-  line-height: 1.7;
+  font-size: 13px;
+}
+
+.create-merge__meta b {
+  display: inline-flex;
+  width: 22px;
+  height: 22px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: var(--st-on);
+  color: var(--st-on-text);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.create-merge__meta small {
+  margin-left: auto;
+  color: var(--st-muted);
+  font-size: 12px;
 }
 
 .create-done {
@@ -2216,6 +2739,42 @@ html.dark .canvas-promo__chip {
 
   .plan-editor__grid {
     grid-template-columns: 1fr;
+  }
+
+  .create-page.is-dock .create-plan__main,
+  .create-page.is-dock .create-plan__main > .plan-editor,
+  .plan-stage,
+  .plan-board,
+  .plan-shot-page {
+    height: auto;
+    overflow: visible;
+  }
+
+  .plan-toolbar {
+    height: auto;
+    min-height: 32px;
+  }
+
+  .plan-toolbar .plan-lang {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
+  .plan-board {
+    flex: none;
+    grid-template-columns: 1fr;
+    min-height: 0;
+  }
+
+  .plan-reel {
+    max-height: 280px;
+    overflow: hidden;
+    border-right: 0;
+    border-bottom: 1px solid var(--st-border);
+  }
+
+  .plan-reel__scroll {
+    overflow: auto;
   }
 }
 

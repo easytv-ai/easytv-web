@@ -94,6 +94,8 @@ const loadError = ref('')
 const graph = ref<CanvasGraph | null>(null)
 const version = ref(0)
 const skipped = reactive<Record<LayerKey, boolean>>({ character: false, shot: false, video: false, audio: false })
+/** 这一层手动选的时长；没选过就仍按每镜策划案秒数落到模型档位 */
+const durationPick = reactive<Partial<Record<'video' | 'audio', number>>>({})
 /** 画布最近一个服务端批次 */
 const batch = ref<GenerationBatch | null>(null)
 const batchBusy = ref(false)
@@ -559,6 +561,58 @@ function pickDuration(seconds: number, options: number[]) {
   return options.find(v => v >= s) ?? options[options.length - 1]!
 }
 
+function layerDurationType(layer: Layer): 'video' | 'audio' | null {
+  return layer.type === 'video' || layer.type === 'audio' ? layer.type : null
+}
+
+function durationSelectOptions(type: 'video' | 'audio'): StudioSelectOption[] {
+  return durationOptions(type).map(n => ({ value: n, label: t('{n} 秒', { n }) }))
+}
+
+/** 下拉里显示的秒数：手动选过用选的，否则用这一层第一镜落到档位后的秒数 */
+function durationShown(layer: Layer) {
+  const type = layerDurationType(layer)
+  if (!type)
+    return 0
+  const options = durationOptions(type)
+  const picked = durationPick[type]
+  if (picked && options.includes(picked))
+    return picked
+  const node = layer.nodes[0]
+  return node ? pickDuration(shotSeconds(node, layer.key), options) : (options[0] ?? 5)
+}
+
+function onPickDuration(layer: Layer, value: string | number) {
+  const type = layerDurationType(layer)
+  if (!type)
+    return
+  const n = Number(value)
+  if (durationOptions(type).includes(n))
+    durationPick[type] = n
+}
+
+function snapDurationPick(type: 'video' | 'audio') {
+  const picked = durationPick[type]
+  if (!picked)
+    return
+  const options = durationOptions(type)
+  if (!options.includes(picked))
+    durationPick[type] = pickDuration(picked, options)
+}
+
+watch(() => props.videoDurations, () => snapDurationPick('video'))
+watch(() => props.audioDurations, () => snapDurationPick('audio'))
+
+/** 提交用的秒数：这一层选过时长就全部用它，否则每镜仍按策划案 */
+function resolvedDuration(layer: Layer, node: FlowNode) {
+  const type = layer.type === 'audio' ? 'audio' : 'video'
+  const options = durationOptions(type)
+  const picked = layer.type === 'video' || layer.type === 'audio' ? durationPick[layer.type] : undefined
+  if (picked && options.includes(picked))
+    return picked
+  return pickDuration(shotSeconds(node, layer.key), options)
+}
+
 /** 镜头时长：节点自带 seconds 优先，其次 sp.seconds，再按镜号（没有镜号按顺序）对应策划案，默认 5 秒 */
 function shotSeconds(node: FlowNode, layer: LayerKey) {
   const own = Number(node.data.seconds)
@@ -579,7 +633,7 @@ function buildParams(layer: Layer, node: FlowNode): Record<string, unknown> {
     Object.assign(params, { ratio: aspectRatio(), quality: 'std', clarity: '2K' })
   // 时长要落在模型支持的档位上：策划案给的秒数（比如 2 秒或 10 秒）不一定被模型接受
   if (layer.type === 'video') {
-    const videoParams: Record<string, unknown> = { mode: 'fl2v', ratio: aspectRatio(), resolution: videoResolution(), duration: pickDuration(shotSeconds(node, 'video'), durationOptions('video')) }
+    const videoParams: Record<string, unknown> = { mode: 'fl2v', ratio: aspectRatio(), resolution: videoResolution(), duration: resolvedDuration(layer, node) }
     // 目录里能确认没有原生音频时不传 audio：这类模型收到 generate_audio 会一直失败，换模型才有意义
     const picked = (props.catalog || []).find(item => item.model === modelOf(layer, node))
     if (!picked || hasNativeAudio(picked))
@@ -587,7 +641,7 @@ function buildParams(layer: Layer, node: FlowNode): Record<string, unknown> {
     Object.assign(params, videoParams)
   }
   if (layer.type === 'audio') {
-    Object.assign(params, { duration: pickDuration(shotSeconds(node, 'audio'), durationOptions('audio')) })
+    Object.assign(params, { duration: resolvedDuration(layer, node) })
     // 分段配音（API.md 25.1）：建画布 / 同步时后端把对白按说话人写进 data.segments，提交任务原样带上，provider 逐段 TTS 再拼接
     const segments = voiceSegmentParams(node.data.segments)
     if (segments.length) {
@@ -1252,6 +1306,16 @@ defineExpose({ reload: load, anyRunning })
               :disabled="batchBusy"
               @update:model-value="onPickModel(layer, $event)"
             />
+            <StudioSelect
+              v-if="layer.type === 'video' || layer.type === 'audio'"
+              class="create-layer__duration"
+              size="compact"
+              :model-value="durationShown(layer)"
+              :options="durationSelectOptions(layer.type)"
+              :sr-label="t('时长')"
+              :disabled="batchBusy"
+              @update:model-value="onPickDuration(layer, $event)"
+            />
             <button
               type="button"
               class="studio-chip"
@@ -1306,6 +1370,7 @@ defineExpose({ reload: load, anyRunning })
             <div class="create-node__meta">
               <strong>
                 {{ nodeLabel(layer, ni, node) }}
+                <small v-if="layer.type === 'video' || layer.type === 'audio'" class="create-node__tag">{{ t('{n} 秒', { n: resolvedDuration(layer, node) }) }}</small>
                 <small v-if="layer.type === 'audio' && segmentCount(node)" class="create-node__tag">{{ t('create.layers.batch.dialogue', { n: segmentCount(node) }) }}</small>
               </strong>
               <p :title="promptOf(layer, node)">{{ promptOf(layer, node) || t('create.layers.task.missingPrompt') }}</p>

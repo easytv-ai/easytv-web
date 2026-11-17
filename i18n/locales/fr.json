@@ -3635,7 +3635,16 @@
     "summaryEmpty": "Pas encore de personnages, d'accessoires ni d'intrigues : le prochain épisode n'aura rien à reprendre.",
     "summaryCounts": "{c} personnages, {p} accessoires, {n} intrigues et {f} faits enregistrés.",
     "recordsCost": "Le modèle de texte résume le plan de l'épisode en un récapitulatif de continuité et l'intègre à la bible ci-dessus (nouveaux personnages, faits révélés, intrigues ouvertes, changements de main des accessoires). Facturé une fois au tarif du modèle de texte.",
-    "recordsEmpty": "Aucun récapitulatif d'épisode pour l'instant. Une fois le plan généré, utilisez l'IA pour intégrer les personnages, faits et intrigues de l'épisode à la bible."
+    "recordsEmpty": "Aucun récapitulatif d'épisode pour l'instant. Une fois le plan généré, utilisez l'IA pour intégrer les personnages, faits et intrigues de l'épisode à la bible.",
+    "board": {
+      "shots": "{n} plans",
+      "cast": "Distribution",
+      "picture": "Image",
+      "motion": "Mouvement",
+      "line": "Réplique",
+      "noPicture": "Pas encore d'image pour ce plan",
+      "noShots": "Cet épisode n'a pas encore de plans."
+    }
   },
   "canvas": {
     "practice": {
