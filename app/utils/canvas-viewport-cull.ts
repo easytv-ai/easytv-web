@@ -1,9 +1,11 @@
 /** 少于这么多张卡片时不裁，避免小画布多一次样式写入 */
-export const CANVAS_CULL_MIN_NODES = 40
-/** 视口外再留这么多屏，快滑一段不会先看到空白 */
-export const CANVAS_CULL_MARGIN_SCREENS = 1.35
+export const CANVAS_CULL_MIN_NODES = 16
+/** 视口外再留这么多屏。只多留不到半屏，屏幕外的卡片不再跟着画 */
+export const CANVAS_CULL_MARGIN_SCREENS = 0.45
 /** 可视区离已准备区域还剩这么多像素时就提前补画 */
 export const CANVAS_CULL_REVEAL_PAD = 280
+/** 一帧里最多改这么多张卡片或连线，避免松手时把整屏样式一次写完 */
+export const CANVAS_CULL_FRAME_BUDGET = 24
 
 export type CanvasCullRect = { left: number, top: number, right: number, bottom: number }
 
@@ -175,20 +177,35 @@ export function applyCanvasCullDom(
   root: ParentNode,
   plan: CanvasCullPlan,
   sizes: Map<string, { w: number, h: number }>,
-) {
+  budget = Number.POSITIVE_INFINITY,
+): 'miss' | 'partial' | 'done' {
   const nodeEls = root.querySelectorAll<HTMLElement>('.vue-flow__node')
   if (!nodeEls.length && plan.hiddenNodes.size)
-    return false
+    return 'miss'
+  let left = budget
+  let pending = false
+  const take = () => {
+    if (left <= 0) {
+      pending = true
+      return false
+    }
+    left -= 1
+    return true
+  }
   for (const el of nodeEls) {
     const id = el.getAttribute('data-id') || ''
     if (!plan.hiddenNodes.has(id)) {
-      if (el.style.contentVisibility) {
-        el.style.contentVisibility = ''
-        el.style.containIntrinsicSize = ''
-      }
+      if (!el.style.contentVisibility)
+        continue
+      if (!take())
+        continue
+      el.style.contentVisibility = ''
+      el.style.containIntrinsicSize = ''
       continue
     }
     if (el.style.contentVisibility === 'hidden')
+      continue
+    if (!take())
       continue
     const known = sizes.get(id)
     const w = Math.max(1, Math.round(known?.w || 220))
@@ -200,18 +217,38 @@ export function applyCanvasCullDom(
   for (const el of edgeEls) {
     const id = el.getAttribute('data-id') || ''
     const next = plan.hiddenEdges.has(id) ? 'none' : ''
-    if (el.style.display !== next)
-      el.style.display = next
+    if (el.style.display === next)
+      continue
+    if (!take())
+      continue
+    el.style.display = next
   }
-  return true
+  return pending ? 'partial' : 'done'
 }
 
 /** 只把进入准备区的卡片画回来，平移过程中不把刚离开的卡片藏掉 */
-export function revealCanvasCullDom(root: ParentNode, shownNodes: Set<string>, shownEdges: Set<string>) {
+export function revealCanvasCullDom(
+  root: ParentNode,
+  shownNodes: Set<string>,
+  shownEdges: Set<string>,
+  budget = Number.POSITIVE_INFINITY,
+): 'partial' | 'done' {
+  let left = budget
+  let pending = false
+  const take = () => {
+    if (left <= 0) {
+      pending = true
+      return false
+    }
+    left -= 1
+    return true
+  }
   const nodeEls = root.querySelectorAll<HTMLElement>('.vue-flow__node')
   for (const el of nodeEls) {
     const id = el.getAttribute('data-id') || ''
     if (!shownNodes.has(id) || !el.style.contentVisibility)
+      continue
+    if (!take())
       continue
     el.style.contentVisibility = ''
     el.style.containIntrinsicSize = ''
@@ -221,6 +258,9 @@ export function revealCanvasCullDom(root: ParentNode, shownNodes: Set<string>, s
     const id = el.getAttribute('data-id') || ''
     if (!shownEdges.has(id) || el.style.display !== 'none')
       continue
+    if (!take())
+      continue
     el.style.display = ''
   }
+  return pending ? 'partial' : 'done'
 }

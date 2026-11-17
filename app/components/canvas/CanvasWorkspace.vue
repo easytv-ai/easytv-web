@@ -161,6 +161,7 @@ import {
   type CanvasLiveViewport,
 } from '~/utils/canvas-live-viewport'
 import {
+  CANVAS_CULL_FRAME_BUDGET,
   CANVAS_CULL_MARGIN_SCREENS,
   CANVAS_CULL_REVEAL_PAD,
   applyCanvasCullDom,
@@ -296,6 +297,8 @@ const {
   addNodes,
   addEdges,
   addSelectedNodes,
+  getIntersectingNodes,
+  removeSelectedElements,
   screenToFlowCoordinate,
   zoomTo,
   zoomIn,
@@ -743,17 +746,10 @@ watch(() => props.readonly, (value) => {
     canvasLocked.value = true
 }, { immediate: true })
 const hideEdges = ref(false)
-const panOnDrag = computed(() => {
-  if (canvasLocked.value)
-    return false
-  return isPanning.value ? true : [1]
-})
-/** Vue Flow：true 才是空白处左键拖出选框；null 会关掉框选。抓手或锁定时返回 null */
-const selectionKeyCode = computed(() => {
-  if (canvasLocked.value || isPanning.value)
-    return null
-  return true
-})
+/** 平移和框选都不走 Vue Flow。它每一帧都改视口或选中态，卡片和连线会整片重画。 */
+const panOnDrag = false
+/** 多选虚线框离卡片留出的屏幕间距 */
+const SEL_BOX_PAD = 20
 const barMode = computed(() => canvasBarMode(selectedNodes.value, selectedGroup.value))
 const overlay = computed(() => {
   void flowPaneRectTick.value
@@ -812,11 +808,12 @@ const overlay = computed(() => {
   if (!box)
     return null
   const origin = flowToClient(box.x, box.y)
+  const pad = barMode.value === 'pick' ? SEL_BOX_PAD : 0
   return {
-    left: origin.x,
-    top: origin.y,
-    width: box.w * z,
-    height: box.h * z,
+    left: origin.x - pad,
+    top: origin.y - pad,
+    width: box.w * z + pad * 2,
+    height: box.h * z + pad * 2,
   }
 })
 
@@ -825,6 +822,14 @@ function flowToClient(x: number, y: number) {
 }
 
 function beginLiveViewport() {
+  if (settleFrame) {
+    cancelAnimationFrame(settleFrame)
+    settleFrame = 0
+  }
+  if (cullPump) {
+    cancelAnimationFrame(cullPump)
+    cullPump = 0
+  }
   if (!liveHudStart) {
     liveHudStart = copyCanvasLiveViewport(viewport.value)
     // 舞台矩形在一次手势里不变，别在每个滚轮事件上读布局
@@ -854,14 +859,27 @@ function paintWheelPan(shown: CanvasLiveViewport) {
 
 /**
  * 视口外卡片用 content-visibility 跳过绘制，组件不卸载。
- * 平移中只补画即将进入的区域，停稳后再把离开的卡片藏掉。
+ * 拖动过程中不改样式，停稳后再藏起离开的、揭开进入的。
  */
 let cullPrepared: CanvasCullRect | null = null
 let lastCullKey = ''
 let cullTimer = 0
-let revealTimer = 0
-let revealPending: CanvasLiveViewport | null = null
+let cullPump = 0
+let settleFrame = 0
 let nodeDragging = false
+
+function scheduleCullPump() {
+  if (cullPump || typeof window === 'undefined')
+    return
+  cullPump = requestAnimationFrame(() => {
+    cullPump = 0
+    if (liveHudStart || nodeDragging)
+      return
+    if (revealCull(committedViewport.value) === 'partial')
+      return
+    fullCull(committedViewport.value)
+  })
+}
 
 function cullViewSize() {
   return {
@@ -875,10 +893,6 @@ function buildCull(vp: CanvasLiveViewport) {
   if (view.width < 10 || view.height < 10)
     return null
   const pins = new Set<string>()
-  for (const node of nodes.value) {
-    if (node.selected)
-      pins.add(node.id)
-  }
   const extra = [
     gridSplitNodeId.value,
     cropNodeId.value,
@@ -929,16 +943,16 @@ function buildCull(vp: CanvasLiveViewport) {
 
 function revealCull(vp: CanvasLiveViewport) {
   if (nodeDragging)
-    return
+    return 'skip' as const
   const view = cullViewSize()
   if (view.width < 10 || view.height < 10)
-    return
+    return 'skip' as const
   if (cullPrepared && !canvasCullNeedsReveal(cullPrepared, vp, view, CANVAS_CULL_REVEAL_PAD))
-    return
+    return 'done' as const
   const built = buildCull(vp)
   const root = document.querySelector('.canvas-flow')
   if (!built || !root)
-    return
+    return 'skip' as const
   const shownNodes = new Set<string>()
   for (const box of built.boxes) {
     if (!built.plan.hiddenNodes.has(box.id))
@@ -949,40 +963,36 @@ function revealCull(vp: CanvasLiveViewport) {
     if (!built.plan.hiddenEdges.has(edge.id))
       shownEdges.add(edge.id)
   }
-  revealCanvasCullDom(root, shownNodes, shownEdges)
+  const status = revealCanvasCullDom(root, shownNodes, shownEdges, CANVAS_CULL_FRAME_BUDGET)
+  if (status === 'partial') {
+    scheduleCullPump()
+    return 'partial' as const
+  }
   cullPrepared = built.rect
   lastCullKey = ''
+  return 'done' as const
 }
 
 function fullCull(vp: CanvasLiveViewport) {
   if (liveHudStart || nodeDragging)
-    return
+    return 'skip' as const
   const built = buildCull(vp)
   const root = document.querySelector('.canvas-flow')
   if (!built || !root)
-    return
+    return 'skip' as const
   const key = `${built.plan.hiddenNodes.size}:${[...built.plan.hiddenNodes].sort().join('\0')}\n${[...built.plan.hiddenEdges].sort().join('\0')}`
   if (key === lastCullKey)
-    return
-  if (!applyCanvasCullDom(root, built.plan, built.sizes))
-    return
+    return 'done' as const
+  const status = applyCanvasCullDom(root, built.plan, built.sizes, CANVAS_CULL_FRAME_BUDGET)
+  if (status === 'partial') {
+    scheduleCullPump()
+    return 'partial' as const
+  }
+  if (status !== 'done')
+    return 'skip' as const
   lastCullKey = key
   cullPrepared = built.rect
-}
-
-/** 补画不要跟平移写在同一帧，否则样式一改，刚缓存的画面层就废了。 */
-function scheduleRevealCull(vp: CanvasLiveViewport) {
-  revealPending = vp
-  if (revealTimer)
-    return
-  revealTimer = window.setTimeout(() => {
-    revealTimer = 0
-    const next = revealPending
-    revealPending = null
-    if (!next || !liveHudStart)
-      return
-    revealCull(next)
-  }, 48)
+  return 'done' as const
 }
 
 function scheduleFullCull() {
@@ -1010,13 +1020,356 @@ watch(() => [dimensions.value.width, dimensions.value.height] as const, () => {
   scheduleFullCull()
 })
 
+function paintDragPan(shown: CanvasLiveViewport) {
+  applyCanvasPaneTransform(canvasTransformPane(), shown)
+  if (!liveHudStart)
+    return
+  applyCanvasLiveHud(
+    liveHudRef.value,
+    canvasLiveHudTransform(liveHudStart, shown, liveHudOrigin),
+    true,
+  )
+}
+
+type DragPan = {
+  pointerId: number
+  x: number
+  y: number
+  origin: CanvasLiveViewport
+  shown: CanvasLiveViewport
+}
+let dragPan: DragPan | null = null
+
+function dragPanBlocked(event: PointerEvent) {
+  if (canvasLocked.value || canvasMarkPick.value.open)
+    return true
+  if (event.button === 0) {
+    if (!isPanning.value)
+      return true
+  }
+  else if (event.button !== 1) {
+    return true
+  }
+  const el = event.target instanceof Element ? event.target : null
+  if (!el?.closest('.canvas-flow'))
+    return true
+  if (el.closest('button, a, input, textarea, select, .nowheel, .vue-flow__handle, .canvas-tools, .canvas-minimap'))
+    return true
+  return false
+}
+
+function stopWheelPanMotion() {
+  if (wheelPanRaf) {
+    cancelAnimationFrame(wheelPanRaf)
+    wheelPanRaf = 0
+  }
+  wheelPanTarget = null
+  wheelPanShown = null
+  wheelPanLastTs = 0
+}
+
+function onDragPanDown(event: PointerEvent) {
+  if (dragPan || dragPanBlocked(event))
+    return
+  event.preventDefault()
+  event.stopPropagation()
+  if (liveHudWheelIdle) {
+    window.clearTimeout(liveHudWheelIdle)
+    liveHudWheelIdle = 0
+  }
+  const origin = copyCanvasLiveViewport(wheelPanShown || viewport.value)
+  stopWheelPanMotion()
+  beginLiveViewport()
+  dragPan = {
+    pointerId: event.pointerId,
+    x: event.clientX,
+    y: event.clientY,
+    origin,
+    shown: origin,
+  }
+}
+
+function onDragPanMove(event: PointerEvent) {
+  if (!dragPan || event.pointerId !== dragPan.pointerId)
+    return
+  const shown = {
+    x: dragPan.origin.x + event.clientX - dragPan.x,
+    y: dragPan.origin.y + event.clientY - dragPan.y,
+    zoom: dragPan.origin.zoom || 1,
+  }
+  dragPan.shown = shown
+  paintDragPan(shown)
+}
+
+function finishDragPan(event?: PointerEvent) {
+  if (!dragPan)
+    return
+  if (event && event.pointerId !== dragPan.pointerId)
+    return
+  const shown = dragPan.shown
+  dragPan = null
+  setViewport({ x: shown.x, y: shown.y, zoom: shown.zoom || 1 })
+  endLiveViewport()
+}
+
+const marqueeEl = ref<HTMLElement | null>(null)
+let marqueeAteClick = false
+type MarqueeDrag = {
+  pointerId: number
+  anchorLeft: number
+  anchorTop: number
+  left: number
+  top: number
+  width: number
+  height: number
+  moved: boolean
+}
+let marqueeDrag: MarqueeDrag | null = null
+
+function marqueeBlocked(event: PointerEvent) {
+  if (canvasLocked.value || practiceLocked.value || canvasMarkPick.value.open || isPanning.value)
+    return true
+  if (event.button !== 0)
+    return true
+  const el = event.target instanceof Element ? event.target : null
+  if (!el?.closest('.canvas-flow'))
+    return true
+  if (el.closest('button, a, input, textarea, select, .nowheel, .vue-flow__handle, .vue-flow__node, .vue-flow__edge, .vue-flow__nodesselection, .canvas-tools, .canvas-minimap, .canvas-sel-layer'))
+    return true
+  return false
+}
+
+function paintMarquee(box: { left: number, top: number, width: number, height: number }) {
+  const el = marqueeEl.value
+  if (!el)
+    return
+  el.style.display = 'block'
+  el.style.transform = `translate3d(${box.left}px, ${box.top}px, 0)`
+  el.style.width = `${box.width}px`
+  el.style.height = `${box.height}px`
+}
+
+function hideMarquee() {
+  const el = marqueeEl.value
+  if (!el)
+    return
+  el.style.display = 'none'
+}
+
+function onMarqueeDown(event: PointerEvent) {
+  if (dragPan || marqueeDrag || marqueeBlocked(event))
+    return
+  const host = marqueeEl.value?.parentElement
+  if (!host)
+    return
+  event.preventDefault()
+  event.stopPropagation()
+  const rect = host.getBoundingClientRect()
+  const left = event.clientX - rect.left
+  const top = event.clientY - rect.top
+  marqueeDrag = {
+    pointerId: event.pointerId,
+    anchorLeft: left,
+    anchorTop: top,
+    left,
+    top,
+    width: 0,
+    height: 0,
+    moved: false,
+  }
+}
+
+function onMarqueeMove(event: PointerEvent) {
+  const drag = marqueeDrag
+  if (!drag || event.pointerId !== drag.pointerId)
+    return
+  const host = marqueeEl.value?.parentElement
+  if (!host)
+    return
+  const rect = host.getBoundingClientRect()
+  const x = event.clientX - rect.left
+  const y = event.clientY - rect.top
+  drag.left = Math.min(drag.anchorLeft, x)
+  drag.top = Math.min(drag.anchorTop, y)
+  drag.width = Math.abs(x - drag.anchorLeft)
+  drag.height = Math.abs(y - drag.anchorTop)
+  if (drag.width > 3 || drag.height > 3)
+    drag.moved = true
+  if (drag.moved)
+    paintMarquee(drag)
+}
+
+function finishMarquee(event?: PointerEvent, commit = true) {
+  const drag = marqueeDrag
+  if (!drag)
+    return
+  if (event && event.pointerId !== drag.pointerId)
+    return
+  marqueeDrag = null
+  hideMarquee()
+  if (!commit || !drag.moved) {
+    if (commit && !drag.moved)
+      removeSelectedElements()
+    return
+  }
+  marqueeAteClick = true
+  const host = marqueeEl.value?.parentElement
+  if (!host)
+    return
+  const rect = host.getBoundingClientRect()
+  const x1 = rect.left + drag.left
+  const y1 = rect.top + drag.top
+  const x2 = x1 + drag.width
+  const y2 = y1 + drag.height
+  const a = screenToFlowCoordinate({ x: x1, y: y1 })
+  const b = screenToFlowCoordinate({ x: x2, y: y2 })
+  const hits = getIntersectingNodes({
+    x: Math.min(a.x, b.x),
+    y: Math.min(a.y, b.y),
+    width: Math.abs(b.x - a.x),
+    height: Math.abs(b.y - a.y),
+  }, true).filter(node => !node.hidden)
+  requestAnimationFrame(() => {
+    addSelectedNodes(hits)
+  })
+}
+
+function onMarqueeClick(event: MouseEvent) {
+  if (!marqueeAteClick)
+    return
+  marqueeAteClick = false
+  event.preventDefault()
+  event.stopPropagation()
+}
+
+function selectionGapHit(event: PointerEvent) {
+  if (barMode.value !== 'pick')
+    return false
+  const box = overlay.value
+  if (!box)
+    return false
+  const x = event.clientX
+  const y = event.clientY
+  if (x < box.left || y < box.top || x > box.left + box.width || y > box.top + box.height)
+    return false
+  const el = event.target instanceof Element ? event.target : null
+  if (!el?.closest('.canvas-flow'))
+    return false
+  if (el.closest('button, a, input, textarea, select, .nowheel, .vue-flow__handle, .vue-flow__node, .canvas-selbar, .canvas-tools, .canvas-minimap'))
+    return false
+  return true
+}
+
+type SelGapDrag = {
+  pointerId: number
+  x: number
+  y: number
+  zoom: number
+  origins: { id: string, x: number, y: number }[]
+  moved: boolean
+}
+let selGapDrag: SelGapDrag | null = null
+
+function onSelGapDown(event: PointerEvent) {
+  if (event.button !== 0 || selGapDrag || dragPan || canvasLocked.value || practiceLocked.value)
+    return false
+  if (!selectionGapHit(event))
+    return false
+  const selectedIds = new Set(nodes.value.filter(node => node.selected).map(node => node.id))
+  const origins = nodes.value.flatMap((node) => {
+    if (!node.selected || nodeLocked(node))
+      return []
+    if (node.parentNode && selectedIds.has(node.parentNode))
+      return []
+    return [{ id: node.id, x: node.position.x, y: node.position.y }]
+  })
+  if (!origins.length)
+    return false
+  event.preventDefault()
+  event.stopPropagation()
+  nodeDragging = true
+  selGapDrag = {
+    pointerId: event.pointerId,
+    x: event.clientX,
+    y: event.clientY,
+    zoom: viewport.value.zoom || 1,
+    origins,
+    moved: false,
+  }
+  document.documentElement.classList.add('canvas-sel-dragging')
+  document.documentElement.classList.remove('canvas-sel-gap')
+  return true
+}
+
+function onSelGapMove(event: PointerEvent) {
+  const drag = selGapDrag
+  if (!drag || event.pointerId !== drag.pointerId)
+    return
+  const dx = (event.clientX - drag.x) / drag.zoom
+  const dy = (event.clientY - drag.y) / drag.zoom
+  if (!drag.moved && Math.hypot(event.clientX - drag.x, event.clientY - drag.y) < 3)
+    return
+  drag.moved = true
+  for (const origin of drag.origins)
+    updateNode(origin.id, { position: { x: origin.x + dx, y: origin.y + dy } })
+}
+
+function finishSelGap(event?: PointerEvent) {
+  const drag = selGapDrag
+  if (!drag)
+    return
+  if (event && event.pointerId !== drag.pointerId)
+    return
+  selGapDrag = null
+  document.documentElement.classList.remove('canvas-sel-dragging')
+  nodeDragging = false
+  if (!drag.moved)
+    return
+  refreshCanvasNodeView()
+  scheduleFullCull()
+  pushHistory()
+}
+
+function syncSelectionGapCursor(event: PointerEvent) {
+  document.documentElement.classList.toggle('canvas-sel-gap', !selGapDrag && selectionGapHit(event))
+}
+
+function onCanvasPointerDown(event: PointerEvent) {
+  onDragPanDown(event)
+  if (dragPan)
+    return
+  if (onSelGapDown(event))
+    return
+  onMarqueeDown(event)
+}
+
+function onCanvasPointerMove(event: PointerEvent) {
+  onDragPanMove(event)
+  onMarqueeMove(event)
+  onSelGapMove(event)
+  syncSelectionGapCursor(event)
+}
+
+function onCanvasPointerUp(event: PointerEvent) {
+  finishDragPan(event)
+  finishMarquee(event, true)
+  finishSelGap(event)
+  syncSelectionGapCursor(event)
+}
+
+function onCanvasPointerCancel(event: PointerEvent) {
+  finishDragPan(event)
+  finishMarquee(event, false)
+  finishSelGap(event)
+  document.documentElement.classList.remove('canvas-sel-gap')
+}
+
 function tickWheelPan(now: number) {
   if (!wheelPanShown || !wheelPanTarget)
     return
   const dt = wheelPanLastTs ? Math.min(32, now - wheelPanLastTs) : 16
   wheelPanLastTs = now
   wheelPanShown = canvasWheelPanFollow(wheelPanShown, wheelPanTarget, dt, wheelPanHalfLife)
-  scheduleRevealCull(wheelPanShown)
   paintWheelPan(wheelPanShown)
   if (canvasViewportSettled(wheelPanShown, wheelPanTarget)) {
     wheelPanRaf = 0
@@ -1055,21 +1408,33 @@ function endLiveViewport() {
     window.clearTimeout(liveHudWheelIdle)
     liveHudWheelIdle = 0
   }
-  if (revealTimer) {
-    window.clearTimeout(revealTimer)
-    revealTimer = 0
-    revealPending = null
-  }
   commitWheelPan()
   liveHudStart = null
   applyCanvasLiveHud(liveHudRef.value, '', false)
-  document.documentElement.classList.remove('canvas-is-interacting')
-  const next = copyCanvasLiveViewport(viewport.value)
-  if (!sameCanvasLiveViewport(committedViewport.value, next))
-    committedViewport.value = next
-  refreshCanvasNodeView()
-  revealCull(committedViewport.value)
-  scheduleFullCull()
+  scheduleSettleViewport()
+}
+
+/** 松手后先让这一帧画完，再揭开卡片和连线，避免和视口提交叠在同一次点击里 */
+function scheduleSettleViewport() {
+  if (typeof window === 'undefined')
+    return
+  if (settleFrame)
+    cancelAnimationFrame(settleFrame)
+  settleFrame = requestAnimationFrame(() => {
+    settleFrame = requestAnimationFrame(() => {
+      settleFrame = 0
+      if (liveHudStart || dragPan || marqueeDrag) {
+        scheduleSettleViewport()
+        return
+      }
+      document.documentElement.classList.remove('canvas-is-interacting')
+      const next = copyCanvasLiveViewport(viewport.value)
+      if (!sameCanvasLiveViewport(committedViewport.value, next))
+        committedViewport.value = next
+      refreshCanvasNodeView()
+      scheduleCullPump()
+    })
+  })
 }
 
 function onFlowMoveStart() {
@@ -1091,7 +1456,6 @@ watch(
         canvasLiveHudTransform(liveHudStart, live, liveHudOrigin),
         true,
       )
-      scheduleRevealCull(live)
       return
     }
     if (!sameCanvasLiveViewport(committedViewport.value, live)) {
@@ -3913,6 +4277,10 @@ function onKeyup(event: KeyboardEvent) {
 }
 
 function onWindowBlur() {
+  finishDragPan()
+  finishMarquee(undefined, false)
+  finishSelGap()
+  document.documentElement.classList.remove('canvas-sel-gap')
   nodeDragging = false
   endSpacePan(false)
 }
@@ -4034,6 +4402,10 @@ onMounted(() => {
   window.addEventListener('paste', onWindowPaste)
   window.addEventListener('blur', onWindowBlur)
   window.addEventListener('wheel', onWindowWheel, { capture: true, passive: false })
+  window.addEventListener('pointerdown', onCanvasPointerDown, true)
+  window.addEventListener('pointermove', onCanvasPointerMove)
+  window.addEventListener('pointerup', onCanvasPointerUp)
+  window.addEventListener('pointercancel', onCanvasPointerCancel)
   // 舞台尺寸 / 屏幕位置变化时（对话栏开合、窗口 resize），面板位置要跟着重新计算
   const flowEl = document.querySelector('.canvas-flow') as HTMLElement | null
   if (flowEl) {
@@ -4072,12 +4444,20 @@ onUnmounted(() => {
   window.removeEventListener('paste', onWindowPaste)
   window.removeEventListener('blur', onWindowBlur)
   window.removeEventListener('wheel', onWindowWheel, true)
+  window.removeEventListener('pointerdown', onCanvasPointerDown, true)
+  window.removeEventListener('pointermove', onCanvasPointerMove)
+  window.removeEventListener('pointerup', onCanvasPointerUp)
+  window.removeEventListener('pointercancel', onCanvasPointerCancel)
+  if (settleFrame)
+    cancelAnimationFrame(settleFrame)
+  settleFrame = 0
+  if (cullPump)
+    cancelAnimationFrame(cullPump)
+  cullPump = 0
+  document.documentElement.classList.remove('canvas-sel-gap', 'canvas-sel-dragging')
   endLiveViewport()
   window.clearTimeout(cullTimer)
-  window.clearTimeout(revealTimer)
   cullTimer = 0
-  revealTimer = 0
-  revealPending = null
   if (flowPaneResizeObserver) {
     flowPaneResizeObserver.disconnect()
     flowPaneResizeObserver = null
@@ -6738,11 +7118,13 @@ const styleLibValue = computed(() => {
   <div
     class="canvas-workspace"
     @pointerdown.capture="onWorkspacePointerDown"
+    @click.capture="onMarqueeClick"
     @dblclick="onStageDblClick"
     @contextmenu="onBlankContext"
     @dragover="onCanvasDragOver"
     @drop="onCanvasDrop"
   >
+    <div ref="marqueeEl" class="canvas-marquee" />
     <VueFlow
       id="easytv-canvas"
       v-model:nodes="nodes"
@@ -6762,7 +7144,7 @@ const styleLibValue = computed(() => {
       :prevent-scrolling="true"
       :pan-on-drag="panOnDrag"
       :pan-activation-key-code="null"
-      :selection-key-code="(!canvasLocked && !practiceLocked) ? selectionKeyCode : null"
+      :selection-key-code="null"
       :selection-mode="SelectionMode.Partial"
       :select-nodes-on-drag="false"
       :nodes-draggable="!canvasLocked && !practiceLocked && !isPanning && !canvasMarkPick.open"

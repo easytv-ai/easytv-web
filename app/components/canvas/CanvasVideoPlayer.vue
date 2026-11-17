@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ossVideoSnapshotUrl } from '~/utils/canvas-video-frame'
+import { enqueueVideoProbe } from '~/utils/canvas-video-probe'
 
 const props = defineProps<{
   src: string
@@ -34,6 +35,10 @@ const posterRef = ref<HTMLImageElement | null>(null)
 const hydrated = ref(Boolean(props.alwaysOn))
 const poster = computed(() => ossVideoSnapshotUrl(props.src, 0.04, 400))
 let sizeProbe: HTMLVideoElement | null = null
+let sized = false
+let disposed = false
+let cancelProbe: (() => void) | null = null
+let visibilityObserver: IntersectionObserver | null = null
 const playing = ref(false)
 const currentTime = ref(0)
 const duration = ref(0)
@@ -83,13 +88,19 @@ function publishMeta() {
 }
 
 function publishSize(width: number, height: number) {
-  if (width > 0 && height > 0)
+  if (width > 0 && height > 0) {
+    sized = true
     emit('meta', { width, height })
+  }
 }
 
 function onPosterLoad(event: Event) {
   const img = event.target as HTMLImageElement
   publishSize(img.naturalWidth, img.naturalHeight)
+}
+
+function onPosterError() {
+  watchForProbe()
 }
 
 function emitPosterSize() {
@@ -107,18 +118,51 @@ function disposeSizeProbe() {
 }
 
 function probeVideoSize() {
-  if (hydrated.value || sizeProbe)
+  if (disposed || hydrated.value || sizeProbe || sized || cancelProbe)
     return
-  const probe = document.createElement('video')
-  probe.preload = 'metadata'
-  probe.muted = true
-  probe.playsInline = true
-  probe.src = props.src
-  sizeProbe = probe
-  probe.addEventListener('loadedmetadata', () => {
-    publishSize(probe.videoWidth, probe.videoHeight)
-    disposeSizeProbe()
-  }, { once: true })
+  cancelProbe = enqueueVideoProbe((done) => {
+    if (disposed || hydrated.value || sized) {
+      done()
+      return
+    }
+    const probe = document.createElement('video')
+    probe.preload = 'metadata'
+    probe.muted = true
+    probe.playsInline = true
+    probe.src = props.src
+    sizeProbe = probe
+    const finish = () => {
+      publishSize(probe.videoWidth, probe.videoHeight)
+      disposeSizeProbe()
+      done()
+    }
+    probe.addEventListener('loadedmetadata', finish, { once: true })
+    probe.addEventListener('error', finish, { once: true })
+  })
+}
+
+function stopVisibilityWatch() {
+  visibilityObserver?.disconnect()
+  visibilityObserver = null
+}
+
+/** 只有靠近视口才读视频尺寸。封面能定尺寸时不再另开一个 video。 */
+function watchForProbe() {
+  if (disposed || sized || hydrated.value)
+    return
+  const el = wrapRef.value
+  if (!el || typeof IntersectionObserver === 'undefined') {
+    probeVideoSize()
+    return
+  }
+  stopVisibilityWatch()
+  visibilityObserver = new IntersectionObserver((entries) => {
+    if (!entries.some(entry => entry.isIntersecting))
+      return
+    stopVisibilityWatch()
+    probeVideoSize()
+  }, { rootMargin: '320px' })
+  visibilityObserver.observe(el)
 }
 
 function hydratePlayer() {
@@ -190,10 +234,15 @@ onMounted(() => {
   document.addEventListener('fullscreenchange', onFsChange)
   publishMeta()
   nextTick(emitPosterSize)
-  probeVideoSize()
+  if (!poster.value)
+    watchForProbe()
 })
 onUnmounted(() => {
+  disposed = true
   document.removeEventListener('fullscreenchange', onFsChange)
+  stopVisibilityWatch()
+  cancelProbe?.()
+  cancelProbe = null
   disposeSizeProbe()
   if (document.fullscreenElement === (wrapRef.value as unknown as Element | null))
     void document.exitFullscreen().catch(() => {})
@@ -218,7 +267,10 @@ onUnmounted(() => {
       :src="poster"
       alt=""
       draggable="false"
+      loading="lazy"
+      decoding="async"
       @load="onPosterLoad"
+      @error="onPosterError"
     >
     <video
       v-if="hydrated"

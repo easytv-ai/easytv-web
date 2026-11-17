@@ -3620,6 +3620,7 @@
     },
     "input": {
       "eyebrow": "AI short-film workflow",
+      "fresh": "New film",
       "shortcut": "Ctrl + Enter to generate",
       "ideasTitle": "Try an idea",
       "ideasHint": "Click a card to fill it in, then edit freely",

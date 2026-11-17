@@ -25,6 +25,8 @@ export type CanvasNodeView = {
   locked: Record<string, true>
   kindNo: Record<string, number>
   selected: Record<string, true>
+  /** 选中张数。少选才画流动画，多选滚动时不把整网描边一起动起来 */
+  selectedCount: number
   marks: Record<string, CanvasNodeMarkBox[]>
   groups: Record<string, CanvasGroupView>
 }
@@ -33,6 +35,7 @@ export const EMPTY_CANVAS_NODE_VIEW: CanvasNodeView = {
   locked: {},
   kindNo: {},
   selected: {},
+  selectedCount: 0,
   marks: {},
   groups: {},
 }
@@ -175,6 +178,7 @@ export function buildCanvasNodeView(nodes: CanvasFlowNode[], markPick?: CanvasMa
     locked,
     kindNo: numberedKindIndex(nodes),
     selected,
+    selectedCount: Object.keys(selected).length,
     marks: markBoxesBySource(nodes, markPick),
     groups: groupViews(nodes),
   }

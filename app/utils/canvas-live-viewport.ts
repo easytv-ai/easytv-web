@@ -42,7 +42,7 @@ export function canvasLiveHudTransform(
 /** 与 Vue Flow 世界层同一条 transform，滚轮平移直接写 DOM，不经过 setViewport。 */
 export function canvasPaneTransform(vp: CanvasLiveViewport) {
   const zoom = vp.zoom || 1
-  return `translate(${vp.x}px, ${vp.y}px) scale(${zoom})`
+  return `translate3d(${vp.x}px, ${vp.y}px, 0) scale(${zoom})`
 }
 
 export function applyCanvasPaneTransform(el: HTMLElement | null, vp: CanvasLiveViewport) {

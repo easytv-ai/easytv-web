@@ -38,6 +38,23 @@ describe('snapNodeAlign', () => {
     expect(snapped.guides[0]?.at).toBe(102)
   })
 
+  it('同一条边上有多张时只连最近的一张', () => {
+    const row = { id: 'a', x: 100, y: 0, w: 80, h: 40 }
+    const near = { id: 'b', x: 100, y: 80, w: 80, h: 40 }
+    const far = { id: 'c', x: 100, y: 400, w: 80, h: 40 }
+    const snapped = snapNodeAlign(row, [far, near], 6)
+    expect(snapped.guides).toEqual([
+      { dir: 'v', at: 100, from: 0, to: 120 },
+    ])
+  })
+
+  it('宽高都重合时左中右只留一根线', () => {
+    const row = { id: 'a', x: 100, y: 0, w: 80, h: 40 }
+    const other = { id: 'b', x: 100, y: 200, w: 80, h: 40 }
+    const snapped = snapNodeAlign(row, [other], 6)
+    expect(snapped.guides.filter(guide => guide.dir === 'v')).toHaveLength(1)
+  })
+
   it('右边和另一张的右边对齐时，竖线画在右边缘', () => {
     const other: AlignBox = { id: 'b', x: 300, y: 180, w: 78, h: 60 }
     const dragged: AlignBox = { id: 'a', x: 210, y: 20, w: 170, h: 80 }

@@ -30,56 +30,64 @@ function crossSpan(box: AlignBox, axis: 'x' | 'y') {
   return { from: box.x, to: box.x + box.w }
 }
 
-function mergeGuides(guides: AlignGuide[]) {
-  const out: AlignGuide[] = []
-  for (const guide of guides) {
-    const found = out.find(item => item.dir === guide.dir && Math.abs(item.at - guide.at) < EPS)
-    if (!found) {
-      out.push({ ...guide })
-      continue
-    }
-    found.from = Math.min(found.from, guide.from)
-    found.to = Math.max(found.to, guide.to)
-  }
-  return out
+type SnapHit = {
+  at: number
+  from: number
+  to: number
+  gap: number
+  same: boolean
 }
 
+/** 每个方向只留一根：最近的那张，优先同边对齐，线只接到这一张 */
 function snapAxis(moving: AlignBox, others: AlignBox[], axis: 'x' | 'y', threshold: number) {
-  let best = Number.POSITIVE_INFINITY
+  let bestDist = Number.POSITIVE_INFINITY
   let delta = 0
-  const hits: Array<{ at: number, from: number, to: number }> = []
+  let best: SnapHit | null = null
   const mine = anchors(moving, axis)
   for (const other of others) {
     if (other.id === moving.id || other.w <= 0 || other.h <= 0)
       continue
     const theirs = anchors(other, axis)
-    for (const from of mine) {
-      for (const to of theirs) {
-        const next = to - from
+    const spanA = crossSpan(moving, axis)
+    const spanB = crossSpan(other, axis)
+    const gap = spanA.from > spanB.to
+      ? spanA.from - spanB.to
+      : spanB.from > spanA.to
+        ? spanB.from - spanA.to
+        : 0
+    for (let i = 0; i < mine.length; i++) {
+      for (let j = 0; j < theirs.length; j++) {
+        const next = theirs[j]! - mine[i]!
         const dist = Math.abs(next)
         if (dist > threshold)
           continue
-        if (dist < best - 0.01) {
-          best = dist
-          delta = next
-          hits.length = 0
+        const same = i === j
+        const closer = dist < bestDist - 0.01
+        const tied = Math.abs(dist - bestDist) <= 0.01
+        const prefer = Boolean(best && tied && (
+          (same && !best.same)
+          || (same === best.same && gap < best.gap - 0.01)
+        ))
+        if (!best || closer || prefer) {
+          if (closer) {
+            bestDist = dist
+            delta = next
+          }
+          best = {
+            at: theirs[j]!,
+            from: Math.min(spanA.from, spanB.from),
+            to: Math.max(spanA.to, spanB.to),
+            gap,
+            same,
+          }
         }
-        if (Math.abs(dist - best) > 0.01)
-          continue
-        const spanA = crossSpan(moving, axis)
-        const spanB = crossSpan(other, axis)
-        hits.push({
-          at: to,
-          from: Math.min(spanA.from, spanB.from),
-          to: Math.max(spanA.to, spanB.to),
-        })
       }
     }
   }
   const dir = axis === 'x' ? 'v' : 'h'
   return {
-    delta: Number.isFinite(best) ? delta : 0,
-    guides: mergeGuides(hits.map(hit => ({ dir, at: hit.at, from: hit.from, to: hit.to }))),
+    delta: best ? delta : 0,
+    guides: best ? [{ dir, at: best.at, from: best.from, to: best.to }] : [],
   }
 }
 

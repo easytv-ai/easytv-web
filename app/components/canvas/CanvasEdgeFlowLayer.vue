@@ -13,7 +13,7 @@ onMounted(() => {
 
 <template>
   <Teleport v-if="ready" to=".canvas-flow .vue-flow__transformationpane">
-    <svg v-show="paths.length" class="canvas-edge-flow-layer" aria-hidden="true">
+    <svg v-show="paths.length" class="canvas-edge-flow-layer" aria-hidden="true" overflow="visible">
       <g
         class="canvas-edge__flow-g is-run"
         :style="{

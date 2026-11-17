@@ -3596,6 +3596,7 @@
     },
     "input": {
       "eyebrow": "AI 短片工作流",
+      "fresh": "新建一條",
       "shortcut": "Ctrl + Enter 快速生成",
       "ideasTitle": "試試這些靈感",
       "ideasHint": "點擊卡片填入，可再修改",

@@ -947,10 +947,16 @@ function onPrimary() {
         <h1>{{ t('一句话成片') }}</h1>
         <p>{{ t('输入一句话或剧本，自动生成策划案、分镜、镜头视频与配音，一键合成短片。') }}</p>
       </div>
-      <NuxtLink v-if="canvasHref" :to="canvasHref" class="studio-chip create-head__canvas">
-        <UIcon name="i-lucide-layout-grid" class="size-4" />
-        {{ t('在画布中打开') }}
-      </NuxtLink>
+      <div class="create-head__actions">
+        <button v-if="screenplay" type="button" class="studio-chip" @click="restart">
+          <UIcon name="i-lucide-plus" class="size-4" />
+          {{ t('create.input.fresh') }}
+        </button>
+        <NuxtLink v-if="canvasHref" :to="canvasHref" class="studio-chip">
+          <UIcon name="i-lucide-layout-grid" class="size-4" />
+          {{ t('在画布中打开') }}
+        </NuxtLink>
+      </div>
     </header>
 
     <ol class="create-stepper" :aria-label="t('步骤')">

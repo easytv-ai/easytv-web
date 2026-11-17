@@ -413,14 +413,14 @@ watch(projectId, () => void load())
     </div>
 
     <footer v-if="projectId && !loading && !loadError" class="create-foot bible-foot">
-        <small v-if="dirty" class="bible-foot__hint">{{ t('有未保存的修改') }}</small>
-        <button type="button" class="plan-btn plan-btn--ghost" :disabled="saving || loading" @click="reload">
-          {{ t('刷新') }}
-        </button>
-        <button type="button" class="plan-btn plan-btn--solid" :disabled="saving || !dirty" @click="save">
-          {{ saving ? t('保存中…') : t('保存') }}
-        </button>
-      </footer>
+      <small v-if="dirty" class="bible-foot__hint">{{ t('有未保存的修改') }}</small>
+      <button type="button" class="plan-btn plan-btn--ghost" :disabled="saving || loading" @click="reload">
+        {{ t('刷新') }}
+      </button>
+      <button type="button" class="plan-btn plan-btn--solid" :disabled="saving || !dirty" @click="save">
+        {{ saving ? t('保存中…') : t('保存') }}
+      </button>
+    </footer>
     </template>
 
     <BibleImpactModal

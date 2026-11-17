@@ -34,8 +34,8 @@ describe('canvasLiveHudTransform', () => {
   })
 
   it('世界层 transform 与 Vue Flow 同格式', () => {
-    expect(canvasPaneTransform({ x: 24, y: -8, zoom: 1 })).toBe('translate(24px, -8px) scale(1)')
-    expect(canvasPaneTransform({ x: 0, y: 0, zoom: 2 })).toBe('translate(0px, 0px) scale(2)')
+    expect(canvasPaneTransform({ x: 24, y: -8, zoom: 1 })).toBe('translate3d(24px, -8px, 0) scale(1)')
+    expect(canvasPaneTransform({ x: 0, y: 0, zoom: 2 })).toBe('translate3d(0px, 0px, 0) scale(2)')
   })
 
   it('视口相等比较', () => {

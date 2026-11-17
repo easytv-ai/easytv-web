@@ -874,10 +874,13 @@ html.dark .canvas-promo__chip {
   font-size: 14px;
 }
 
-.create-head.is-hero .create-head__canvas {
+.create-head.is-hero .create-head__actions {
   position: absolute;
   top: 0;
   right: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .create-head__eyebrow {
@@ -2803,7 +2806,7 @@ html.dark .plan-mark {
     font-size: 26px;
   }
 
-  .create-head.is-hero .create-head__canvas {
+  .create-head.is-hero .create-head__actions {
     position: static;
     margin-top: 8px;
   }
