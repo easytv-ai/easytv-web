@@ -829,6 +829,7 @@ onUnmounted(() => window.removeEventListener('keydown', onGlobalKeydown))
           <StudioFollowButton
             v-if="canFollowAuthor"
             :author-id="current?.user_id ?? 0"
+            :work-id="current?.id ?? 0"
             :name="authorName"
             :following="authorFollowing"
             :followers="authorFollowers"

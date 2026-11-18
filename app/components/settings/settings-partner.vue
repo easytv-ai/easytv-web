@@ -249,7 +249,7 @@ onMounted(() => {
 
   <section class="wallet-card" :class="{ 'settings-empty-card': !ugcLoading && !ugc?.items.length }">
     <h3>{{ t('投稿记录') }}</h3>
-    <p v-if="ugcLoading && !ugc" class="settings-lead">{{ t('加载中…') }}</p>
+    <SettingsSkel v-if="ugcLoading && !ugc" variant="list" :rows="4" />
     <p v-else-if="!ugc" class="settings-lead">
       {{ ugcError || t('加载失败，请稍后重试') }}
       <button type="button" class="settings-link" @click="loadUgc">{{ t('重试') }}</button>

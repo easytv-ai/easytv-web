@@ -293,9 +293,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <section v-if="partnerProgramLoading && !partnerProgramLoaded" class="wallet-card">
-    <p class="settings-lead">{{ t('加载中…') }}</p>
-  </section>
+  <SettingsSkel v-if="partnerProgramLoading && !partnerProgramLoaded" />
   <section v-else-if="partnerProgramError" class="wallet-card">
     <p class="settings-lead">{{ partnerProgramError }}</p>
     <button type="button" class="plan-btn plan-btn--ghost invite-retry" @click="loadPartnerProgram">{{ t('重试') }}</button>
@@ -418,7 +416,7 @@ onMounted(() => {
 
     <section class="wallet-card" :class="{ 'settings-empty-card': withdrawLoaded && !withdraws.length }">
       <h3>{{ t('提现记录') }}</h3>
-      <p v-if="withdrawLoading && !withdrawLoaded" class="settings-lead">{{ t('加载中…') }}</p>
+      <SettingsSkel v-if="withdrawLoading && !withdrawLoaded" variant="list" :rows="4" />
       <template v-else-if="withdrawError">
         <p class="settings-lead">{{ withdrawError }}</p>
         <button type="button" class="plan-btn plan-btn--ghost invite-retry" @click="loadWithdraws(true)">{{ t('重试') }}</button>

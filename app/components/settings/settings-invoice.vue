@@ -19,9 +19,7 @@ const { t } = useI18n()
 
 <template>
   <InvoicePanel v-if="invoiceEnabled" />
-  <section v-else-if="!appConfigLoaded && appConfigLoading" class="wallet-card">
-    <p class="settings-lead">{{ t('加载中…') }}</p>
-  </section>
+  <SettingsSkel v-else-if="!appConfigLoaded && appConfigLoading" />
   <section v-else class="wallet-card settings-empty-card">
     <h3>{{ t('发票') }}</h3>
     <StudioEmpty compact :title="t('发票功能暂未开放')" :description="t('开通后可在这里为已支付订单申请电子发票。')" />

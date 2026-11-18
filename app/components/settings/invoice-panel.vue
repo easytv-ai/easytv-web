@@ -250,9 +250,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <section v-if="!summary && (summaryLoading || !summaryError)" class="wallet-card">
-    <p class="settings-lead">{{ t('加载中…') }}</p>
-  </section>
+  <SettingsSkel v-if="!summary && (summaryLoading || !summaryError)" />
 
   <section v-else-if="!summary" class="wallet-card settings-empty-card">
     <h3>{{ t('发票') }}</h3>

@@ -1233,6 +1233,7 @@ function onResizeStart(event: PointerEvent) {
           <span class="canvas-tip canvas-tip--down">{{ t('打开对话') }}</span>
         </button>
         <div class="canvas-editor__tools">
+          <div id="canvas-faces-slot" class="canvas-faces-slot" />
           <template v-if="!readonly">
             <button
               v-if="!teamShared"

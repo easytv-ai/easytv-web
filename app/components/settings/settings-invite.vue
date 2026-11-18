@@ -283,9 +283,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <section v-if="inviteLoading && !invite" class="wallet-card">
-    <p class="settings-lead">{{ t('加载中…') }}</p>
-  </section>
+  <SettingsSkel v-if="inviteLoading && !invite" />
   <section v-else-if="!invite" class="wallet-card">
     <p class="settings-lead">{{ inviteError || t('加载失败，请稍后重试') }}</p>
     <button type="button" class="plan-btn plan-btn--ghost invite-retry" @click="loadInvite">{{ t('重试') }}</button>

@@ -43,10 +43,25 @@ function onSwitch(id: number) {
 
 const open = ref(false)
 const usage = ref<UsageView | null>(null)
+const usageLoading = ref(false)
+
+async function loadUsage() {
+  usageLoading.value = true
+  try {
+    const res = await usageApi.mine()
+    if (res?.success && res.data?.storage)
+      usage.value = res.data
+  }
+  catch {}
+  finally {
+    usageLoading.value = false
+  }
+}
 
 const mounted = ref(false)
 onMounted(() => {
   mounted.value = true
+  void loadUsage()
 })
 
 const userId = computed(() => Number(user.value?.id ?? 0))
@@ -58,10 +73,7 @@ watch(open, (on) => {
   if (!on)
     return
   void loadTeams(true)
-  void usageApi.mine().then((res) => {
-    if (res?.success && res.data)
-      usage.value = res.data
-  }).catch(() => {})
+  void loadUsage()
 })
 
 const memberLine = computed(() => {
@@ -287,14 +299,17 @@ const menuItems = computed(() => [
           </button>
         </section>
 
-        <section v-if="usage?.storage" class="user-menu__card">
+        <section class="user-menu__card" :aria-busy="usageLoading && !usage?.storage">
           <div class="user-menu__row">
             <span>{{ t('存储空间') }}</span>
             <button type="button" class="user-menu__link" @click="go('/assets')">{{ t('管理资产') }}</button>
           </div>
           <p class="user-menu__storage">
-            <b>{{ fmtBytes(usage.storage.used_bytes) }}</b>
-            <small>/ {{ fmtBytes(usage.storage.limit_bytes) }}</small>
+            <template v-if="usage?.storage">
+              <b>{{ fmtBytes(usage.storage.used_bytes) }}</b>
+              <small>/ {{ fmtBytes(usage.storage.limit_bytes) }}</small>
+            </template>
+            <i v-else class="user-menu__storage-wait" />
           </p>
           <span class="user-menu__bar"><i :style="{ width: `${storagePct}%` }" /></span>
         </section>

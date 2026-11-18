@@ -4342,7 +4342,9 @@
       "unpublishing": "Đang gỡ…",
       "emptyFiltered": "Không có tác phẩm ở trạng thái này",
       "searchPublished": "Tìm tác phẩm đã xuất bản",
-      "searchTitle": "Tìm theo tiêu đề"
+      "searchTitle": "Tìm theo tiêu đề",
+      "follow30": "{n} người theo dõi từ đây trong 30 ngày",
+      "remixWorks": "{n} tác phẩm làm lại"
     },
     "asset": {
       "refsTitle": "Đang được dùng ở",

@@ -4344,7 +4344,9 @@
       "unpublishing": "下架中…",
       "emptyFiltered": "這個狀態下還沒有作品",
       "searchPublished": "搜尋已發布的作品",
-      "searchTitle": "搜尋作品標題"
+      "searchTitle": "搜尋作品標題",
+      "follow30": "近 30 天 {n} 人從這裡關注",
+      "remixWorks": "同款成片 {n}"
     },
     "asset": {
       "refsTitle": "引用位置",

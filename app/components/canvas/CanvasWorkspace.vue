@@ -3046,6 +3046,19 @@ const liveCollab = useCanvasCollab({
 collabSendCursor = liveCollab.sendCursor
 collabSendNodes = liveCollab.sendNodes
 const livePeople = computed(() => liveCollab.peers.value)
+
+function liveFace(name: string) {
+  if (/^\d{3}\*+\d{2,4}$/.test(name))
+    return name.replace(/\D/g, '').slice(-2)
+  return Array.from(name)[0] || ''
+}
+
+function liveCursorName(name: string) {
+  if (/^\d{3}\*+\d{2,4}$/.test(name))
+    return name.slice(-4)
+  return name
+}
+
 const liveCursors = computed(() => {
   const now = liveCollab.clock.value
   return liveCollab.peers.value.filter(peer => peer.seen && now - peer.at < 8000)
@@ -7402,17 +7415,21 @@ const styleLibValue = computed(() => {
         <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
           <path d="M2.2 1.2 13.6 8.1 8.4 9.1 6.6 14.4Z" :fill="cursor.color" />
         </svg>
-        <span :style="{ background: cursor.color }">{{ cursor.name }}</span>
+        <span :style="{ background: cursor.color }">{{ liveCursorName(cursor.name) }}</span>
       </div>
     </div>
-    <div v-if="livePeople.length" class="canvas-live-people">
-      <span
-        v-for="person in livePeople"
-        :key="person.id"
-        class="canvas-live-people__name"
-        :style="{ background: person.color }"
-      >{{ person.name }}</span>
-    </div>
+    <Teleport to="#canvas-faces-slot">
+      <div v-if="livePeople.length" class="canvas-faces" :aria-label="livePeople.map(person => person.name).join('、')">
+        <span
+          v-for="person in livePeople.slice(0, 3)"
+          :key="person.id"
+          class="canvas-faces__person"
+          :style="{ background: person.color }"
+          :title="person.name"
+        >{{ liveFace(person.name) }}</span>
+        <span v-if="livePeople.length > 3" class="canvas-faces__more">+{{ livePeople.length - 3 }}</span>
+      </div>
+    </Teleport>
     <VueFlow
       id="easytv-canvas"
       v-model:nodes="nodes"

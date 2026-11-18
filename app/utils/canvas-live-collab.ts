@@ -6,10 +6,16 @@ export type CanvasLivePerson = {
   color: string
 }
 
+export type CanvasLivePresence = CanvasLivePerson & {
+  /** 进房时对方最后一次光标。没有则还没在这块画布上动过。 */
+  x: number | null
+  y: number | null
+}
+
 export type CanvasLiveHello = {
   op: 'hello'
   user: CanvasLivePerson
-  peers: CanvasLivePerson[]
+  peers: CanvasLivePresence[]
 }
 
 export type CanvasLiveJoin = {
@@ -25,6 +31,8 @@ export type CanvasLiveLeave = {
 export type CanvasLiveCursorMsg = {
   op: 'cursor'
   id: number
+  name: string
+  color: string
   x: number
   y: number
 }
@@ -53,6 +61,16 @@ const LIVE_COLORS = new Set(['#f59e0b', '#38bdf8', '#a78bfa', '#34d399', '#fb718
 
 function finite(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value)
+}
+
+function presence(raw: unknown): CanvasLivePresence | null {
+  const base = person(raw)
+  if (!base || !raw || typeof raw !== 'object')
+    return null
+  const item = raw as { x?: unknown, y?: unknown }
+  if (!finite(item.x) || !finite(item.y))
+    return { ...base, x: null, y: null }
+  return { ...base, x: item.x, y: item.y }
 }
 
 function person(raw: unknown): CanvasLivePerson | null {
@@ -97,16 +115,20 @@ export function parseCanvasLiveMessage(raw: unknown): CanvasLiveServerMessage | 
   }
   if (!data || typeof data !== 'object')
     return null
-  const msg = data as { op?: unknown, id?: unknown, x?: unknown, y?: unknown, version?: unknown, user?: unknown, peers?: unknown, items?: unknown }
+  const msg = data as { op?: unknown, id?: unknown, name?: unknown, color?: unknown, x?: unknown, y?: unknown, version?: unknown, user?: unknown, peers?: unknown, items?: unknown }
   if (msg.op === 'hello') {
     const user = person(msg.user)
     if (!user || !Array.isArray(msg.peers))
       return null
-    const peers: CanvasLivePerson[] = []
+    const peers: CanvasLivePresence[] = []
     for (const entry of msg.peers) {
-      const peer = person(entry)
-      if (peer && peer.id !== user.id)
-        peers.push(peer)
+      const peer = presence(entry)
+      if (!peer)
+        continue
+      // 与自己 id 相同的那一条是这个账号的另一个窗口，要留着。
+      if (peer.id === user.id && peers.some(item => item.id === peer.id))
+        continue
+      peers.push(peer)
     }
     return { op: 'hello', user, peers }
   }
@@ -121,7 +143,15 @@ export function parseCanvasLiveMessage(raw: unknown): CanvasLiveServerMessage | 
       return null
     if (Math.abs(msg.x) >= 1e7 || Math.abs(msg.y) >= 1e7)
       return null
-    return { op: 'cursor', id: msg.id, x: msg.x, y: msg.y }
+    const named = person({ id: msg.id, name: typeof msg.name === 'string' ? msg.name : '', color: msg.color })
+    return {
+      op: 'cursor',
+      id: msg.id,
+      name: named?.name || '',
+      color: named?.color || '#38bdf8',
+      x: msg.x,
+      y: msg.y,
+    }
   }
   if (msg.op === 'nodes') {
     const items = points(msg.items)

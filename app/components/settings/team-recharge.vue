@@ -113,22 +113,19 @@ onMounted(() => {
 </script>
 
 <template>
-  <section class="wallet-card">
-    <h3>
-      {{ t('团队充值') }}
-      <small>{{ t('仅所有者可充值，到账进入团队积分池') }}</small>
-    </h3>
-    <p v-if="loading && !info" class="settings-lead">{{ t('加载中…') }}</p>
+  <section class="team-panel team-pay">
+    <h2>{{ t('充值') }}</h2>
+    <p class="team-panel__lead">{{ t('到账进入团队积分池。当面付扫码，电脑网站支付会跳转支付宝。') }}</p>
+    <SettingsSkel v-if="loading && !info" variant="fields" />
     <template v-else>
-      <p class="settings-lead">{{ t('选择金额和支付方式。当面付扫码，电脑网站支付会跳转支付宝。') }}</p>
-      <div class="settings-row settings-row--top">
-        <span class="settings-row__label">{{ t('金额') }}</span>
-        <div class="plan-pay-methods settings-pay-options">
+      <div class="team-field">
+        <span>{{ t('金额') }}</span>
+        <div class="team-choices team-choices--pay">
           <button
             v-for="n in options"
             :key="n"
             type="button"
-            class="plan-pay-method"
+            class="team-choice"
             :class="{ 'is-on': amount === n }"
             @click="amount = n"
           >
@@ -136,24 +133,24 @@ onMounted(() => {
           </button>
         </div>
       </div>
-      <div class="settings-row">
-        <span class="settings-row__label">{{ t('支付') }}</span>
-        <div class="plan-pay-methods settings-pay-options">
+      <div class="team-field">
+        <span>{{ t('支付') }}</span>
+        <div class="team-choices">
           <button
             v-for="m in methods"
             :key="m.id"
             type="button"
-            class="plan-pay-method"
+            class="team-choice"
             :class="{ 'is-on': paymentMethod === m.id }"
             :disabled="!m.enabled || submitting"
             @click="paymentMethod = m.id"
           >
             {{ m.label }}
           </button>
-          <span v-if="!anyMethod" class="settings-hint">{{ t('支付渠道尚未开通，请联系运营。') }}</span>
+          <p v-if="!anyMethod" class="team-panel__meta">{{ t('支付渠道尚未开通，请联系运营。') }}</p>
         </div>
       </div>
-      <div class="settings-secure">
+      <div class="team-panel__actions">
         <button
           type="button"
           class="plan-btn plan-btn--solid"

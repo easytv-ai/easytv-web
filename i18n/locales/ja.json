@@ -4343,7 +4343,9 @@
       "unpublishing": "取り下げ中…",
       "emptyFiltered": "この状態の作品はありません",
       "searchPublished": "公開済みの作品を検索",
-      "searchTitle": "作品タイトルで検索"
+      "searchTitle": "作品タイトルで検索",
+      "follow30": "30日間にここから {n} 人がフォロー",
+      "remixWorks": "同款の完成作品 {n}"
     },
     "asset": {
       "refsTitle": "使用箇所",

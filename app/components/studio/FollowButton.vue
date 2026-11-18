@@ -13,11 +13,14 @@ const props = withDefaults(defineProps<{
   name?: string
   /** default 常规按钮；compact 播放页头部；mini 榜单行内 */
   size?: 'default' | 'compact' | 'mini'
+  /** 播放页当前作品。只有从这里点下的关注才记到这张片子上。 */
+  workId?: number
 }>(), {
   following: false,
   followers: undefined,
   name: '',
   size: 'default',
+  workId: 0,
 })
 
 const emit = defineEmits<{
@@ -69,7 +72,7 @@ async function toggle() {
   emit('change', on.value, Math.max(0, beforeFollowers + (before ? -1 : 1)))
   busy.value = true
   try {
-    const res = await followApi.toggle(props.authorId)
+    const res = await followApi.toggle(props.authorId, next ? props.workId : 0)
     if (!res?.success || !res.data) {
       on.value = before
       emit('change', before, beforeFollowers)

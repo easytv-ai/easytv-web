@@ -4368,7 +4368,9 @@
       "unpublishing": "Unpublishing…",
       "emptyFiltered": "No works in this status",
       "searchPublished": "Search published works",
-      "searchTitle": "Search by title"
+      "searchTitle": "Search by title",
+      "follow30": "{n} people followed from here in 30 days",
+      "remixWorks": "{n} remixed works"
     },
     "asset": {
       "refsTitle": "Where it's used",

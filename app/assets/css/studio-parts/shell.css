@@ -224,6 +224,14 @@
   color: var(--st-muted);
 }
 
+.user-menu__storage-wait {
+  display: block;
+  width: 88px;
+  height: 14px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--st-text) 14%, transparent);
+}
+
 .user-menu__bar {
   display: block;
   height: 4px;

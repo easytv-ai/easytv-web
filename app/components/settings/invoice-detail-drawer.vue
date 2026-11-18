@@ -104,7 +104,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
         </header>
 
         <div class="invoice-drawer__body">
-          <p v-if="!invoice" class="invoice-drawer__placeholder">{{ t('加载中…') }}</p>
+          <SettingsSkel v-if="!invoice" variant="list" :rows="6" />
           <template v-else>
             <!-- 状态 -->
             <section class="invoice-drawer__status" :class="`is-${tone}`">
@@ -206,7 +206,10 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
                         <td class="is-num">{{ item.tax === 0 ? '***' : item.tax }}</td>
                       </tr>
                       <tr v-if="!invoice.items.length">
-                        <td colspan="6" class="is-empty">{{ loading ? t('加载中…') : t('暂无明细') }}</td>
+                        <td colspan="6" class="is-empty">
+                          <SettingsSkel v-if="loading" variant="list" :rows="2" />
+                          <template v-else>{{ t('暂无明细') }}</template>
+                        </td>
                       </tr>
                     </tbody>
                   </table>

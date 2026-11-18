@@ -2052,9 +2052,9 @@ html.dark .canvas-inspector__chip.is-on:hover {
 }
 
 .settings-modal .settings-body .wallet-card {
-  padding: 16px 18px 14px;
+  padding: 20px;
   border-color: color-mix(in srgb, var(--st-text) 8%, transparent);
-  border-radius: 14px;
+  border-radius: 16px;
   background: color-mix(in srgb, var(--st-text) 4%, transparent);
 }
 
@@ -2062,8 +2062,129 @@ html.dark .canvas-inspector__chip.is-on:hover {
   display: flex;
   align-items: baseline;
   gap: 8px;
-  margin-bottom: 4px;
-  font-size: 14px;
+  margin-bottom: 12px;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.settings-modal .invite-stats,
+.settings-modal .invoice-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(128px, 1fr));
+  gap: 1px;
+  overflow: hidden;
+  margin: 0 0 16px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--st-text) 10%, transparent);
+}
+
+.settings-modal .invite-stat,
+.settings-modal .invoice-stat {
+  margin: 0;
+  padding: 14px 16px;
+  border: 0;
+  border-radius: 0;
+  background: color-mix(in srgb, var(--st-bg) 82%, var(--st-text));
+}
+
+.settings-modal .invite-stat dd,
+.settings-modal .invoice-stat dd {
+  font-size: 22px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.set-skel {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.set-skel__sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+
+.set-skel i,
+.set-skel b {
+  display: block;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--st-text) 14%, transparent);
+}
+
+.set-skel__head {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.set-skel__title {
+  width: 148px;
+  height: 18px;
+}
+
+.set-skel__sub {
+  width: min(280px, 70%);
+  height: 12px;
+}
+
+.set-skel__stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1px;
+  overflow: hidden;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--st-text) 8%, transparent);
+}
+
+.set-skel__stats span {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+  background: color-mix(in srgb, var(--st-bg) 88%, var(--st-text));
+}
+
+.set-skel__stats i {
+  width: 48px;
+  height: 12px;
+}
+
+.set-skel__stats b {
+  width: 72px;
+  height: 22px;
+}
+
+.set-skel__list,
+.set-skel__fields {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.set-skel__list i,
+.set-skel__fields i {
+  height: 40px;
+  border-radius: 10px;
+}
+
+.set-skel.is-list .set-skel__list i:nth-child(odd) {
+  width: 100%;
+}
+
+.set-skel.is-fields .set-skel__fields i:last-child {
+  width: 68%;
+  height: 36px;
+}
+
+@media (max-width: 640px) {
+  .set-skel__stats {
+    grid-template-columns: 1fr 1fr;
+  }
 }
 
 .settings-modal .settings-body .wallet-card h3 small {

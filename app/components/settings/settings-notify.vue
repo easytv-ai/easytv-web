@@ -106,7 +106,7 @@ onMounted(() => {
 <template>
   <section class="wallet-card settings-card">
     <h3>{{ t('站内通知') }} <small>{{ t('关闭后对应类型不再写入消息中心，已收到的消息保留') }}</small></h3>
-    <p v-if="prefsLoading && !prefs" class="wallet-card__empty">{{ t('加载中…') }}</p>
+    <SettingsSkel v-if="prefsLoading && !prefs" variant="list" :rows="5" />
     <ul v-else-if="prefs" class="pref-list">
       <li v-for="item in prefs.types" :key="item.type">
         <div class="pref-list__main">

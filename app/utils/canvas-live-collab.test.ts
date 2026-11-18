@@ -14,8 +14,15 @@ describe('canvas live collab', () => {
       user: { id: 1, name: 'Ada', color: '#f59e0b' },
       peers: [{ id: 2, name: 'Bo', color: '#38bdf8' }, { id: 1, name: 'Ada', color: '#f59e0b' }],
     }))
-    expect(hello).toMatchObject({ op: 'hello', peers: [{ id: 2, name: 'Bo' }] })
-    expect(parseCanvasLiveMessage('{"op":"cursor","id":2,"x":0,"y":4}')).toEqual({ op: 'cursor', id: 2, x: 0, y: 4 })
+    expect(hello).toMatchObject({ op: 'hello', user: { id: 1 }, peers: [{ id: 2, name: 'Bo', x: null, y: null }, { id: 1, name: 'Ada', x: null, y: null }] })
+    const placed = parseCanvasLiveMessage(JSON.stringify({
+      op: 'hello',
+      user: { id: 1, name: 'Ada', color: '#f59e0b' },
+      peers: [{ id: 2, name: 'Bo', color: '#38bdf8', x: 12, y: 4 }],
+    }))
+    expect(placed).toMatchObject({ op: 'hello', peers: [{ id: 2, x: 12, y: 4 }] })
+    expect(parseCanvasLiveMessage('{"op":"cursor","id":2,"name":"Bo","color":"#38bdf8","x":0,"y":4}')).toEqual({ op: 'cursor', id: 2, name: 'Bo', color: '#38bdf8', x: 0, y: 4 })
+    expect(parseCanvasLiveMessage('{"op":"cursor","id":2,"x":0,"y":4}')).toEqual({ op: 'cursor', id: 2, name: '', color: '#38bdf8', x: 0, y: 4 })
     expect(parseCanvasLiveMessage('{"op":"saved","id":2,"version":9}')).toEqual({ op: 'saved', id: 2, version: 9 })
     expect(parseCanvasLiveMessage('not-json')).toBeNull()
     expect(parseCanvasLiveMessage('{"op":"nodes","id":2,"items":[{"id":"","x":1,"y":2}]}')).toBeNull()

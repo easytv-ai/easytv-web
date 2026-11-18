@@ -427,6 +427,10 @@ export type Work = {
   source_skill_id?: number
   open_source?: 0 | 1
   clone_count?: number
+  /** 我的作品：近 30 天从这部片子的播放页关注的人数 */
+  follow_30d?: number
+  /** 我的作品：做同款后再发布出来的成片数 */
+  remix_works?: number
   /** GET /work/:id 且 open_source=1 时附带 */
   source?: { canvas_id: number, skill_id: number, clone_count: number }
 }

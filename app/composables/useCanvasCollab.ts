@@ -99,12 +99,22 @@ export function useCanvasCollab(opts: {
       if (msg.op === 'hello') {
         retry = 0
         ready = true
-        peers.value = msg.peers.map(person => ({ ...person, x: 0, y: 0, at: 0, seen: false }))
+        peers.value = msg.peers.map((person) => {
+          const placed = person.x != null && person.y != null
+          return {
+            id: person.id,
+            name: person.name,
+            color: person.color,
+            x: person.x ?? 0,
+            y: person.y ?? 0,
+            at: placed ? Date.now() : 0,
+            seen: placed,
+          }
+        })
         return
       }
       if (msg.op === 'join') {
-        if (msg.user.id !== uid)
-          upsert(msg.user)
+        upsert(msg.user)
         return
       }
       if (msg.op === 'leave') {
@@ -112,9 +122,22 @@ export function useCanvasCollab(opts: {
         return
       }
       if (msg.op === 'cursor') {
-        const peer = peers.value.find(item => item.id === msg.id)
-        if (!peer)
+        let peer = peers.value.find(item => item.id === msg.id)
+        if (!peer) {
+          peers.value.push({
+            id: msg.id,
+            name: msg.name || String(msg.id),
+            color: msg.color,
+            x: msg.x,
+            y: msg.y,
+            at: Date.now(),
+            seen: true,
+          })
           return
+        }
+        if (msg.name)
+          peer.name = msg.name
+        peer.color = msg.color
         peer.x = msg.x
         peer.y = msg.y
         peer.at = Date.now()

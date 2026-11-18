@@ -93,6 +93,14 @@ function workStatus(w: Work) {
   return WORK_STATUS[w.status] ?? WORK_STATUS[0]!
 }
 
+function showFollows(w: Work) {
+  return w.status === 1 || w.status === 2
+}
+
+function showRemix(w: Work) {
+  return w.open_source === 1
+}
+
 const workBusy = ref<number | null>(null)
 const editingWork = ref<Work | null>(null)
 
@@ -233,6 +241,11 @@ onUnmounted(() => {
               <template v-if="w.category"> · {{ t(w.category) }}</template>
               · {{ w.like_count }} {{ t('喜欢') }} · {{ w.view_count }} {{ t('播放') }}
               · {{ fmt(w.published_at || w.created_at).slice(0, 10) }}
+            </span>
+            <span v-if="showFollows(w) || showRemix(w)" class="work-list__meta">
+              <template v-if="showFollows(w)">{{ t('account.work.follow30', { n: w.follow_30d || 0 }) }}</template>
+              <template v-if="showFollows(w) && showRemix(w)"> · </template>
+              <template v-if="showRemix(w)">{{ t('account.work.remixWorks', { n: w.remix_works || 0 }) }}</template>
             </span>
             <span v-if="w.remark" class="work-list__remark">{{ t('审核备注') }}：{{ w.remark }}</span>
             <span v-if="w.status === -1" class="work-list__remark">{{ t('被驳回的作品无法自行上架，如有疑问请联系客服。') }}</span>

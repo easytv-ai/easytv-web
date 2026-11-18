@@ -4342,7 +4342,9 @@
       "unpublishing": "Retrait…",
       "emptyFiltered": "Aucune œuvre dans cet état",
       "searchPublished": "Rechercher des œuvres publiées",
-      "searchTitle": "Rechercher par titre"
+      "searchTitle": "Rechercher par titre",
+      "follow30": "{n} personnes ont suivi depuis ici en 30 jours",
+      "remixWorks": "{n} œuvres issues du remix"
     },
     "asset": {
       "refsTitle": "Utilisé ici",

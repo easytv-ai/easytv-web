@@ -437,7 +437,7 @@ onBeforeUnmount(() => {
               </button>
             </div>
 
-            <p v-if="companiesLoading && !companies.length" class="invoice-apply__placeholder">{{ t('加载中…') }}</p>
+            <SettingsSkel v-if="companiesLoading && !companies.length" variant="list" :rows="3" />
             <div v-else-if="companiesError && !companies.length" class="invoice-apply__placeholder">
               <p>{{ t('发票抬头加载失败，请稍后重试') }}</p>
               <button type="button" class="settings-link" @click="loadCompanies()">{{ t('重试') }}</button>
@@ -545,7 +545,7 @@ onBeforeUnmount(() => {
           <!-- 发票类型 -->
           <div class="invoice-apply__section">
             <p class="invoice-apply__label">{{ t('发票类型') }}</p>
-            <p v-if="categoriesLoading && !categories.length" class="invoice-apply__placeholder">{{ t('加载中…') }}</p>
+            <SettingsSkel v-if="categoriesLoading && !categories.length" variant="list" :rows="3" />
             <div v-else-if="categoriesError && !categories.length" class="invoice-apply__placeholder">
               <p>{{ t('加载失败，请稍后重试') }}</p>
               <button type="button" class="settings-link" @click="loadCategories()">{{ t('重试') }}</button>

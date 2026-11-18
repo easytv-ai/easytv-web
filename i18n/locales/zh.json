@@ -2017,7 +2017,9 @@
       "unpublishing": "下架中…",
       "emptyFiltered": "这个状态下还没有作品",
       "searchPublished": "搜索已发布的作品",
-      "searchTitle": "搜索作品标题"
+      "searchTitle": "搜索作品标题",
+      "follow30": "近 30 天 {n} 人从这里关注",
+      "remixWorks": "同款成片 {n}"
     },
     "asset": {
       "refsTitle": "引用位置",
