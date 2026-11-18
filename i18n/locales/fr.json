@@ -4349,7 +4349,11 @@
     "asset": {
       "refsTitle": "Utilisé ici",
       "refsLead": "Ces toiles, sujets ou œuvres utilisent encore cet élément.",
-      "refsEmpty": "Pas encore utilisé"
+      "refsEmpty": "Pas encore utilisé",
+      "select": "Sélectionner cet élément",
+      "bulkTrash": "Déplacer les {n} éléments sélectionnés vers la corbeille ? Vous pouvez les restaurer sous 30 jours.",
+      "bulkInUse": "{n} éléments sont encore utilisés. Les supprimer rendra ces endroits inutilisables.",
+      "bulkFailed": "{n} éléments n'ont pas pu être déplacés vers la corbeille"
     },
     "task": {
       "copyNo": "Copier le n° de tâche",

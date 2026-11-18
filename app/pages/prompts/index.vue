@@ -235,7 +235,7 @@ onUnmounted(() => {
       </div>
       </div>
 
-      <p class="create-hint">{{ t('这些提示词可直接复制使用，也能一键带进画布继续改。') }}</p>
+      <p class="create-hint prompt-page__hint">{{ t('这些提示词可直接复制使用，也能一键带进画布继续改。') }}</p>
 
       <StudioPaging
         grid-class="prompt-grid"

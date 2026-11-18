@@ -4349,7 +4349,11 @@
     "asset": {
       "refsTitle": "Đang được dùng ở",
       "refsLead": "Các canvas, nhân vật hoặc tác phẩm sau vẫn dùng tài nguyên này.",
-      "refsEmpty": "Chưa được dùng ở đâu"
+      "refsEmpty": "Chưa được dùng ở đâu",
+      "select": "Chọn tài nguyên này",
+      "bulkTrash": "Chuyển {n} mục đã chọn vào thùng rác? Có thể khôi phục trong 30 ngày.",
+      "bulkInUse": "{n} mục đang được dùng. Xóa sẽ làm những chỗ đó mất hiệu lực.",
+      "bulkFailed": "Không chuyển được {n} mục vào thùng rác"
     },
     "task": {
       "copyNo": "Sao chép mã nhiệm vụ",

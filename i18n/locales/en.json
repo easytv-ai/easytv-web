@@ -4375,7 +4375,11 @@
     "asset": {
       "refsTitle": "Where it's used",
       "refsLead": "These canvases, subjects, or works still use this asset.",
-      "refsEmpty": "Not used anywhere yet"
+      "refsEmpty": "Not used anywhere yet",
+      "select": "Select this asset",
+      "bulkTrash": "Move the {n} selected items to Trash? You can restore them within 30 days.",
+      "bulkInUse": "{n} items are still in use. Deleting them will break those places.",
+      "bulkFailed": "{n} items could not be moved to Trash"
     },
     "task": {
       "copyNo": "Copy task ID",

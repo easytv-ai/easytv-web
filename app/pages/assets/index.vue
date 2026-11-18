@@ -210,6 +210,117 @@ async function saveSubject() {
   }
 }
 
+const picked = ref<number[]>([])
+const removing = ref(false)
+const allPicked = computed(() => assets.value.length > 0 && picked.value.length === assets.value.length)
+
+watch(assets, (list) => {
+  const ids = new Set(list.map(item => item.id))
+  if (picked.value.some(id => !ids.has(id)))
+    picked.value = picked.value.filter(id => ids.has(id))
+})
+
+function togglePicked(id: number) {
+  menuFor.value = null
+  picked.value = picked.value.includes(id)
+    ? picked.value.filter(item => item !== id)
+    : [...picked.value, id]
+}
+
+function toggleAllPicked() {
+  menuFor.value = null
+  picked.value = allPicked.value ? [] : assets.value.map(item => item.id)
+}
+
+function clearPicked() {
+  picked.value = []
+}
+
+function dropPicked(id: number) {
+  removeById(id)
+  picked.value = picked.value.filter(item => item !== id)
+}
+
+/** 按接口上限分批提交。返回还在使用的条目；请求失败时带上错误文案。 */
+async function postTrash(ids: number[], force: boolean) {
+  const blocked: { id: number, name: string }[] = []
+  let moved = 0
+  let failed = 0
+  let error = ''
+  for (let index = 0; index < ids.length; index += 100) {
+    const res = await assetApi.trashMany(ids.slice(index, index + 100), force)
+    if (!res?.success || !res.data) {
+      error = res?.message || t('删除失败')
+      break
+    }
+    for (const id of res.data.trashed ?? []) {
+      dropPicked(id)
+      moved += 1
+    }
+    for (const id of res.data.missing ?? []) {
+      picked.value = picked.value.filter(item => item !== id)
+      failed += 1
+    }
+    if (force)
+      failed += res.data.in_use?.length ?? 0
+    else
+      blocked.push(...(res.data.in_use ?? []))
+  }
+  return { blocked, moved, failed, error }
+}
+
+async function removePicked() {
+  const items = assets.value.filter(item => picked.value.includes(item.id))
+  if (!items.length || removing.value)
+    return
+  const message = items.length === 1
+    ? t('将「{name}」移到回收站？30 天内可恢复。', { name: items[0]!.name })
+    : t('account.asset.bulkTrash', { n: items.length })
+  if (!(await confirm({
+    title: t('移到回收站'),
+    message,
+    confirmText: t('移到回收站'),
+    danger: true,
+  })))
+    return
+  removing.value = true
+  menuFor.value = null
+  try {
+    let ids = items.map(item => item.id)
+    let force = false
+    let moved = 0
+    let failed = 0
+    while (ids.length) {
+      const batch = await postTrash(ids, force)
+      moved += batch.moved
+      failed += batch.failed
+      if (batch.error) {
+        notify(batch.error, 'error')
+        return
+      }
+      if (!batch.blocked.length || force)
+        break
+      const names = batch.blocked.slice(0, 4).map(row => row.name).filter(Boolean).join('、')
+      if (!(await confirm({
+        title: t('素材正在使用'),
+        message: `${t('account.asset.bulkInUse', { n: batch.blocked.length })} ${names}`,
+        confirmText: t('仍然删除'),
+        danger: true,
+      })))
+        break
+      ids = batch.blocked.map(row => row.id)
+      force = true
+    }
+    if (failed)
+      notify(t('account.asset.bulkFailed', { n: failed }), 'error')
+    else if (moved)
+      notify(t('已移到回收站'))
+  }
+  finally {
+    removing.value = false
+  }
+}
+
 const TYPE_TABS: { value: AssetType | '', label: string }[] = [
   { value: '', label: t('全部') },
   { value: 'video', label: t('视频') },
@@ -441,6 +552,26 @@ onBeforeUnmount(() => {
           </button>
         </div>
       </div>
+      <div v-if="picked.length" class="asset-pickbar">
+        <label class="trash-modal__count">
+          <input type="checkbox" :checked="allPicked" @change="toggleAllPicked">
+          <span
+            class="trash-check trash-check--plain"
+            :class="{
+              'is-on': allPicked,
+              'is-mix': picked.length > 0 && !allPicked,
+            }"
+          />
+          {{ t('已选择 {n} 项', { n: picked.length }) }}
+        </label>
+        <div class="asset-pickbar__actions">
+          <button type="button" class="projects-tool-btn" :disabled="removing" @click="clearPicked">{{ t('取消') }}</button>
+          <button type="button" class="projects-tool-btn asset-pickbar__trash" :disabled="removing" @click="removePicked">
+            <UIcon name="i-lucide-trash-2" class="size-4" />
+            {{ t('移到回收站') }}
+          </button>
+        </div>
+      </div>
       </div>
 
       <StudioPaging
@@ -496,12 +627,21 @@ onBeforeUnmount(() => {
             </span>
           </button>
 
-          <article v-for="item in assets" :key="item.id" class="projects-card">
+          <article v-for="item in assets" :key="item.id" class="projects-card" :class="{ 'is-picked': picked.includes(item.id) }">
             <button type="button" class="projects-card__thumb" @click="openAsset(item)">
               <img v-if="item.type === 'image'" :src="assetUrl(item)" :alt="item.name" loading="lazy">
               <video v-else-if="item.type === 'video'" :src="assetUrl(item)" muted preload="metadata" />
               <UIcon v-else :name="item.type === 'audio' ? 'i-lucide-music' : 'i-lucide-file'" class="projects-card__ph" />
               <span class="projects-card__badge">{{ TYPE_LABEL[item.type] }}</span>
+            </button>
+            <button
+              type="button"
+              class="projects-card__check"
+              :aria-pressed="picked.includes(item.id)"
+              :aria-label="t('account.asset.select')"
+              @click="togglePicked(item.id)"
+            >
+              <span class="trash-check trash-check--plain" :class="{ 'is-on': picked.includes(item.id) }" />
             </button>
             <div class="projects-card__meta">
               <div class="projects-card__text">

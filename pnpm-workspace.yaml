@@ -4,3 +4,10 @@ allowBuilds:
   esbuild: true
   vue-demi: true
   workerd: true
+
+# @nuxt/icon 的服务端缓存键调用了 h3 的 getQuery。它自己没声明 h3，
+# 会解析到 h3 2。Nitro 传进来的是 h3 1 的请求，相对路径会被 h3 2 的 new URL 判成非法。
+packageExtensions:
+  '@nuxt/icon':
+    dependencies:
+      h3: 1.15.11

@@ -25,6 +25,11 @@ export const assetApi = {
     return http.delete(`/user/asset/${id}${force ? '?force=1' : ''}`)
   },
 
+  /** 多选进回收站。一次最多 100 条；未引用的在 trashed，正在使用的在 in_use，不是本人的在 missing */
+  trashMany(ids: number[], force = false): Promise<ApiResponse<AssetTrashBatch>> {
+    return http.post('/user/asset/delete', { ids, force })
+  },
+
   refs(id: number): Promise<ApiResponse<{ refs: AssetRef[] }>> {
     return http.get(`/user/asset/${id}/refs`)
   },
@@ -42,6 +47,9 @@ export const assetApi = {
     return http.post('/user/asset/import', { asset_ids: ids })
   },
 }
+
+export type AssetTrashHit = { id: number, name: string, refs?: AssetRef[] }
+export type AssetTrashBatch = { trashed: number[], in_use: AssetTrashHit[], missing: number[] }
 
 export type AssetImportItem = { from: number, to: number, status: 'same' | 'copied' | 'missing' }
 export type AssetImportResult = { items: AssetImportItem[], copied: number, missing: number }

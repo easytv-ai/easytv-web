@@ -740,6 +740,10 @@ html.dark .studio-chip--gold.is-on {
   scrollbar-width: thin;
 }
 
+.studio-content.is-scroll-locked {
+  overflow: hidden;
+}
+
 /* 侧栏切页：旧页叠在原位淡出，新页同时淡入上移，避免整页闪一下 */
 .studio-page-enter-active,
 .studio-page-leave-active {
@@ -2472,6 +2476,7 @@ html.dark .show-page .projects-search {
 }
 
 .projects-card {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -2480,6 +2485,56 @@ html.dark .show-page .projects-search {
   background: transparent;
   color: inherit;
   text-align: left;
+}
+
+.projects-card__check {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 2;
+  display: inline-flex;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.projects-card.is-picked .projects-card__thumb {
+  border-color: var(--st-on);
+  box-shadow: 0 0 0 2px var(--st-on);
+}
+
+.asset-pickbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 12px;
+  margin-top: 10px;
+  padding: 8px 12px;
+  border: 1px solid var(--st-border);
+  border-radius: 12px;
+  background: var(--st-elevated);
+}
+
+.asset-pickbar__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.asset-pickbar__trash {
+  color: #dc2626;
+  border-color: color-mix(in srgb, #dc2626 40%, var(--st-border));
+}
+
+html.dark .asset-pickbar__trash {
+  color: #f87171;
+  border-color: color-mix(in srgb, #f87171 45%, var(--st-border));
+}
+
+.asset-pickbar__trash:hover:not(:disabled) {
+  background: rgba(220, 38, 38, 0.1);
 }
 
 .projects-card--skeleton {

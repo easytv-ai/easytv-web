@@ -4351,7 +4351,11 @@
     "asset": {
       "refsTitle": "引用位置",
       "refsLead": "這些畫布、主體或作品正在使用這條素材。",
-      "refsEmpty": "目前沒有引用"
+      "refsEmpty": "目前沒有引用",
+      "select": "選擇這條素材",
+      "bulkTrash": "將選中的 {n} 項移到回收桶？30 天內可還原。",
+      "bulkInUse": "有 {n} 項正在被使用，刪除後這些地方會失效。",
+      "bulkFailed": "{n} 項未能移到回收桶"
     },
     "task": {
       "copyNo": "複製單號",

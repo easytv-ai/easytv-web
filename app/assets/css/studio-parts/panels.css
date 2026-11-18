@@ -450,6 +450,7 @@ video.cnode__media {
 
 .canvas-media-mask {
   z-index: 140;
+  overscroll-behavior: none;
   background: rgba(0, 0, 0, 0.78);
 }
 

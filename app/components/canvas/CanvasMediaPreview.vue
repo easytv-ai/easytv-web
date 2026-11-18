@@ -1,3 +1,7 @@
+<script lang="ts">
+let behindLocks = 0
+</script>
+
 <script setup lang="ts">
 const props = withDefaults(defineProps<{
   open: boolean
@@ -37,16 +41,46 @@ function onKeydown(event: KeyboardEvent) {
     emit('close')
 }
 
-// 每个媒体节点都挂一个预览组件，只在打开期间监听，避免节点多时 window 上挂 N 个监听
-watch(() => props.open, (on) => {
-  if (!import.meta.client)
+/** 说明文字自己还能滚时放行，其余滚轮不传给背后的资产列表 */
+function onWheel(event: WheelEvent) {
+  const node = event.target instanceof Element ? event.target : null
+  const caption = node?.closest('.canvas-media-mask__caption')
+  if (caption instanceof HTMLElement) {
+    const max = caption.scrollHeight - caption.clientHeight
+    const next = caption.scrollTop + event.deltaY
+    if (max > 1 && next > 0 && next < max)
+      return
+  }
+  event.preventDefault()
+}
+
+function setBehindScroll(lock: boolean) {
+  behindLocks += lock ? 1 : -1
+  if (behindLocks < 0)
+    behindLocks = 0
+  document.querySelector('.studio-content')?.classList.toggle('is-scroll-locked', behindLocks > 0)
+}
+
+let guardsOn = false
+
+function bindPreviewGuards(on: boolean) {
+  if (!import.meta.client || on === guardsOn)
     return
-  if (on)
+  guardsOn = on
+  if (on) {
     window.addEventListener('keydown', onKeydown, true)
-  else
-    window.removeEventListener('keydown', onKeydown, true)
-}, { immediate: true })
-onUnmounted(() => window.removeEventListener('keydown', onKeydown, true))
+    window.addEventListener('wheel', onWheel, { capture: true, passive: false })
+    setBehindScroll(true)
+    return
+  }
+  window.removeEventListener('keydown', onKeydown, true)
+  window.removeEventListener('wheel', onWheel, { capture: true })
+  setBehindScroll(false)
+}
+
+// 每个媒体节点都挂一个预览组件，只在打开期间监听，避免节点多时 window 上挂 N 个监听
+watch(() => props.open, bindPreviewGuards, { immediate: true })
+onUnmounted(() => bindPreviewGuards(false))
 </script>
 
 <template>

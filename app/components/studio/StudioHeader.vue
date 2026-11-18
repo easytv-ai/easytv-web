@@ -87,7 +87,7 @@ watch(isLoggedIn, (on) => {
     >
       <span class="studio-chip__icon">
         <UIcon name="i-lucide-wallet" class="size-4" />
-        <i v-if="checkinPending" class="studio-chip__dot" :title="t('今天还没签到')" />
+        <i v-if="checkinPending && !isTeam" class="studio-chip__dot" :title="t('今天还没签到')" />
       </span>
       {{ isTeam ? t('团队积分') : t('积分钱包') }}
       <b v-if="wallet" class="studio-chip__num">{{ formatBalance() }}</b>

@@ -2024,7 +2024,11 @@
     "asset": {
       "refsTitle": "引用位置",
       "refsLead": "这些画布、主体或作品正在使用这条素材。",
-      "refsEmpty": "目前没有引用"
+      "refsEmpty": "目前没有引用",
+      "select": "选择这条素材",
+      "bulkTrash": "将选中的 {n} 项移到回收站？30 天内可恢复。",
+      "bulkInUse": "有 {n} 项正在被使用，删除后这些地方会失效。",
+      "bulkFailed": "{n} 项未能移到回收站"
     },
     "task": {
       "copyNo": "复制单号",
