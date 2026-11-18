@@ -58,6 +58,7 @@ const { refresh: refreshWallet } = useWallet()
 const { settingsMounted } = useSettingsModal()
 
 const chatOpen = ref(true)
+const brandOpen = ref(false)
 const editorRoot = ref<HTMLElement | null>(null)
 useVisualViewportFit(editorRoot)
 const chatMinPct = 32
@@ -147,6 +148,8 @@ const savedName = ref(nameHint)
 const canvasId = ref(Number(route.query.id) || 0)
 const projectIdHint = Number(route.query.project_id) || 0
 const boundProjectId = ref(projectIdHint)
+/** 第一次保存时挂到这个项目。「创建新项目」后清掉，避免新画布还写回刚才的项目 */
+let attachProjectId = projectIdHint
 const spineOpen = ref(false)
 let spineDismissedFor = 0
 
@@ -625,7 +628,7 @@ async function runSave(manual: boolean) {
       const res = await canvasApi.create({
         name,
         graph,
-        ...(projectIdHint ? { project_id: projectIdHint } : {}),
+        ...(attachProjectId ? { project_id: attachProjectId } : {}),
       })
       if (!res?.success || !res.data)
         throw new Error(res?.message || t('创建画布失败'))
@@ -775,6 +778,10 @@ function onTitleKeydown(event: KeyboardEvent) {
 }
 
 function onGlobalKeydown(event: KeyboardEvent) {
+  if (event.key === 'Escape' && brandOpen.value) {
+    brandOpen.value = false
+    return
+  }
   if (event.key === 'Escape' && conflictOpen.value && !conflictBusy.value) {
     conflictOpen.value = false
     return
@@ -804,8 +811,36 @@ const skillPreset = ref<{ title: string, prompt: string, cover_url: string, desc
 const skillNodeCount = ref(0)
 
 function onDocumentClick(event: MouseEvent) {
-  if (!(event.target as HTMLElement).closest('.canvas-more'))
+  const target = event.target as HTMLElement
+  if (!target.closest('.canvas-more'))
     moreOpen.value = false
+  if (!target.closest('.canvas-brand'))
+    brandOpen.value = false
+}
+
+/** 离开当前画布前确认。回到主页、全部项目走路由守卫；创建新项目停在本页，要自己问一次 */
+async function confirmLeaveCanvas() {
+  const m = saveMachine.value
+  if (!hasUnsavedChanges(m))
+    return true
+  return await confirm({
+    title: t('离开画布'),
+    message: m.conflict
+      ? t('画布与其他地方的修改冲突，本地修改尚未保存，确定离开？')
+      : t('画布还有未保存的修改，确定离开？'),
+    confirmText: t('离开'),
+    danger: true,
+  })
+}
+
+function goCanvasHome() {
+  brandOpen.value = false
+  void navigateTo(localePath('/agent'))
+}
+
+function goAllProjects() {
+  brandOpen.value = false
+  void navigateTo(localePath('/projects'))
 }
 
 function exportCanvas() {
@@ -931,6 +966,106 @@ function onRestored(detail: CanvasDetail, from?: { id: number }) {
   // 恢复出来的内容还没落库：记一次改动，保存失败时离开页面也会被拦住
   saveMachine.value = markChanged(saveMachine.value)
   void nextTick(() => save(false, true))
+}
+
+/** 回到一张空白画布，第一次保存时再生成新项目 */
+function resetToNewProject() {
+  clearAutosave()
+  attachProjectId = 0
+  canvasId.value = 0
+  boundProjectId.value = 0
+  version.value = 1
+  historyVersionId.value = 0
+  savedAt.value = 0
+  const blank = t('未命名草稿')
+  draftName.value = blank
+  savedName.value = blank
+  readonly.value = false
+  readonlyOwner.value = ''
+  teamShared.value = false
+  canvasOwnerId.value = 0
+  spineOpen.value = false
+  spineDismissedFor = 0
+  commentOpen.value = false
+  commentNodeId.value = ''
+  canvasOpenComments.value = 0
+  canvasCommentMarks.value = {}
+  shareOpen.value = false
+  historyOpen.value = false
+  skillEditorOpen.value = false
+  conflictOpen.value = false
+  moreOpen.value = false
+  loading.value = false
+  pendingGraph = null
+  rememberNodeCount(null)
+  wipeWarned = false
+  graphSizeWarned = false
+  graphNearWarned = false
+  blobSaveWarned = false
+  saveMachine.value = createSaveMachine()
+  workspace.value?.loadGraph({ nodes: [], edges: [] })
+  void nextTick(() => {
+    if (!canvasId.value)
+      saveMachine.value = createSaveMachine()
+  })
+}
+
+async function createNewProject() {
+  brandOpen.value = false
+  if (blockedByPractice())
+    return
+  if (saveMachine.value.inFlight) {
+    notify(t('保存中…'))
+    return
+  }
+  if (!(await confirmLeaveCanvas()))
+    return
+  resetToNewProject()
+  const path = localePath('/canvas')
+  if (route.path !== path || Object.keys(route.query).length > 0)
+    await router.replace({ path, query: {} })
+}
+
+async function deleteCurrentProject() {
+  brandOpen.value = false
+  if (blockedByPractice())
+    return
+  if (saveMachine.value.inFlight) {
+    notify(t('保存中…'))
+    return
+  }
+  const pid = boundProjectId.value
+  if (!pid) {
+    notify(t('请先保存画布，再删除项目'))
+    return
+  }
+  const detail = await projectApi.get(pid)
+  const project = detail?.data?.project
+  if (!detail?.success || !project) {
+    notify(detail?.message || t('删除失败'), 'error')
+    return
+  }
+  if (!(project.can_delete ?? !project.team_shared)) {
+    notify(t('只能删除自己的项目'), 'error')
+    return
+  }
+  const name = project.name || draftName.value.trim() || t('未命名草稿')
+  if (!(await confirm({
+    title: t('移到回收站'),
+    message: t('将「{name}」移到回收站？30 天内可恢复。', { name }),
+    confirmText: t('移到回收站'),
+    danger: true,
+  })))
+    return
+  const res = await projectApi.remove(pid)
+  if (!res?.success) {
+    notify(res?.message || t('删除失败'), 'error')
+    return
+  }
+  notify(t('已移到回收站'))
+  clearAutosave()
+  saveMachine.value = createSaveMachine()
+  await navigateTo(localePath('/projects'))
 }
 
 // ---- 对话栏与画布联动 ----
@@ -1123,18 +1258,7 @@ onBeforeRouteLeave(async (to) => {
     && Number(to.query.id) === canvasId.value
   if (toDirector)
     return true
-  const m = saveMachine.value
-  if (hasUnsavedChanges(m)) {
-    return await confirm({
-      title: t('离开画布'),
-      message: m.conflict
-        ? t('画布与其他地方的修改冲突，本地修改尚未保存，确定离开？')
-        : t('画布还有未保存的修改，确定离开？'),
-      confirmText: t('离开'),
-      danger: true,
-    })
-  }
-  return true
+  return await confirmLeaveCanvas()
 })
 
 function onResizeStart(event: PointerEvent) {
@@ -1174,10 +1298,26 @@ function onResizeStart(event: PointerEvent) {
   >
     <div class="canvas-editor__main">
       <header class="canvas-editor__bar">
-        <NuxtLink :to="localePath('/agent')" class="canvas-editor__brand">
-          <img src="/images/logo.svg" alt="EasyTV" width="22" height="22">
-          EasyTV
-        </NuxtLink>
+        <div class="canvas-brand">
+          <button
+            type="button"
+            class="canvas-editor__brand"
+            :aria-expanded="brandOpen"
+            aria-haspopup="menu"
+            @click="brandOpen = !brandOpen"
+          >
+            <img src="/images/logo.svg" alt="" width="22" height="22">
+            EasyTV
+            <UIcon name="i-lucide-chevron-down" class="canvas-editor__brand-chevron" :class="{ 'is-open': brandOpen }" />
+          </button>
+          <div v-if="brandOpen" class="canvas-brand__menu" role="menu">
+            <button type="button" role="menuitem" @click="goCanvasHome">{{ t('回到主页') }}</button>
+            <button type="button" role="menuitem" @click="goAllProjects">{{ t('全部项目') }}</button>
+            <button type="button" role="menuitem" @click="createNewProject">{{ t('创建新项目') }}</button>
+            <span class="canvas-brand__rule" />
+            <button type="button" role="menuitem" @click="deleteCurrentProject">{{ t('删除项目') }}</button>
+          </div>
+        </div>
         <span class="canvas-editor__sep" />
         <input
           v-model="draftName"

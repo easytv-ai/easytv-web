@@ -4157,7 +4157,8 @@ html.dark .plan-mark {
 
 .campaign-prizes {
   width: 100%;
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
   font-size: 14px;
 }
 
@@ -4173,6 +4174,10 @@ html.dark .plan-mark {
   padding: 9px 0;
   border-top: 1px solid var(--st-border);
   color: var(--st-text-soft);
+}
+
+.campaign-prizes tr:last-child td {
+  border-bottom: 1px solid var(--st-border);
 }
 
 .campaign-prizes td:first-child {
@@ -4216,6 +4221,11 @@ html.dark .plan-mark {
   margin: 28px 0 18px;
   padding-right: 0;
   padding-left: 0;
+}
+
+/* 工具条为了吸顶，会向上铺一块背景。活动详情里它盖住了更高那张卡片的底边 */
+.campaign-detail .show-toolbar::before {
+  display: none;
 }
 
 /* 投稿墙标题用 h2（页面里 h1 已给活动标题），样式跟首页工具条一致 */

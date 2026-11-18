@@ -45,12 +45,20 @@ const cycleModel = computed({
 const { tiers, cycleRate, teamSeatRate, teamSeatMin, teamSeatMax, load } = useBillingCatalog()
 onMounted(() => void load())
 
+/** 每档各自记席位。步进器在每张卡上，加减只改这一档，开通也按这一档的席位下单 */
+const seatCounts = reactive<Record<string, number>>({})
+
+function seatsOf(tierId: string) {
+  return seatCounts[tierId] ?? props.seats
+}
+
 const cards = computed(() => {
-  const count = props.edition === 'team' ? props.seats : 1
   return tiers.value.map((tier) => {
-    const info = quoteMembership(tier, props.cycle, props.edition, props.seats, cycleRate.value, teamSeatRate.value, t)
+    const count = props.edition === 'team' ? seatsOf(tier.id) : 1
+    const info = quoteMembership(tier, props.cycle, props.edition, count, cycleRate.value, teamSeatRate.value, t)
     return {
       tier,
+      seats: count,
       seatPrice: Math.round(info.price / count),
       seatOrigin: Math.round(info.origin / count),
       seatPoints: Math.round(info.monthlyPoints / count),
@@ -62,8 +70,8 @@ const cards = computed(() => {
   })
 })
 
-function nudgeSeats(delta: number) {
-  emit('update:seats', clampTeamSeats(props.seats + delta, teamSeatMin.value, teamSeatMax.value))
+function nudgeSeats(tierId: string, delta: number) {
+  seatCounts[tierId] = clampTeamSeats(seatsOf(tierId) + delta, teamSeatMin.value, teamSeatMax.value)
 }
 
 function gotoPointsMarket() {
@@ -71,21 +79,22 @@ function gotoPointsMarket() {
 }
 
 function gotoSubscribe(tier: MembershipTier) {
-  const info = quoteMembership(tier, props.cycle, props.edition, props.seats, cycleRate.value, teamSeatRate.value, t)
+  const seats = props.edition === 'team' ? seatsOf(tier.id) : 1
+  const info = quoteMembership(tier, props.cycle, props.edition, seats, cycleRate.value, teamSeatRate.value, t)
   emit('subscribe', {
     request: {
       kind: 'membership',
       plan_code: tier.id,
       edition: props.edition,
       cycle: props.cycle,
-      seats: props.edition === 'team' ? props.seats : 1,
+      seats,
     },
     kind: 'membership',
     title: `${editionLabel(props.edition, t)} · ${t(tier.name)} · ${cycleLabel(props.cycle, t)}`,
     price: info.price,
     origin: info.origin,
     summary: props.edition === 'team'
-      ? t('{seats} 个席位，每月 {points} 积分进入共享积分池', { seats: props.seats, points: info.monthlyPoints })
+      ? t('{seats} 个席位，每月 {points} 积分进入共享积分池', { seats, points: info.monthlyPoints })
       : t('每月到账 {points} 积分，会员期内按账期刷新', { points: info.monthlyPoints }),
     addOnPoints: info.addOnPoints,
     addOnPrice: info.addOnPrice,
@@ -156,9 +165,9 @@ function gotoSubscribe(tier: MembershipTier) {
         <p v-if="edition === 'team'" class="plan-card__unit">{{ t('每席位') }}</p>
 
         <div v-if="edition === 'team'" class="plan-stepper">
-          <button type="button" :aria-label="t('减少席位')" @click="nudgeSeats(-1)">−</button>
-          <span>{{ seats }} {{ t('席') }}</span>
-          <button type="button" :aria-label="t('增加席位')" @click="nudgeSeats(1)">+</button>
+          <button type="button" :aria-label="t('减少席位')" @click="nudgeSeats(card.tier.id, -1)">−</button>
+          <span>{{ card.seats }} {{ t('席') }}</span>
+          <button type="button" :aria-label="t('增加席位')" @click="nudgeSeats(card.tier.id, 1)">+</button>
           <em>{{ t('合计') }} {{ formatYuan(card.total) }}</em>
         </div>
 

@@ -5,8 +5,13 @@ allowBuilds:
   vue-demi: true
   workerd: true
 
-# @nuxt/icon 的服务端缓存键调用了 h3 的 getQuery。它自己没声明 h3，
-# 会解析到 h3 2。Nitro 传进来的是 h3 1 的请求，相对路径会被 h3 2 的 new URL 判成非法。
+# @nuxt/ui 4.7 会装上 @nuxt/icon 2.2。那个版本用 h3 2 的 getRequestURL 解析
+# /api/_nuxt_icon/*.json，相对地址会被 new URL 判成非法，接口直接 500。
+# 2.5 改走 event.path，不再拼绝对地址。
+overrides:
+  '@nuxt/icon': 2.5.1
+
+# 2.5 的错误响应用 h3 的 createError。它自己没声明 h3，钉到 Nitro 用的 1.x。
 packageExtensions:
   '@nuxt/icon':
     dependencies:
