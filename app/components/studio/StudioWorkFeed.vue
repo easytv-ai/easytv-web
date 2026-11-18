@@ -101,6 +101,10 @@ function authorName(item: Work) {
   return item.author?.nickname || t('创作者')
 }
 
+function authorAvatar(item: Work) {
+  return resolveMediaUrl(item.author?.avatar || '')
+}
+
 function gotoAuthor(item: Work) {
   if (item.user_id)
     void navigateTo(localePath(`/author/${item.user_id}`))
@@ -274,7 +278,8 @@ onBeforeUnmount(() => {
           </div>
           <div class="show-card__meta">
             <span class="show-card__avatar show-card__avatar--link" role="link" :aria-label="t('查看作者主页')" @click.prevent.stop="gotoAuthor(item)">
-              {{ authorName(item).slice(0, 1) }}
+              <img v-if="authorAvatar(item)" :src="authorAvatar(item)" alt="" class="show-card__avatar-img">
+              <template v-else>{{ authorName(item).slice(0, 1) }}</template>
               <span class="canvas-tip canvas-tip--up">{{ t('查看作者主页') }}</span>
             </span>
             <div class="show-card__text">

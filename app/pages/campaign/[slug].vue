@@ -110,6 +110,10 @@ function authorName(entry: CampaignEntry) {
   return entry.work?.author?.nickname || entry.user?.nickname || t('创作者')
 }
 
+function authorAvatar(entry: CampaignEntry) {
+  return resolveMediaUrl(entry.work?.author?.avatar || entry.user?.avatar || '')
+}
+
 function goAuthor(entry: CampaignEntry) {
   const id = entry.work?.user_id || entry.user_id
   if (id)
@@ -321,7 +325,8 @@ onMounted(() => {
             </div>
             <div class="show-card__meta">
               <span class="show-card__avatar show-card__avatar--link" role="link" :aria-label="t('查看作者主页')" @click.prevent.stop="goAuthor(entry)">
-                {{ authorName(entry).slice(0, 1) }}
+                <img v-if="authorAvatar(entry)" :src="authorAvatar(entry)" alt="" class="show-card__avatar-img">
+                <template v-else>{{ authorName(entry).slice(0, 1) }}</template>
                 <span class="canvas-tip canvas-tip--up">{{ t('查看作者主页') }}</span>
               </span>
               <div class="show-card__text">

@@ -1777,6 +1777,13 @@ html.dark .studio-chip--gold.is-on {
   font-weight: 600;
 }
 
+.show-card__avatar-img {
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  object-fit: cover;
+}
+
 .show-card__text {
   display: flex;
   min-width: 0;

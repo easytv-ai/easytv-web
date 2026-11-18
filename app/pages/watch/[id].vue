@@ -92,6 +92,7 @@ const liking = ref(false)
 const hover = ref(false)
 
 const authorName = computed(() => current.value?.author?.nickname || t('创作者'))
+const authorAvatar = computed(() => resolveMediaUrl(current.value?.author?.avatar || ''))
 
 // ---- 关注作者（API.md 9.2）：只在客户端补一次作者档案拿 is_following / followers ----
 const authorFollowing = ref(false)
@@ -819,7 +820,10 @@ onUnmounted(() => window.removeEventListener('keydown', onGlobalKeydown))
     <aside class="watch-side">
       <div class="watch-side__author">
         <NuxtLink v-if="current?.user_id" :to="localePath(`/author/${current.user_id}`)" class="watch-author">
-          <span class="watch-avatar">{{ authorName.slice(0, 1) }}</span>
+          <span class="watch-avatar">
+            <img v-if="authorAvatar" :src="authorAvatar" alt="">
+            <template v-else>{{ authorName.slice(0, 1) }}</template>
+          </span>
           <span class="watch-author__text">
             <strong>{{ authorName }}</strong>
             <small v-if="authorFollowers">{{ t('{n} 位粉丝', { n: formatCount(authorFollowers) }) }}</small>

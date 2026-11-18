@@ -419,7 +419,7 @@ export type Work = {
   published_at: number
   created_at: number
   updated_at: number
-  author?: { id: number, nickname: string }
+  author?: { id: number, nickname: string, avatar?: string }
   /** 带登录态时返回：当前用户是否已点赞 */
   liked?: boolean
   /** 做同款（API.md 7.1）：来源画布 / Skill、是否开源、被做同款次数 */
@@ -694,7 +694,7 @@ export type CampaignEntry = {
   created_at: number
   /** 投稿墙列表附带 */
   work?: Work
-  user?: { id: number, nickname: string }
+  user?: { id: number, nickname: string, avatar?: string }
 }
 
 /** 活动（API.md 8.6） */
@@ -754,7 +754,7 @@ export type WorkComment = {
   status: 1 | 2
   reply_count: number
   created_at: number
-  author?: { id: number, nickname: string }
+  author?: { id: number, nickname: string, avatar?: string }
   reply_to?: { id: number, nickname: string }
   /** 列表接口附带的前几条回复 */
   replies?: WorkComment[]
