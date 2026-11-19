@@ -64,13 +64,38 @@ function shouldSkipAuthRedirect(res: Record<string, unknown>): boolean {
   return !!getAccessToken()
 }
 
-/** 未登录 / 会话失效 → 需跳转登录 */
+const SESSION_EXPIRED_CODES = new Set([
+  'invalid_token',
+  'not_logged_in',
+  'user_mismatch',
+  'user_disabled',
+  'user_header_missing',
+  'user_header_invalid',
+])
+
+function sessionExpiredCode(payload: Record<string, unknown>): string {
+  if (typeof payload.code === 'string')
+    return payload.code
+  const data = payload.data
+  if (data && typeof data === 'object' && typeof (data as { code?: unknown }).code === 'string')
+    return (data as { code: string }).code
+  return ''
+}
+
+/** 未登录 / 会话失效 → 需退出并重新登录 */
 export function isSessionExpiredResponse(res: unknown): boolean {
   if (!res || typeof res !== 'object')
     return false
   const payload = res as Record<string, unknown>
   const msg = String(payload.message ?? '').toLowerCase()
   const statusCode = Number(payload.statusCode ?? payload.status)
+  const code = sessionExpiredCode(payload)
+
+  if (code === 'invalid_token' || code === 'user_mismatch' || code === 'user_disabled')
+    return true
+
+  if (SESSION_EXPIRED_CODES.has(code) && getAccessToken())
+    return true
 
   if (statusCode === 401) {
   // 本地仍有 token 时，401 视为会话失效（避免仅清 user 不清 isLoggedIn 引发误跳）
@@ -90,6 +115,16 @@ export function isSessionExpiredResponse(res: unknown): boolean {
     return true
 
   if (msg.includes('not logged in') && msg.includes('access token'))
+    return true
+
+  if (
+    msg.includes('无效的登录凭证')
+    || msg.includes('登录凭证不匹配')
+    || msg.includes('账号已被禁用')
+  )
+    return true
+
+  if (getAccessToken() && msg.includes('登录已过期'))
     return true
 
   if (!getAccessToken())

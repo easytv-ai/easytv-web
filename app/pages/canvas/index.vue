@@ -1330,10 +1330,10 @@ function onResizeStart(event: PointerEvent) {
   >
     <Transition name="canvas-boot">
       <div v-if="booting" class="canvas-boot" role="status" :aria-label="t('加载中…')">
-        <svg class="canvas-boot__mark" viewBox="0 0 64 64" aria-hidden="true">
-          <rect x="7" y="7" width="36" height="36" rx="11" />
-          <rect x="21" y="21" width="36" height="36" rx="11" />
-        </svg>
+        <div class="canvas-boot__body">
+          <span class="canvas-boot__spin" aria-hidden="true" />
+          <p class="canvas-boot__label">{{ t('加载中…') }}</p>
+        </div>
       </div>
     </Transition>
     <div class="canvas-editor__main">

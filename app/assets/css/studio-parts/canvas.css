@@ -10,26 +10,36 @@
 }
 
 .canvas-boot {
-  position: absolute;
+  position: fixed;
   inset: 0;
-  z-index: 40;
+  z-index: 200;
   display: flex;
   align-items: center;
   justify-content: center;
   background: var(--st-bg);
 }
 
-.canvas-boot__mark {
-  width: 52px;
-  height: 52px;
-  color: color-mix(in srgb, var(--st-text) 62%, transparent);
-  animation: canvas-boot-pulse 1.6s ease-in-out infinite;
+.canvas-boot__body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
 }
 
-.canvas-boot__mark rect {
-  fill: var(--st-bg);
-  stroke: currentColor;
-  stroke-width: 3.25;
+.canvas-boot__spin {
+  width: 36px;
+  height: 36px;
+  border: 2.5px solid color-mix(in srgb, var(--st-text) 14%, transparent);
+  border-top-color: var(--st-text);
+  border-radius: 999px;
+  animation: canvas-boot-spin 0.75s linear infinite;
+}
+
+.canvas-boot__label {
+  margin: 0;
+  color: var(--st-muted);
+  font-size: 13px;
+  line-height: 1;
 }
 
 .canvas-boot-leave-active {
@@ -40,19 +50,16 @@
   opacity: 0;
 }
 
-@keyframes canvas-boot-pulse {
-  0%,
-  100% {
-    opacity: 0.38;
-  }
-  50% {
-    opacity: 1;
+@keyframes canvas-boot-spin {
+  to {
+    transform: rotate(360deg);
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .canvas-boot__mark {
+  .canvas-boot__spin {
     animation: none;
+    border-color: color-mix(in srgb, var(--st-text) 45%, transparent);
   }
 }
 
