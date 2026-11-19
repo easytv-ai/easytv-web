@@ -70,6 +70,12 @@ export default defineNuxtConfig({
     colorMode: false,
     fonts: false,
   },
+  // 扫描用到的 Lucide 打进客户端，少打 /api/_nuxt_icon；剩下的仍走服务端，相对 URL 由 server/plugins/absolute-request-url.ts 补齐
+  icon: {
+    clientBundle: {
+      scan: true,
+    },
+  },
   appConfig: {
     ui: {
       colors: {
