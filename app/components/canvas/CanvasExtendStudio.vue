@@ -98,9 +98,9 @@ const typeLabel = computed(() => EXTEND_STUDIO_TYPES.find(item => item.id === ty
 const extendTypeOptions = computed(() => EXTEND_STUDIO_TYPES.filter(item => item.id !== 'retake'))
 const modelMeta = computed(() => props.models.find(item => item.id === modelId.value))
 
-/** 延长、全能参考、视频编辑都要把源视频交给模型，只列出能接参考视频的 */
+/** 延长、全能参考、视频编辑、片段重拍都要把视频交给模型，只列出能接参考视频的 */
 const listedModels = computed(() => {
-  if (type.value === 'fl2v' || type.value === 'retake')
+  if (type.value === 'fl2v')
     return props.models
   return props.models.filter(item => item.videoReference)
 })
@@ -370,8 +370,9 @@ watch(() => [props.open, props.src] as const, ([open, src]) => {
     frames.value = []
     return
   }
-  prompt.value = props.prompt || ''
   type.value = props.variant === 'retake' ? 'retake' : 'extend'
+  // 视频延长写的是「接下来发生什么」，不能把上一条成片的提示词带进来，否则模型会重拍同一镜
+  prompt.value = type.value === 'extend' ? '' : (props.prompt || '')
   modelId.value = props.models[0]?.id || ''
   pickListedModel()
   playing.value = false
@@ -393,8 +394,13 @@ watch(() => props.fallbackDuration, () => {
     applyFallbackDuration()
 })
 
-watch(type, () => {
+watch(type, (next, prev) => {
   pickListedModel()
+  const source = (props.prompt || '').trim()
+  if (next === 'extend' && prompt.value.trim() === source)
+    prompt.value = ''
+  else if (prev === 'extend' && !prompt.value.trim() && source)
+    prompt.value = props.prompt || ''
 })
 
 /** 首尾帧模式：把选区尾帧截出来传成图片素材（first_frame） */
@@ -722,7 +728,7 @@ const fallbackTicks = computed(() => {
             <!-- 模型面板 -->
             <div v-if="popover === 'model'" class="ext-studio__pop ext-studio__pop--model">
               <h4>{{ t('模型') }}</h4>
-              <p v-if="!listedModels.length" class="ext-studio__pop-empty">{{ type === 'fl2v' || type === 'retake' ? t('暂无可用的视频模型') : t('暂无支持参考视频的模型') }}</p>
+              <p v-if="!listedModels.length" class="ext-studio__pop-empty">{{ type === 'fl2v' ? t('暂无可用的视频模型') : t('暂无支持参考视频的模型') }}</p>
               <button
                 v-for="item in listedModels"
                 :key="item.id"

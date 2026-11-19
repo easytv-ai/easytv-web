@@ -1,6 +1,6 @@
 /** 智能续写大弹窗（视频节点）：类型 / 输出规格的共享定义与提交负载 */
 
-/** 续写类型：延长把选中的这段视频交给模型接着拍；首尾帧才截静帧；片段重拍在浏览器抽帧并拼回 */
+/** 续写类型：延长和片段重拍都把选中的视频交给模型；首尾帧才截静帧；重拍生成后再拼回原片 */
 export type ExtendStudioType = 'extend' | 'reference' | 'fl2v' | 'edit' | 'retake'
 
 export const EXTEND_STUDIO_TYPES: Array<{ id: ExtendStudioType, label: string, hint: string }> = [

@@ -107,6 +107,7 @@ import { applyComposeTrims, composeClipDuration, composeGuessAspect, composeOrde
 import { isMergeResult, MergeVideoError, mergeShotIndex, mergeVideoOrder } from '~/utils/canvas-video-merge'
 import { canvasMergeRunning, flushMergeUploads, publishMergeProgress, trackMergeUpload } from '~/utils/canvas-merge-state'
 import { probeMediaDuration } from '~/utils/canvas-video-frame'
+import { hasVideoReference } from '~/utils/canvas-viral'
 import { canvasViewportSettled } from '~/utils/canvas-viewport-tween'
 import { subtitleSourceNodes } from '~/utils/timeline'
 import { parseStyleExtract, styleExtractInstruction } from '~/utils/canvas-style-extract'
@@ -5741,7 +5742,7 @@ async function cancelNodeTask(nodeId: string, taskId: number) {
   }
 }
 
-/** 片段重拍：浏览器抽出选区首尾帧，提交视频任务；生成成功后再把新片段拼回原片 */
+/** 片段重拍：把选中的那段视频交给模型重拍，生成成功后再把头、新片段、尾拼回原片 */
 async function submitRetakeSegment(node: CanvasFlowNode & { data: CanvasNodeData }, payload?: GeneratePayload) {
   if (practiceBlocked())
     return
@@ -5769,41 +5770,54 @@ async function submitRetakeSegment(node: CanvasFlowNode & { data: CanvasNodeData
     notify(t('请在胶片条上圈选至少 0.5 秒的片段'), 'error')
     return
   }
-  const model = String(payload?.model || '').trim() || preferredVideoModel()
-  if (!model) {
-    notify(t('请先选择视频模型'), 'error')
+  let model = String(payload?.model || '').trim()
+  const picked = generationModels.value.find(item => item.model === model)
+  if (model && !hasVideoReference(picked)) {
+    notify(t('这个模型不能接视频，请换一个支持参考视频的模型'), 'error')
     return
   }
-  if (!await gateSpend(estimateSpend(model, { duration: Math.min(15, Math.max(3, Math.round(seconds.end - seconds.start))) })))
+  if (!model)
+    model = generationModels.value.find(item => item.type === 'video' && item.priced && hasVideoReference(item))?.model || ''
+  if (!model) {
+    notify(t('暂无支持参考视频的模型'), 'error')
     return
-  let prompt = stripCameraTokens(String(node.data.prompt || '')).trim()
+  }
+  const span = Math.min(15, Math.max(2, Math.round(seconds.end - seconds.start)))
+  if (!await gateSpend(estimateSpend(model, { duration: span })))
+    return
+  let prompt = stripCameraTokens(String(payload?.prompt || node.data.prompt || '')).trim()
   if (prompt)
     prompt = expandMarkTokens(expandCameraTokens(prompt), node.data.markElements)
   if (!prompt)
     prompt = t('按原画面重拍这一段，保持主体、场景和光影')
-  const { captureVideoFrame } = await import('~/utils/canvas-video-frame')
-  const first = await captureVideoFrame(src, seconds.start).catch(() => null)
-  if (!first) {
-    notify(t('没能抽出选区首帧，请重试或换一段视频'), 'error')
-    return
-  }
-  const firstFile = new File([first.blob], 'retake-first.jpg', { type: 'image/jpeg' })
-  const firstUp = await assetApi.upload(firstFile)
-  if (!firstUp?.success || !firstUp.data?.id) {
-    notify(firstUp?.message || t('提交失败'), 'error')
-    return
-  }
-  const inputs: TaskInput[] = [{ asset_id: firstUp.data.id, role: 'first_frame' }]
-  if (duration - seconds.end > 0.2) {
-    const last = await captureVideoFrame(src, Math.max(0, seconds.end - 0.04)).catch(() => null)
-    if (last) {
-      const lastFile = new File([last.blob], 'retake-last.jpg', { type: 'image/jpeg' })
-      const lastUp = await assetApi.upload(lastFile)
-      if (lastUp?.success && lastUp.data?.id)
-        inputs.push({ asset_id: lastUp.data.id, role: 'last_frame' })
+  const sourceAssetId = isContentNode(sourceNode) ? Number(sourceNode.data.assetId) || 0 : 0
+  const wholeClip = seconds.start <= 0.15 && duration - seconds.end <= 0.15
+  let videoId = wholeClip && sourceAssetId > 0 ? sourceAssetId : 0
+  if (!videoId) {
+    if (canvasMergeRunning.value) {
+      notify(t('canvas.cut.busy'))
+      return
+    }
+    canvasMergeRunning.value = true
+    try {
+      const { trimVideoBlob } = await import('~/utils/canvas-video-merge.ffmpeg')
+      const blob = await trimVideoBlob(src, seconds.start, seconds.end)
+      const file = new File([blob], 'retake-source.mp4', { type: 'video/mp4' })
+      const uploaded = await assetApi.upload(file)
+      if (!uploaded?.success || !uploaded.data?.id) {
+        notify(uploaded?.message || t('提交失败'), 'error')
+        return
+      }
+      videoId = Number(uploaded.data.id)
+    }
+    catch {
+      notify(t('读不到这段视频，请重试'), 'error')
+      return
+    }
+    finally {
+      canvasMergeRunning.value = false
     }
   }
-  const span = Math.min(15, Math.max(3, Math.round(seconds.end - seconds.start)))
   updateNodeData(node.id, {
     prompt,
     retakeStitch: { sourceUrl: src, start: seconds.start, end: seconds.end, duration },
@@ -5812,8 +5826,8 @@ async function submitRetakeSegment(node: CanvasFlowNode & { data: CanvasNodeData
     type: 'video',
     model,
     prompt,
-    params: { mode: 'fl2v', duration: span, count: 1 },
-    inputs,
+    params: { mode: 'reference', duration: span, count: 1 },
+    inputs: [{ asset_id: videoId, role: 'reference_video' }],
     canvas_id: props.canvasId || undefined,
     node_id: node.id,
   })

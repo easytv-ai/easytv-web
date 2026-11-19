@@ -84,19 +84,14 @@ export function useCanvasVideoOps(opts: {
     return { node, taskId, assetId }
   }
 
-  /** 片段重拍：在源视频右侧派生节点，用胶片条圈选要重拍的片段；点「生成」在浏览器抽帧后提交视频任务 */
-  function onNodeMenuRetake() {
-    opts.nodeMenu.value = null
-    const from = opts.selected.value
-    if (!from || !isContentNode(from) || isNodeLocked(from, opts.nodes.value))
-      return
-    if (from.data.kind !== 'video' && from.data.kind !== 'director')
-      return
+  /** 刚从源视频提交重拍时会选中新节点，这次不要把弹窗再打开一次 */
+  const suppressRetakeStudio = ref(false)
+
+  /** 片段重拍的结果节点：提交之后才落在源视频右侧，取消弹窗不会留下空节点 */
+  function spawnRetakeNode(from: ContentNode) {
     const src = String(from.data.content || '').trim()
-    if (!src || !isMediaUrl(src)) {
-      opts.notify(opts.t('请先生成或添加一段视频'), 'error')
-      return
-    }
+    if (!src || !isMediaUrl(src))
+      return null
     const sourceLabel = from.data.label || opts.t('视频节点')
     const size = nodeSize(from)
     opts.counts.video += 1
@@ -134,9 +129,6 @@ export function useCanvasVideoOps(opts: {
       sibling.extent = 'parent'
       sibling.expandParent = true
     }
-    for (const node of opts.nodes.value)
-      node.selected = false
-    sibling.selected = true
     opts.addNodes(sibling)
     opts.addEdges({
       id: `e-${from.id}-${id}-${Date.now()}`,
@@ -146,12 +138,24 @@ export function useCanvasVideoOps(opts: {
       targetHandle: 'in',
       ...opts.defaultEdgeOptions,
     })
-    opts.pushHistory()
+    suppressRetakeStudio.value = true
     nextTick(() => {
       const created = opts.findNode(id)
       if (created)
         opts.addSelectedNodes([created])
     })
+    return sibling
+  }
+
+  /** 片段重拍：先在当前视频上圈选，发送后才派生结果节点 */
+  function onNodeMenuRetake() {
+    opts.nodeMenu.value = null
+    const from = opts.selected.value
+    if (!from || !isContentNode(from) || isNodeLocked(from, opts.nodes.value))
+      return
+    if (from.data.kind !== 'video' && from.data.kind !== 'director')
+      return
+    openExtendStudio('retake')
   }
 
   function onNodeMenuExtend() {
@@ -185,10 +189,14 @@ export function useCanvasVideoOps(opts: {
       }
     }))
 
-  /** 续写弹窗的默认提示词：源节点的提示词（组节点没有 prompt，取空串） */
+  /** 续写弹窗的默认提示词。在源视频上发起片段重拍时留空，写的是这一段要改成什么 */
   const extendStudioPrompt = computed(() => {
     const node = opts.findNode(extendStudioNodeId.value)
-    return node && isContentNode(node) ? String(node.data.prompt || '') : ''
+    if (!node || !isContentNode(node))
+      return ''
+    if (extendStudioVariant.value === 'retake' && !isRetakeNode(node.data))
+      return ''
+    return String(node.data.prompt || '')
   })
 
   /** 片段重拍弹窗的段数：跟重拍节点的 retakeParams 走 */
@@ -198,17 +206,29 @@ export function useCanvasVideoOps(opts: {
     return Number(total) || RETAKE_SEGMENT_COUNT
   })
 
-  /** 选中片段重拍节点（新建或再次选中）自动打开弹窗，替代旧胶片条 */
+  /** 再次选中已有的重拍节点时打开弹窗。刚提交产生的那次选中跳过 */
   watch(opts.showRetakeStrip, (on) => {
-    if (on)
-      openExtendStudio('retake')
+    if (!on)
+      return
+    if (suppressRetakeStudio.value) {
+      suppressRetakeStudio.value = false
+      return
+    }
+    openExtendStudio('retake')
   })
 
   /** 智能续写大弹窗：模型 / 类型 / 风格 / 资产 / 运镜 / 输出规格都在弹窗里选 */
   function openExtendStudio(variant: 'extend' | 'retake' = 'extend') {
     const node = opts.selected.value
-    if (!node || !isContentNode(node) || node.data.kind !== 'video')
+    if (!node || !isContentNode(node))
       return
+    if (variant === 'retake') {
+      if (node.data.kind !== 'video' && node.data.kind !== 'director')
+        return
+    }
+    else if (node.data.kind !== 'video') {
+      return
+    }
     const src = opts.currentImageSrc(node)
     if (!src) {
       opts.notify(opts.t('请先生成或添加一段视频'), 'error')
@@ -291,15 +311,22 @@ export function useCanvasVideoOps(opts: {
     }
   }
 
-  /** 智能续写弹窗提交：延长把选中的视频交给模型接着拍，首尾帧才用尾帧，片段重拍走浏览器抽帧 */
+  /** 智能续写弹窗提交：延长和片段重拍都把选中的视频交给模型，首尾帧才用静帧 */
   async function onExtendStudioSubmit(payload: ExtendStudioPayload) {
     const node = opts.findNode(extendStudioNodeId.value)
     if (!node || !isContentNode(node))
       return
     if (extendStudioBusy.value)
       return
+    // 视频延长描述的是下一段。空着，或原样带着上一条成片的提示词，都换成承接句，避免重拍同一镜
+    let basePrompt = payload.prompt.trim()
+    if (payload.type === 'extend') {
+      const sourcePrompt = String(node.data.prompt || '').trim()
+      if (!basePrompt || basePrompt === sourcePrompt)
+        basePrompt = opts.t('承接上一段画面，自然延续镜头与动作')
+    }
     // 风格 / 运镜拼进提示词（与对话栏同一形态：风格一行在前，运镜一行在后）
-    let finalPrompt = payload.prompt
+    let finalPrompt = basePrompt
     if (payload.style)
       finalPrompt = `${opts.t('风格：{style}', { style: payload.style })}\n${finalPrompt}`
     const camLine = cameraMovesPrompt(payload.cameras)
@@ -307,14 +334,19 @@ export function useCanvasVideoOps(opts: {
       finalPrompt = `${finalPrompt}\n${opts.t('运镜：{moves}', { moves: camLine })}`
 
     if (payload.type === 'retake') {
-      // 片段重拍：把选区写回 retakeParams，再在浏览器抽帧并提交视频任务
-      const params = node.data.retakeParams
-      if (!params) {
-        opts.notify(opts.t('请重新发起片段重拍'), 'error')
+      if (!payload.model || !hasVideoReference(opts.generationModels.value.find(item => item.model === payload.model))) {
+        opts.notify(opts.t(payload.model ? '这个模型不能接视频，请换一个支持参考视频的模型' : '暂无支持参考视频的模型'), 'error')
+        return
+      }
+      // 在源视频上发起时，发送这一刻才把结果节点放到右侧；已有重拍节点则改它自己
+      const spawned = isRetakeNode(node.data) ? node : spawnRetakeNode(node)
+      const params = spawned?.data.retakeParams
+      if (!spawned || !params) {
+        opts.notify(opts.t('请先生成或添加一段视频'), 'error')
         return
       }
       extendStudioOpen.value = false
-      opts.updateNodeData(node.id, {
+      opts.updateNodeData(spawned.id, {
         retakeParams: {
           ...params,
           start: payload.range.start,
@@ -325,7 +357,9 @@ export function useCanvasVideoOps(opts: {
         prompt: finalPrompt,
       })
       opts.pushHistory()
-      await opts.submitRetakeSegment(node, { model: payload.model, params: {}, prompt: finalPrompt })
+      const target = opts.findNode(spawned.id)
+      if (target && isContentNode(target))
+        await opts.submitRetakeSegment(target, { model: payload.model, params: {}, prompt: finalPrompt })
       return
     }
 
@@ -348,8 +382,6 @@ export function useCanvasVideoOps(opts: {
       opts.notify(opts.t('没能抽出选区尾帧，请重试或换一段视频'), 'error')
       return
     }
-    if (payload.type === 'extend' && !finalPrompt)
-      finalPrompt = opts.t('承接上一段画面，自然延续镜头与动作')
     extendStudioBusy.value = true
     try {
       let extendVideoId = 0
