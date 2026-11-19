@@ -207,15 +207,51 @@ async function regenerateInvite() {
   }
 }
 
-async function copyInvite() {
-  if (!team.value?.invite_code)
-    return
+function copyBySelection(text: string, host: HTMLElement) {
+  const area = document.createElement('textarea')
+  area.value = text
+  area.readOnly = true
+  area.setAttribute('aria-hidden', 'true')
+  area.tabIndex = -1
+  area.style.position = 'fixed'
+  area.style.left = '0'
+  area.style.top = '0'
+  area.style.width = '2em'
+  area.style.height = '2em'
+  area.style.padding = '0'
+  area.style.border = 'none'
+  area.style.outline = 'none'
+  area.style.opacity = '0'
+  host.appendChild(area)
   try {
-    await navigator.clipboard.writeText(team.value.invite_code)
+    area.focus({ preventScroll: true })
+    area.select()
+    area.setSelectionRange(0, area.value.length)
+    return document.execCommand('copy')
+  }
+  catch {
+    return false
+  }
+  finally {
+    area.remove()
+  }
+}
+
+async function copyInvite(event: MouseEvent) {
+  const code = team.value?.invite_code
+  if (!code)
+    return
+  const host = (event.currentTarget as HTMLElement | null)?.closest('.team-panel') as HTMLElement | null
+  if (host && copyBySelection(code, host)) {
+    notify(t('邀请码已复制'), 'success')
+    return
+  }
+  try {
+    await navigator.clipboard.writeText(code)
     notify(t('邀请码已复制'), 'success')
   }
   catch {
-    notify(team.value.invite_code)
+    notify(code)
   }
 }
 

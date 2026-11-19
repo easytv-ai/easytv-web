@@ -366,6 +366,13 @@ html:not(.dark) .team-board {
   font-weight: 500;
 }
 
+/* settings-input 的 flex:1 是给横排用的。竖排里主轴是高度，basis 为 0 会把输入框压成一条线 */
+.team-field > .settings-input {
+  flex: none;
+  width: 100%;
+  min-height: 40px;
+}
+
 .team-choices {
   display: flex;
   flex-wrap: wrap;

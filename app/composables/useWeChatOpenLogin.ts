@@ -9,7 +9,7 @@ import { useI18n, useToast } from '#imports'
 export const WECHAT_OPEN_PROVIDER = 'wechat-open'
 
 const WX_LOGIN_SCRIPT = 'https://res.wx.qq.com/connect/zh_CN/htmledition/js/wxLogin.js'
-const WX_LOGIN_CSS_HREF = '/css/wechat-qr.css?v=center4'
+const WX_LOGIN_CSS_HREF = '/css/wechat-qr.css?v=center5'
 
 const WECHAT_LOGIN_POLL_INTERVAL_MS = 3000
 const WECHAT_QR_POLL_TIMEOUT_MS = 60 * 1000
@@ -56,6 +56,7 @@ let pollStartedAt = 0
 let pollInFlight = false
 let pollGeneration = 0
 let mountQrCodeToken = 0
+let stopQrWatch = () => {}
 /** 模块级硬锁：同一 evidence 的请求在飞行中时，任何二次调用都复用同一个 promise */
 let activeLoginStatusEvidence = ''
 let activeLoginStatusPromise: Promise<any> | null = null
@@ -369,10 +370,26 @@ export function useWeChatOpenLogin() {
     mountedContainerId = ''
   }
 
-  /** WxLogin iframe 首次 load 是二维码页，再次 load 表示已跳到 OAuth callback，提前盖住避免裂图 */
-  function bindQrIframeConfirmOverlay(containerId: string) {
+  /**
+   * 在 WxLogin 插入 iframe 之前就开始等。
+   * 第一次 load 才揭开占位（官方页自己的「正在加载二维码」不再露出来）；
+   * 第二次 load 是扫码后跳到回调，立刻盖住，避免裂图。
+   */
+  function watchQrFrame(containerId: string, token: number) {
     if (!import.meta.client)
-      return
+      return () => {}
+    const container = document.getElementById(containerId)
+    if (!container)
+      return () => {}
+    let hooked = false
+    let loads = 0
+    let revealed = false
+    const reveal = () => {
+      if (revealed || token !== mountQrCodeToken)
+        return
+      revealed = true
+      qrLoading.value = false
+    }
     const sizeIframe = (iframe: HTMLIFrameElement) => {
       iframe.style.setProperty('width', '160px', 'important')
       iframe.style.setProperty('height', '160px', 'important')
@@ -381,30 +398,40 @@ export function useWeChatOpenLogin() {
       iframe.removeAttribute('width')
       iframe.removeAttribute('height')
     }
-    const attach = () => {
-      const container = document.getElementById(containerId)
-      const iframe = container?.querySelector('iframe')
-      if (!iframe)
-        return false
+    const hook = (iframe: HTMLIFrameElement) => {
+      if (hooked)
+        return
+      hooked = true
       sizeIframe(iframe)
-      let loads = 0
       iframe.addEventListener('load', () => {
         sizeIframe(iframe)
         loads += 1
-        if (loads < 2 || mountedContainerId !== containerId)
-          return
-        wechatOAuthResolving.value = true
+        if (loads === 1)
+          reveal()
+        if (loads >= 2 && mountedContainerId === containerId)
+          wechatOAuthResolving.value = true
       })
-      return true
     }
-    if (attach())
-      return
-    window.setTimeout(() => {
-      attach()
-    }, 300)
+    const found = container.querySelector('iframe')
+    if (found)
+      hook(found)
+    const observer = new MutationObserver(() => {
+      const iframe = container.querySelector('iframe')
+      if (iframe)
+        hook(iframe)
+    })
+    observer.observe(container, { childList: true, subtree: true })
+    const timer = window.setTimeout(reveal, 8000)
+    stopQrWatch()
+    stopQrWatch = () => {
+      observer.disconnect()
+      window.clearTimeout(timer)
+    }
   }
 
   function clearQrCode() {
+    stopQrWatch()
+    stopQrWatch = () => {}
     stopLoginStatusPolling()
     clearQrCodeWithoutStoppingPoll()
   }
@@ -565,6 +592,7 @@ export function useWeChatOpenLogin() {
 
       // self_redirect: true — 回调在 iframe 内跳转至后端 callback，避免手机扫码后
       // 微信脚本操控顶层 window 被浏览器 SecurityError 拦截；父页轮询 login-status 完成登录。
+      watchQrFrame(containerId, token)
       new WxLogin({
         self_redirect: true,
         id: containerId,
@@ -577,8 +605,6 @@ export function useWeChatOpenLogin() {
         href: WX_LOGIN_CSS_HREF,
       })
       mountedContainerId = containerId
-      // iframe 二次 load = 已跳到后端 callback；立刻盖住二维码区，避免短暂露出裂图
-      bindQrIframeConfirmOverlay(containerId)
 
       // 登录与绑定都靠父页轮询；iframe 内 callback 不把 evidence 抛到顶层 URL
       startLoginStatusPolling(state)
@@ -588,7 +614,7 @@ export function useWeChatOpenLogin() {
         qrError.value = 'loadFailed'
     }
     finally {
-      if (token === mountQrCodeToken)
+      if (token === mountQrCodeToken && qrError.value)
         qrLoading.value = false
     }
   }

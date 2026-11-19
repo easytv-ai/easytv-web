@@ -114,21 +114,39 @@ const showConfirming = computed(() => wechatOAuthResolving.value && !qrLoading.v
       >
         <div
           v-if="qrLoading"
-          class="ea-wechat-qr-overlay absolute inset-0 z-10 flex flex-col items-center justify-center gap-2"
+          class="ea-wechat-qr-overlay ea-wechat-qr-loading absolute inset-0 z-10"
+          role="status"
+          :aria-label="t('auth.wechat.loading')"
         >
-          <UIcon name="i-lucide-loader-circle" class="size-8 animate-spin text-[#07c160]" />
-          <p class="ea-wechat-qr-overlay__text text-xs">
-            {{ t('auth.wechat.loading') }}
-          </p>
+          <svg class="ea-qr-ghost" viewBox="0 0 64 64" aria-hidden="true">
+            <rect x="4" y="4" width="16" height="16" rx="2.5" fill="none" stroke="currentColor" stroke-width="2.4" />
+            <rect x="8.5" y="8.5" width="7" height="7" rx="1" />
+            <rect x="44" y="4" width="16" height="16" rx="2.5" fill="none" stroke="currentColor" stroke-width="2.4" />
+            <rect x="48.5" y="8.5" width="7" height="7" rx="1" />
+            <rect x="4" y="44" width="16" height="16" rx="2.5" fill="none" stroke="currentColor" stroke-width="2.4" />
+            <rect x="8.5" y="48.5" width="7" height="7" rx="1" />
+            <rect x="28" y="6" width="4" height="4" rx="1" />
+            <rect x="36" y="6" width="4" height="4" rx="1" />
+            <rect x="28" y="14" width="4" height="4" rx="1" />
+            <rect x="28" y="28" width="4" height="4" rx="1" />
+            <rect x="36" y="28" width="4" height="4" rx="1" />
+            <rect x="44" y="28" width="4" height="4" rx="1" />
+            <rect x="52" y="28" width="4" height="4" rx="1" />
+            <rect x="28" y="36" width="4" height="4" rx="1" />
+            <rect x="44" y="44" width="4" height="4" rx="1" />
+            <rect x="52" y="52" width="4" height="4" rx="1" />
+            <rect x="36" y="52" width="4" height="4" rx="1" />
+          </svg>
         </div>
 
         <div
           v-else-if="showConfirming"
-          class="ea-wechat-qr-overlay absolute inset-0 z-20 flex flex-col items-center justify-center gap-2"
+          class="ea-wechat-qr-overlay absolute inset-0 z-20 flex flex-col items-center justify-center gap-3"
+          role="status"
         >
-          <UIcon name="i-lucide-loader-circle" class="size-8 animate-spin text-[#07c160]" />
-          <p class="ea-wechat-qr-overlay__text max-w-[200px] text-center text-xs">
-            {{ t('auth.wechat.loading') }}
+          <span class="ea-qr-wait" aria-hidden="true" />
+          <p class="ea-wechat-qr-overlay__text text-xs">
+            {{ t('auth.oauth.callbackProcessing') }}
           </p>
         </div>
 
@@ -332,13 +350,66 @@ const showConfirming = computed(() => wechatOAuthResolving.value && !qrLoading.v
 .ea-wechat-qr-panel.is-embedded .ea-wechat-qr-box {
   flex-shrink: 0;
   width: 188px;
-  height: auto;
+  height: 184px;
   margin: 0 auto;
-  padding: 12px 0;
+  padding: 0;
   overflow: hidden;
   border: 1px solid var(--st-border);
   border-radius: 12px;
   box-sizing: border-box;
+}
+
+.ea-wechat-qr-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ea-qr-ghost {
+  width: 132px;
+  height: 132px;
+  color: #c4c4cc;
+  animation: ea-qr-breathe 1.5s ease-in-out infinite;
+}
+
+.ea-qr-ghost rect {
+  fill: currentColor;
+}
+
+.ea-qr-ghost rect[fill='none'] {
+  fill: none;
+}
+
+.ea-qr-wait {
+  width: 22px;
+  height: 22px;
+  border: 2px solid rgba(7, 193, 96, 0.2);
+  border-top-color: #07c160;
+  border-radius: 999px;
+  animation: ea-qr-spin 0.7s linear infinite;
+}
+
+@keyframes ea-qr-breathe {
+  0%,
+  100% {
+    opacity: 0.45;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes ea-qr-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ea-qr-ghost,
+  .ea-qr-wait {
+    animation: none;
+  }
 }
 
 

@@ -56,7 +56,11 @@ body,
 .impowerBox .status,
 .impowerBox .statusHolder,
 .js_status,
-.js_wx_default_tip {
+.js_wx_default_tip,
+.wx_default_tip,
+.status_browser,
+.status_txt,
+.web_qrcode_tips {
   display: none !important;
 }
 
