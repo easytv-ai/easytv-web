@@ -3,15 +3,18 @@
  * 菜单是否可点、弹窗状态和提交都在这里；截取、分割、高清仍留在工作区。
  */
 import { computed, nextTick, ref, watch, type ComputedRef, type Ref } from 'vue'
+import assetApi from '~/api/asset'
 import taskApi from '~/api/task'
 import type { ConfirmOptions } from '~/composables/useConfirm'
 import type { CanvasOverlayKey } from '~/composables/useCanvasToolOverlays'
 import type { Asset, GeneratePayload, GenerationModel, GenerationTask, TaskInput } from '~/types/creative'
 import { cameraMovesPrompt, isRetakeNode, RETAKE_SEGMENT_COUNT, type CanvasNodeData } from '~/utils/canvas-node-kinds'
 import { isContentNode, isNodeLocked, nodeSize, type CanvasFlowNode } from '~/utils/canvas-group'
-import type { ExtendStudioPayload, ExtendStudioRef } from '~/utils/canvas-extend-studio'
+import { extendSourceWindow, type ExtendStudioPayload, type ExtendStudioRef } from '~/utils/canvas-extend-studio'
+import { canvasMergeRunning } from '~/utils/canvas-merge-state'
 import { isMediaUrl } from '~/utils/media'
 import { shortModelName } from '~/utils/model-name'
+import { hasVideoReference } from '~/utils/canvas-viral'
 
 type ContentNode = CanvasFlowNode & { data: CanvasNodeData }
 
@@ -178,6 +181,7 @@ export function useCanvasVideoOps(opts: {
         desc: label && label !== name ? label : String(item.provider || ''),
         priced: Boolean(item.priced),
         icon: String(item.icon || ''),
+        videoReference: hasVideoReference(item),
       }
     }))
 
@@ -235,7 +239,59 @@ export function useCanvasVideoOps(opts: {
     })
   }
 
-  /** 智能续写弹窗提交：延长用浏览器抽出的尾帧当首帧提交视频任务，片段重拍走浏览器抽帧，其余类型按视频生成（POST /user/task）提交 */
+  /**
+   * 视频延长要交给模型的源视频。
+   * 选区贴着整段且已入库时直接用原素材；否则在浏览器裁出选区再上传。
+   * 失败时已经提示过，返回 null。
+   */
+  async function extendReferenceVideoId(node: ContentNode, payload: ExtendStudioPayload) {
+    const model = opts.generationModels.value.find(item => item.model === payload.model)
+    if (!hasVideoReference(model)) {
+      opts.notify(opts.t('这个模型不能接视频，请换一个支持参考视频的模型'), 'error')
+      return null
+    }
+    const assetId = Number(node.data.assetId) || 0
+    const clip = extendSourceWindow(payload.range)
+    if (!clip && assetId > 0)
+      return assetId
+    const duration = Number(payload.range.duration) || 0
+    const start = clip?.start ?? 0
+    const end = clip?.end ?? duration
+    if (!(end > start + 0.08)) {
+      opts.notify(opts.t('请先把视频保存到资产库'), 'error')
+      return null
+    }
+    const src = extendStudioSrc.value
+    if (!src) {
+      opts.notify(opts.t('请先生成或添加一段视频'), 'error')
+      return null
+    }
+    if (canvasMergeRunning.value) {
+      opts.notify(opts.t('canvas.cut.busy'))
+      return null
+    }
+    canvasMergeRunning.value = true
+    try {
+      const { trimVideoBlob } = await import('~/utils/canvas-video-merge.ffmpeg')
+      const blob = await trimVideoBlob(src, start, end)
+      const file = new File([blob], 'extend-source.mp4', { type: 'video/mp4' })
+      const uploaded = await assetApi.upload(file)
+      if (!uploaded?.success || !uploaded.data?.id) {
+        opts.notify(uploaded?.message || opts.t('提交失败'), 'error')
+        return null
+      }
+      return Number(uploaded.data.id)
+    }
+    catch {
+      opts.notify(opts.t('读不到这段视频，请重试'), 'error')
+      return null
+    }
+    finally {
+      canvasMergeRunning.value = false
+    }
+  }
+
+  /** 智能续写弹窗提交：延长把选中的视频交给模型接着拍，首尾帧才用尾帧，片段重拍走浏览器抽帧 */
   async function onExtendStudioSubmit(payload: ExtendStudioPayload) {
     const node = opts.findNode(extendStudioNodeId.value)
     if (!node || !isContentNode(node))
@@ -273,13 +329,22 @@ export function useCanvasVideoOps(opts: {
       return
     }
 
-    // 全能参考 / 视频编辑要源视频已入库。延长和首尾帧只用浏览器抽出的尾帧，不走服务器抽帧
+    const needsVideo = payload.type === 'extend' || payload.type === 'reference' || payload.type === 'edit'
+    if (!payload.model) {
+      opts.notify(opts.t(needsVideo ? '暂无支持参考视频的模型' : '暂无可用的视频模型'), 'error')
+      return
+    }
+    if (needsVideo && !hasVideoReference(opts.generationModels.value.find(item => item.model === payload.model))) {
+      opts.notify(opts.t('这个模型不能接视频，请换一个支持参考视频的模型'), 'error')
+      return
+    }
+    // 全能参考 / 视频编辑要源视频已入库。延长按选区裁好再传；首尾帧用浏览器抽出的尾帧
     const assetId = Number(node.data.assetId)
-    if (payload.type !== 'fl2v' && payload.type !== 'extend' && !(assetId > 0)) {
+    if ((payload.type === 'reference' || payload.type === 'edit') && !(assetId > 0)) {
       opts.notify(opts.t('请先把视频保存到资产库'), 'error')
       return
     }
-    if ((payload.type === 'fl2v' || payload.type === 'extend') && !payload.firstFrameAssetId) {
+    if (payload.type === 'fl2v' && !payload.firstFrameAssetId) {
       opts.notify(opts.t('没能抽出选区尾帧，请重试或换一段视频'), 'error')
       return
     }
@@ -287,6 +352,13 @@ export function useCanvasVideoOps(opts: {
       finalPrompt = opts.t('承接上一段画面，自然延续镜头与动作')
     extendStudioBusy.value = true
     try {
+      let extendVideoId = 0
+      if (payload.type === 'extend') {
+        const id = await extendReferenceVideoId(node, payload)
+        if (!id)
+          return
+        extendVideoId = id
+      }
       const from = node
       const box = nodeSize(from)
       const newId = opts.addNode('video', from.position.x + box.w + 80, from.position.y, from.parentNode ?? null)
@@ -304,14 +376,19 @@ export function useCanvasVideoOps(opts: {
       })
       opts.updateNodeData(newId, { prompt: finalPrompt })
       const inputs: TaskInput[] = []
-      if (payload.type === 'fl2v' || payload.type === 'extend') {
+      if (payload.type === 'extend') {
+        inputs.push({ asset_id: extendVideoId, role: 'reference_video' })
+        for (const item of payload.refs) {
+          const role = item.kind === 'video' ? 'reference_video' : item.kind === 'audio' ? 'reference_audio' : 'reference'
+          inputs.push({ asset_id: item.assetId, role })
+        }
+      }
+      else if (payload.type === 'fl2v') {
         if (payload.firstFrameAssetId)
           inputs.push({ asset_id: payload.firstFrameAssetId, role: 'first_frame' })
-        if (payload.type === 'fl2v') {
-          const lastImage = payload.refs.find(item => item.kind === 'image')
-          if (lastImage)
-            inputs.push({ asset_id: lastImage.assetId, role: 'last_frame' })
-        }
+        const lastImage = payload.refs.find(item => item.kind === 'image')
+        if (lastImage)
+          inputs.push({ asset_id: lastImage.assetId, role: 'last_frame' })
       }
       else {
         inputs.push({ asset_id: assetId, role: 'reference_video' })
@@ -321,7 +398,7 @@ export function useCanvasVideoOps(opts: {
         }
       }
       const params: Record<string, unknown> = {
-        mode: payload.type === 'fl2v' || payload.type === 'extend' ? 'fl2v' : 'reference',
+        mode: payload.type === 'fl2v' ? 'fl2v' : 'reference',
         resolution: payload.resolution,
         duration: payload.seconds,
         audio: payload.audio,

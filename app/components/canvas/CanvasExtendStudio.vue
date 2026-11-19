@@ -27,7 +27,7 @@ const props = withDefaults(defineProps<{
   open: boolean
   src: string
   prompt?: string
-  models?: Array<{ id: string, name: string, desc: string, priced: boolean, icon?: string }>
+  models?: Array<{ id: string, name: string, desc: string, priced: boolean, icon?: string, videoReference?: boolean }>
   refs?: ExtendStudioRef[]
   submitting?: boolean
   /** 浏览器读不到视频时的时长兜底（秒），来自资产库 */
@@ -97,6 +97,19 @@ const typeLabel = computed(() => EXTEND_STUDIO_TYPES.find(item => item.id === ty
 /** 视频延长的类型菜单：不含片段重拍（片段重拍走视频编辑） */
 const extendTypeOptions = computed(() => EXTEND_STUDIO_TYPES.filter(item => item.id !== 'retake'))
 const modelMeta = computed(() => props.models.find(item => item.id === modelId.value))
+
+/** 延长、全能参考、视频编辑都要把源视频交给模型，只列出能接参考视频的 */
+const listedModels = computed(() => {
+  if (type.value === 'fl2v' || type.value === 'retake')
+    return props.models
+  return props.models.filter(item => item.videoReference)
+})
+
+function pickListedModel() {
+  const list = listedModels.value
+  if (!list.some(item => item.id === modelId.value))
+    modelId.value = list[0]?.id || ''
+}
 const isRetake = computed(() => props.variant === 'retake')
 const dialogTitle = computed(() => (isRetake.value ? t('片段重拍') : t('智能续写')))
 const rangeLabel = computed(() => {
@@ -358,8 +371,9 @@ watch(() => [props.open, props.src] as const, ([open, src]) => {
     return
   }
   prompt.value = props.prompt || ''
-  modelId.value = props.models[0]?.id || ''
   type.value = props.variant === 'retake' ? 'retake' : 'extend'
+  modelId.value = props.models[0]?.id || ''
+  pickListedModel()
   playing.value = false
   muted.value = false
   clearStyle()
@@ -377,6 +391,10 @@ watch(() => [props.open, props.src] as const, ([open, src]) => {
 watch(() => props.fallbackDuration, () => {
   if (frameError.value || !(duration.value > 0))
     applyFallbackDuration()
+})
+
+watch(type, () => {
+  pickListedModel()
 })
 
 /** 首尾帧模式：把选区尾帧截出来传成图片素材（first_frame） */
@@ -405,12 +423,9 @@ async function uploadTailFrame(): Promise<number | null> {
 function onSubmit() {
   if (props.submitting || tailFrameBusy.value)
     return
-  if (!modelId.value) {
-    return
-  }
   void (async () => {
     let firstFrameAssetId: number | undefined
-    if (type.value === 'fl2v' || type.value === 'extend') {
+    if (modelId.value && type.value === 'fl2v') {
       const id = await uploadTailFrame()
       if (!id)
         return
@@ -707,9 +722,9 @@ const fallbackTicks = computed(() => {
             <!-- 模型面板 -->
             <div v-if="popover === 'model'" class="ext-studio__pop ext-studio__pop--model">
               <h4>{{ t('模型') }}</h4>
-              <p v-if="!models.length" class="ext-studio__pop-empty">{{ t('暂无可用的视频模型') }}</p>
+              <p v-if="!listedModels.length" class="ext-studio__pop-empty">{{ type === 'fl2v' || type === 'retake' ? t('暂无可用的视频模型') : t('暂无支持参考视频的模型') }}</p>
               <button
-                v-for="item in models"
+                v-for="item in listedModels"
                 :key="item.id"
                 type="button"
                 class="ext-studio__model"

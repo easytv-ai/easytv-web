@@ -1,6 +1,6 @@
 /** 智能续写大弹窗（视频节点）：类型 / 输出规格的共享定义与提交负载 */
 
-/** 续写类型：延长在浏览器抽出尾帧再按视频生成；片段重拍也在浏览器抽帧并拼回；其余按视频生成（POST /user/task）提交 */
+/** 续写类型：延长把选中的这段视频交给模型接着拍；首尾帧才截静帧；片段重拍在浏览器抽帧并拼回 */
 export type ExtendStudioType = 'extend' | 'reference' | 'fl2v' | 'edit' | 'retake'
 
 export const EXTEND_STUDIO_TYPES: Array<{ id: ExtendStudioType, label: string, hint: string }> = [
@@ -41,11 +41,32 @@ export type ExtendStudioPayload = {
   videoFormat: 'mp4' | 'mov'
   audio: boolean
   count: number
-  /** 源视频上的选区（比例 0-1），首尾帧用选区尾帧作首帧 */
+  /** 源视频上的选区（比例 0-1）。延长把这段交给模型接着拍；首尾帧用选区尾帧作首帧 */
   range: { start: number, end: number, duration: number }
   refs: ExtendStudioRef[]
-  /** 视频延长 / 首尾帧：弹窗里抽好并上传的选区尾帧（first_frame） */
+  /** 首尾帧：弹窗里抽好并上传的选区尾帧（first_frame） */
   firstFrameAssetId?: number
   /** 片段重拍：时间线分成的段数（RETAKE_SEGMENT_COUNT） */
   total?: number
+}
+
+/**
+ * 视频延长要交给模型的那一段（秒）。
+ * 选区贴着整段时返回 null，调用方直接用已入库的源视频；
+ * 起点或终点被拖开时，返回要裁出来的窗口，模型从这段的结尾接着拍。
+ */
+export function extendSourceWindow(range: { start: number, end: number, duration: number }) {
+  const duration = Number(range.duration) || 0
+  if (!(duration > 0.4))
+    return null
+  const start = Math.max(0, Math.min(1, Number(range.start) || 0)) * duration
+  const end = Math.max(0, Math.min(1, Number(range.end) || 0)) * duration
+  if (!(end > start + 0.08))
+    return null
+  if (start <= 0.15 && end >= duration - 0.15)
+    return null
+  return {
+    start: Math.round(start * 100) / 100,
+    end: Math.round(end * 100) / 100,
+  }
 }
