@@ -2,6 +2,7 @@
 import { CANVAS_EMPTY_STARTS, type CanvasEmptyStart, type CanvasStartSkill } from '~/utils/canvas-node-kinds'
 import skillApi from '~/api/skill'
 import { resolveMediaUrl } from '~/utils/media'
+import { ossImageDisplayUrl } from '~/utils/canvas-video-frame'
 import type { Skill } from '~/types/creative'
 
 const { t } = useI18n()
@@ -19,17 +20,35 @@ const emit = defineEmits<{
   practice: []
 }>()
 
-// 空画布起步卡优先展示后台配置的 Skill；加载中先给骨架，失败或为空回退到固定预设
+// 空画布起步卡优先展示后台配置的 Skill。先用上次的结果或固定预设，接口回来再换上，避免进项目先盯着骨架。
 const TONES = ['green', 'rose', 'blue', 'violet'] as const
-const startSkills = ref<CanvasStartSkill[]>([])
-const startState = ref<'loading' | 'ready' | 'fallback'>('loading')
+const SKILL_CACHE_KEY = 'easytv-canvas-empty-skills'
+
+function readCachedSkills(): CanvasStartSkill[] {
+  if (typeof sessionStorage === 'undefined')
+    return []
+  try {
+    const raw = sessionStorage.getItem(SKILL_CACHE_KEY)
+    const items = raw ? JSON.parse(raw) as CanvasStartSkill[] : []
+    if (!Array.isArray(items))
+      return []
+    return items.filter(item => item && typeof item.id === 'number' && typeof item.title === 'string').slice(0, 4)
+  }
+  catch {
+    return []
+  }
+}
+
+const cachedSkills = readCachedSkills()
+const startSkills = ref<CanvasStartSkill[]>(cachedSkills)
+const startState = ref<'ready' | 'fallback'>(cachedSkills.length ? 'ready' : 'fallback')
 
 function toStartSkill(item: Skill): CanvasStartSkill {
   return {
     id: item.id,
     title: item.title,
     slug: item.slug || `/skill/${item.id}`,
-    cover: resolveMediaUrl(item.cover_url),
+    cover: ossImageDisplayUrl(resolveMediaUrl(item.cover_url), 160),
     description: item.description || '',
     prompt: item.prompt || '',
     hasGuide: Boolean(item.guide?.trim() || item.output_format?.trim()),
@@ -43,13 +62,20 @@ async function loadStartSkills() {
     if (items.length) {
       startSkills.value = items.map(toStartSkill)
       startState.value = 'ready'
+      try {
+        sessionStorage.setItem(SKILL_CACHE_KEY, JSON.stringify(startSkills.value))
+      }
+      catch {
+        // 缓存写失败不影响这次展示
+      }
     }
-    else {
+    else if (!startSkills.value.length) {
       startState.value = 'fallback'
     }
   }
   catch {
-    startState.value = 'fallback'
+    if (!startSkills.value.length)
+      startState.value = 'fallback'
   }
 }
 
@@ -107,15 +133,6 @@ onMounted(() => {
             <em>{{ t(item.hint) }}</em>
           </span>
         </button>
-      </template>
-      <template v-else>
-        <div v-for="n in 4" :key="n" class="canvas-empty__chip is-skeleton" aria-hidden="true">
-          <span class="canvas-empty__icon" />
-          <span class="canvas-empty__copy">
-            <strong />
-            <em />
-          </span>
-        </div>
       </template>
     </div>
     <button

@@ -14,6 +14,7 @@ import CanvasPromptInput from '~/components/canvas/CanvasPromptInput.vue'
 import type { RefCandidate } from '~/utils/canvas-autolink'
 import { clearSlashQuery, filterSlashItems, moveSlashIndex, slashQueryAt } from '~/utils/canvas-slash'
 import { resolveMediaUrl } from '~/utils/media'
+import { ossImageDisplayUrl, ossVideoSnapshotUrl } from '~/utils/canvas-video-frame'
 import { useToast } from '#imports'
 import type { TalkingData } from '~/utils/canvas-talking'
 import { buildTalkingPrompt, hasNativeAudio, normalizeTalkingData, TALKING_FRAMINGS, TALKING_PRESET, TALKING_SCRIPT_MAX, TALKING_TONES, talkingDuration } from '~/utils/canvas-talking'
@@ -1198,7 +1199,23 @@ function focusPrompt(event: MouseEvent) {
 }
 
 function thumbSrc(url: string) {
-  return resolveMediaUrl(url)
+  return ossImageDisplayUrl(resolveMediaUrl(url), 240)
+}
+
+function videoThumb(url: string) {
+  return ossVideoSnapshotUrl(resolveMediaUrl(url), 0.04, 240)
+}
+
+function onThumbError(event: Event, url: string) {
+  const img = event.target as HTMLImageElement | null
+  const raw = resolveMediaUrl(url)
+  if (img && img.getAttribute('src') !== raw)
+    img.src = raw
+}
+
+const videoThumbMiss = ref<Record<string, boolean>>({})
+function onVideoThumbError(key: string) {
+  videoThumbMiss.value = { ...videoThumbMiss.value, [key]: true }
 }
 
 function onEsc(event: KeyboardEvent) {
@@ -1359,7 +1376,7 @@ const placeholder = computed(() => {
         <span v-if="isFrameMode" class="canvas-inspector__frame">
           <span v-if="firstThumb" class="canvas-inspector__thumb" :title="t('首帧')">
             <button type="button" class="canvas-inspector__thumb-hit" :aria-label="t('首帧')" @click="emit('chip', 'first')">
-              <img :src="thumbSrc(firstThumb.url)" alt="" draggable="false">
+              <img :src="thumbSrc(firstThumb.url)" alt="" draggable="false" @error="onThumbError($event, firstThumb.url)">
             </button>
             <button type="button" class="canvas-inspector__thumb-x" :aria-label="t('移除')" @click.stop="emit('clear-chip', firstThumb.key)">
               <UIcon name="i-lucide-x" class="size-3" />
@@ -1373,7 +1390,7 @@ const placeholder = computed(() => {
         <span v-if="isFl2vMode" class="canvas-inspector__frame">
           <span v-if="lastThumb" class="canvas-inspector__thumb" :title="t('尾帧')">
             <button type="button" class="canvas-inspector__thumb-hit" :aria-label="t('尾帧')" @click="emit('chip', 'last')">
-              <img :src="thumbSrc(lastThumb.url)" alt="" draggable="false">
+              <img :src="thumbSrc(lastThumb.url)" alt="" draggable="false" @error="onThumbError($event, lastThumb.url)">
             </button>
             <button type="button" class="canvas-inspector__thumb-x" :aria-label="t('移除')" @click.stop="emit('clear-chip', lastThumb.key)">
               <UIcon name="i-lucide-x" class="size-3" />
@@ -1401,12 +1418,21 @@ const placeholder = computed(() => {
               :src="thumbSrc(item.url)"
               alt=""
               draggable="false"
+              @error="onThumbError($event, item.url)"
+            >
+            <img
+              v-else-if="item.kind === 'video' && videoThumb(item.url) && !videoThumbMiss[item.key]"
+              :src="videoThumb(item.url)"
+              alt=""
+              draggable="false"
+              @error="onVideoThumbError(item.key)"
             >
             <video
               v-else-if="item.kind === 'video'"
-              :src="thumbSrc(item.url)"
+              :src="resolveMediaUrl(item.url)"
               muted
               playsinline
+              preload="none"
             />
             <span v-else class="canvas-inspector__thumb-audio">
               <UIcon name="i-lucide-audio-lines" class="size-5" />

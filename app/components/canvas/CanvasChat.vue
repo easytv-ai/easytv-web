@@ -1376,6 +1376,9 @@ function adoptDraftChat(id: number) {
   }
 }
 
+let warmChatIdle = 0
+let warmChatTimer = 0
+
 onMounted(() => {
   void (async () => {
     try {
@@ -1387,13 +1390,26 @@ onMounted(() => {
     if (!busy.value)
       restoreActive()
   })()
-  void loadSkills()
-  void loadQuota()
-  void loadAppConfig()
-  void loadModels()
+  // 模型、技能、额度不是画布第一屏要的。让开网络，节点上的图和视频先出来。
+  const warmChat = () => {
+    warmChatIdle = 0
+    warmChatTimer = 0
+    void loadSkills()
+    void loadQuota()
+    void loadAppConfig()
+    void loadModels()
+  }
+  if (typeof requestIdleCallback === 'function')
+    warmChatIdle = requestIdleCallback(warmChat, { timeout: 1200 })
+  else
+    warmChatTimer = window.setTimeout(warmChat, 400)
 })
 
 onUnmounted(() => {
+  if (warmChatIdle && typeof cancelIdleCallback === 'function')
+    cancelIdleCallback(warmChatIdle)
+  if (warmChatTimer)
+    window.clearTimeout(warmChatTimer)
   dropRun()
 })
 

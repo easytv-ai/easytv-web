@@ -1,4 +1,5 @@
 .canvas-editor {
+  position: relative;
   display: flex;
   width: 100%;
   height: 100dvh;
@@ -6,6 +7,53 @@
   overflow: hidden;
   background: var(--st-bg);
   color: var(--st-text);
+}
+
+.canvas-boot {
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--st-bg);
+}
+
+.canvas-boot__mark {
+  width: 52px;
+  height: 52px;
+  color: color-mix(in srgb, var(--st-text) 62%, transparent);
+  animation: canvas-boot-pulse 1.6s ease-in-out infinite;
+}
+
+.canvas-boot__mark rect {
+  fill: var(--st-bg);
+  stroke: currentColor;
+  stroke-width: 3.25;
+}
+
+.canvas-boot-leave-active {
+  transition: opacity 0.28s ease;
+}
+
+.canvas-boot-leave-to {
+  opacity: 0;
+}
+
+@keyframes canvas-boot-pulse {
+  0%,
+  100% {
+    opacity: 0.38;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .canvas-boot__mark {
+    animation: none;
+  }
 }
 
 .canvas-editor.is-resizing {
@@ -592,6 +640,36 @@ html.canvas-is-interacting .canvas-edge__flow-g.is-run .canvas-edge__flow {
   pointer-events: none;
 }
 
+/* 连线画在一块跟屏幕一样大的画布上，不再给每条线一个 SVG。 */
+.canvas-edge-bitmaps {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 1;
+  overflow: hidden;
+  pointer-events: none;
+  transform-origin: 0 0;
+}
+
+.canvas-edge-bitmap {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.canvas-workspace .vue-flow__edges:not(.vue-flow__connectionline) {
+  display: none !important;
+}
+
+.canvas-edge__cut.is-layer {
+  top: 0;
+  left: 0;
+  z-index: 6;
+}
+
 .canvas-flow .vue-flow__edge-labels {
   z-index: 2;
 }
@@ -872,44 +950,6 @@ html.dark .canvas-edge__flow {
   width: 100%;
   height: 100%;
   object-fit: cover;
-}
-
-/* 技能列表加载中的骨架起步卡 */
-.canvas-empty__chip.is-skeleton {
-  pointer-events: none;
-}
-
-.canvas-empty__chip.is-skeleton .canvas-empty__icon,
-.canvas-empty__chip.is-skeleton strong,
-.canvas-empty__chip.is-skeleton em {
-  background: color-mix(in srgb, var(--st-text) 8%, transparent);
-  animation: canvas-empty-pulse 1.4s ease-in-out infinite;
-}
-
-.canvas-empty__chip.is-skeleton strong {
-  width: 72%;
-  min-height: 13px;
-  border-radius: 6px;
-}
-
-.canvas-empty__chip.is-skeleton em {
-  width: 90%;
-  min-height: 11px;
-  border-radius: 6px;
-}
-
-.canvas-empty__chip.is-skeleton em {
-  animation-delay: 0.15s;
-}
-
-@keyframes canvas-empty-pulse {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.45;
-  }
 }
 
 .canvas-empty__copy {

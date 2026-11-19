@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   isOssSnapshotableUrl,
+  ossImageDisplayUrl,
   ossVideoSnapshotUrl,
   videoCoverUrl,
   promptReverseFrameRanges,
@@ -24,6 +25,18 @@ describe('samplePromptReverseTimes', () => {
     const times = samplePromptReverseTimes(20, 8)
     expect(times.length).toBe(8)
     expect(times[0]).toBe(0)
+  })
+})
+
+describe('ossImageDisplayUrl', () => {
+  it('公开图片缩小成 webp，视频和签名地址不动', () => {
+    const src = 'https://tv-oss.easyapi.com/easytv/a.png'
+    expect(ossImageDisplayUrl(src, 960)).toBe(
+      `${src}?x-oss-process=image/resize,m_lfit,w_960/quality,q_70/format,webp`,
+    )
+    expect(ossImageDisplayUrl('https://tv-oss.easyapi.com/easytv/a.mp4')).toBe('https://tv-oss.easyapi.com/easytv/a.mp4')
+    expect(ossImageDisplayUrl(`${src}?OSSAccessKeyId=x&Signature=y`)).toBe(`${src}?OSSAccessKeyId=x&Signature=y`)
+    expect(ossImageDisplayUrl('/upload/a.png')).toBe('/upload/a.png')
   })
 })
 

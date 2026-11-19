@@ -4,6 +4,7 @@ import { useVueFlow } from '@vue-flow/core'
 import { type CanvasGroupData, type GroupThumb } from '~/utils/canvas-group'
 import { CANVAS_CHANGE_KEY } from '~/utils/canvas-change'
 import { CANVAS_NODE_VIEW_KEY, CANVAS_ZOOM_KEY, EMPTY_CANVAS_NODE_VIEW } from '~/utils/canvas-node-view'
+import { ossImageDisplayUrl } from '~/utils/canvas-video-frame'
 
 const props = defineProps<NodeProps<CanvasGroupData>>()
 const { updateNode } = useVueFlow('easytv-canvas')
@@ -18,13 +19,22 @@ const thumbs = computed(() => groupView.value?.thumbs || props.data.thumbs || []
 type Corner = 'tl' | 'tr' | 'bl' | 'br'
 
 const posterMiss = ref<Record<string, boolean>>({})
+const imageMiss = ref<Record<string, boolean>>({})
 
 function thumbImage(item: GroupThumb) {
   if (item.poster && !posterMiss.value[item.id])
     return item.poster
   if (item.media && !item.video)
-    return item.media
+    return imageMiss.value[item.id] ? item.media : ossImageDisplayUrl(item.media, 320)
   return ''
+}
+
+function onThumbError(item: GroupThumb) {
+  if (item.poster && !posterMiss.value[item.id]) {
+    posterMiss.value = { ...posterMiss.value, [item.id]: true }
+    return
+  }
+  imageMiss.value = { ...imageMiss.value, [item.id]: true }
 }
 
 function onResize(event: PointerEvent, corner: Corner) {
@@ -106,7 +116,7 @@ function onResize(event: PointerEvent, corner: Corner) {
           loading="lazy"
           decoding="async"
           draggable="false"
-          @error="posterMiss[item.id] = true"
+          @error="onThumbError(item)"
         >
         <i v-else-if="item.text">{{ item.text }}</i>
       </span>

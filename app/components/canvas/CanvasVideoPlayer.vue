@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ossVideoSnapshotUrl } from '~/utils/canvas-video-frame'
-import { enqueueVideoProbe } from '~/utils/canvas-video-probe'
+import { enqueuePosterLoad, enqueueVideoProbe } from '~/utils/canvas-video-probe'
 
 const props = defineProps<{
   src: string
@@ -34,6 +34,11 @@ const videoRef = ref<HTMLVideoElement | null>(null)
 const posterRef = ref<HTMLImageElement | null>(null)
 const hydrated = ref(Boolean(props.alwaysOn))
 const poster = computed(() => ossVideoSnapshotUrl(props.src, 0.04, 400))
+/** 封面要排队，避免一屏视频同时向存储要截帧 */
+const posterShown = ref(false)
+let stopPoster: (() => void) | null = null
+let finishPoster: (() => void) | null = null
+let posterTimer = 0
 let sizeProbe: HTMLVideoElement | null = null
 let sized = false
 let disposed = false
@@ -94,12 +99,42 @@ function publishSize(width: number, height: number) {
   }
 }
 
+function releasePosterSlot() {
+  if (posterTimer) {
+    window.clearTimeout(posterTimer)
+    posterTimer = 0
+  }
+  finishPoster?.()
+  finishPoster = null
+}
+
+/** 同时只让几张封面去截帧。单张超过 8 秒也放行下一张，免得一条卡住整队。 */
+function armPoster() {
+  stopPoster?.()
+  stopPoster = null
+  releasePosterSlot()
+  posterShown.value = false
+  if (disposed || hydrated.value || !poster.value)
+    return
+  stopPoster = enqueuePosterLoad((done) => {
+    if (disposed || hydrated.value || !poster.value) {
+      done()
+      return
+    }
+    finishPoster = done
+    posterShown.value = true
+    posterTimer = window.setTimeout(releasePosterSlot, 8000)
+  })
+}
+
 function onPosterLoad(event: Event) {
+  releasePosterSlot()
   const img = event.target as HTMLImageElement
   publishSize(img.naturalWidth, img.naturalHeight)
 }
 
 function onPosterError() {
+  releasePosterSlot()
   watchForProbe()
 }
 
@@ -230,10 +265,13 @@ function onWrapClick() {
     void togglePlay()
 }
 
+watch(poster, () => armPoster())
+
 onMounted(() => {
   document.addEventListener('fullscreenchange', onFsChange)
   publishMeta()
   nextTick(emitPosterSize)
+  armPoster()
   if (!poster.value)
     watchForProbe()
 })
@@ -241,6 +279,9 @@ onUnmounted(() => {
   disposed = true
   document.removeEventListener('fullscreenchange', onFsChange)
   stopVisibilityWatch()
+  stopPoster?.()
+  stopPoster = null
+  releasePosterSlot()
   cancelProbe?.()
   cancelProbe = null
   disposeSizeProbe()
@@ -261,7 +302,7 @@ onUnmounted(() => {
     @dblclick.stop
   >
     <img
-      v-if="!hydrated && poster"
+      v-if="!hydrated && poster && posterShown"
       ref="posterRef"
       class="cnode-player__video"
       :src="poster"

@@ -1,6 +1,6 @@
 <script setup lang="ts">
+import { defineAsyncComponent } from 'vue'
 import CanvasWorkspace from '~/components/canvas/CanvasWorkspace.vue'
-import CanvasChat from '~/components/canvas/CanvasChat.vue'
 import CanvasGuideTour from '~/components/canvas/CanvasGuideTour.vue'
 import type { AssistBridge } from '~/utils/canvas-assist'
 import type { CanvasStartSkill } from '~/utils/canvas-node-kinds'
@@ -12,7 +12,7 @@ import bibleApi from '~/api/bible'
 import projectApi from '~/api/project'
 import type { CanvasGraph } from '~/types/creative'
 import { canvasMergeUploading, flushMergeUploads, hasPendingMergeUploads } from '~/utils/canvas-merge-state'
-import { takeChatEntry } from '~/utils/chat-entry'
+import { takeChatEntry, type ChatEntryDraft } from '~/utils/chat-entry'
 import { beginSave,
   createSaveMachine,
   createSerialRunner,
@@ -184,7 +184,13 @@ const canvasOwnerId = ref(0)
 /** 空画布点了技能起步卡：不落节点，把技能带进右侧对话（激活 + 预填提示词），描述好内容再发送 */
 function onSkillStart(skill: CanvasStartSkill) {
   chatOpen.value = true
-  void nextTick(() => chat.value?.startSkillDraft(skill))
+  let stop = () => {}
+  stop = watch(chat, (pane) => {
+    if (!pane)
+      return
+    stop()
+    pane.startSkillDraft(skill)
+  }, { immediate: true })
 }
 
 // ---- 画布批注（项目评论，API.md 10.10 / 15）：顶栏看整张画布，节点右键定位到节点 ----
@@ -260,8 +266,26 @@ const saveMachine = ref<SaveMachine>(createSaveMachine())
 const saveState = computed(() => saveStatus(saveMachine.value))
 const savedAt = ref(0)
 const loading = ref(canvasId.value > 0)
+/** 已打开的画布要等图数据写进舞台再揭开，避免先闪一帧空壳 */
+const graphHold = ref(canvasId.value > 0)
+/** 页面已卸载：加载晚回来的回调不再改名字、不再开跟练 */
+let pageLeft = false
+const CanvasChat = defineAsyncComponent({
+  loader: () => import('~/components/canvas/CanvasChat.vue'),
+  suspensible: false,
+})
+
+type CanvasChatPane = {
+  focusAssist: () => void
+  addAssetAttachments: (assets: Asset[]) => void
+  startSkillDraft: (skill: CanvasStartSkill) => void
+  applyStyle: (style: { name?: string, prompt?: string } | null) => void
+  acceptEntry: (draft: ChatEntryDraft) => void | Promise<void>
+}
+
 const workspace = ref<InstanceType<typeof CanvasWorkspace> | null>(null)
-const chat = ref<InstanceType<typeof CanvasChat> | null>(null)
+const booting = computed(() => graphHold.value || !workspace.value)
+const chat = ref<CanvasChatPane | null>(null)
 let pendingGraph: CanvasGraph | null = null
 let autosaveTimer: ReturnType<typeof setTimeout> | null = null
 let autosaveFirstAt = 0
@@ -367,6 +391,7 @@ async function load() {
   const res = await canvasApi.get(canvasId.value)
   if (!res?.success || !res.data) {
     loading.value = false
+    graphHold.value = false
     notify(res?.message || t('画布不存在或已删除'), 'error')
     canvasId.value = 0
     await router.replace({ query: {} })
@@ -380,17 +405,24 @@ async function load() {
     chatOpen.value = false
   boundProjectId.value = res.data.project_id || boundProjectId.value
   const canvasName = nameFromCanvas(res.data)
-  const nextName = await resolveDisplayName(canvasName, boundProjectId.value)
-  draftName.value = nextName
-  savedName.value = canvasName && !isPlaceholderName(canvasName) ? canvasName : nextName
+  if (canvasName) {
+    draftName.value = canvasName
+    if (!isPlaceholderName(canvasName))
+      savedName.value = canvasName
+  }
   version.value = res.data.version
   historyVersionId.value = 0
   savedAt.value = res.data.updated_at
   saveMachine.value = createSaveMachine({ persisted: true })
-  pendingGraph = res.data.graph
+  pendingGraph = res.data.graph || { nodes: [], edges: [] }
   rememberNodeCount(res.data.graph)
   flushPendingGraph()
   loading.value = false
+  const nextName = await resolveDisplayName(canvasName, boundProjectId.value)
+  if (pageLeft)
+    return
+  draftName.value = nextName
+  savedName.value = canvasName && !isPlaceholderName(canvasName) ? canvasName : nextName
   void considerSpine(boundProjectId.value)
   void refreshCommentMarks()
   await dropTransientQuery()
@@ -404,6 +436,7 @@ function flushPendingGraph() {
     return
   workspace.value.loadGraph(pendingGraph)
   pendingGraph = null
+  graphHold.value = false
 }
 
 watch(workspace, () => flushPendingGraph())
@@ -996,6 +1029,7 @@ function resetToNewProject() {
   conflictOpen.value = false
   moreOpen.value = false
   loading.value = false
+  graphHold.value = false
   pendingGraph = null
   rememberNodeCount(null)
   wipeWarned = false
@@ -1242,9 +1276,6 @@ onMounted(() => {
   consumeChatEntry()
 })
 
-/** 页面已卸载：加载晚回来的回调不再改路由、不再开跟练 */
-let pageLeft = false
-
 onBeforeUnmount(() => {
   pageLeft = true
   document.removeEventListener('click', onDocumentClick)
@@ -1295,7 +1326,16 @@ function onResizeStart(event: PointerEvent) {
     class="canvas-editor"
     :class="{ 'is-resizing': resizing }"
     :style="{ '--canvas-chat-pct': `${chatPct}%` }"
+    :aria-busy="booting"
   >
+    <Transition name="canvas-boot">
+      <div v-if="booting" class="canvas-boot" role="status" :aria-label="t('加载中…')">
+        <svg class="canvas-boot__mark" viewBox="0 0 64 64" aria-hidden="true">
+          <rect x="7" y="7" width="36" height="36" rx="11" />
+          <rect x="21" y="21" width="36" height="36" rx="11" />
+        </svg>
+      </div>
+    </Transition>
     <div class="canvas-editor__main">
       <header class="canvas-editor__bar">
         <div class="canvas-brand">

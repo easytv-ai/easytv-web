@@ -13,6 +13,27 @@ export function isOssSnapshotableUrl(src: string) {
   return !/[?&](Signature|OSSAccessKeyId|x-oss-process)=/i.test(value)
 }
 
+/** 画布卡片上的图。原图常是 2K/4K，卡片只有几百像素，按下限缩小后再显示。 */
+export const OSS_IMAGE_DISPLAY_WIDTH = 960
+
+/**
+ * 公开 OSS 图片的展示地址。签名和已经带处理参数的不改，避免把签名算坏。
+ * 视频、音频地址原样返回。存储不认这个参数时，调用方应退回原图。
+ */
+export function ossImageDisplayUrl(src: string, width = OSS_IMAGE_DISPLAY_WIDTH) {
+  const value = String(src || '').trim()
+  if (!isOssSnapshotableUrl(value) || !looksLikeStillImage(value))
+    return value
+  const w = Math.max(80, Math.round(width) || OSS_IMAGE_DISPLAY_WIDTH)
+  const sep = value.includes('?') ? '&' : '?'
+  return `${value}${sep}x-oss-process=image/resize,m_lfit,w_${w}/quality,q_70/format,webp`
+}
+
+function looksLikeStillImage(src: string) {
+  const path = src.split('?')[0]?.split('#')[0]?.toLowerCase() || ''
+  return !/\.(mp4|webm|mov|m4v|mkv|mp3|wav|m4a|aac|ogg|flac)$/.test(path)
+}
+
 /** 视频封面：有 cover 用 cover，公开 OSS 则截首帧，其它地址交给调用方用 video 标签自己出画面 */
 export function videoCoverUrl(src: string, cover = '', timeSec = 0.04, width = 160) {
   const poster = String(cover || '').trim()

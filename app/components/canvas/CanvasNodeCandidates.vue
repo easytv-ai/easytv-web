@@ -2,6 +2,7 @@
 import type { NodeCandidate } from '~/types/creative'
 import { prettyModelSlug } from '~/utils/model-name'
 import { resolveMediaUrl } from '~/utils/media'
+import { ossImageDisplayUrl } from '~/utils/canvas-video-frame'
 import {
   isCurrentNodeCandidate,
   isRejectedNodeCandidate,
@@ -40,7 +41,7 @@ function mediaKind(item: NodeCandidate) {
 function thumbOf(item: NodeCandidate) {
   const kind = mediaKind(item)
   if (kind === 'image')
-    return resolveMediaUrl(item.url)
+    return ossImageDisplayUrl(resolveMediaUrl(item.url), 240)
   if (kind === 'video')
     return resolveMediaUrl(item.cover_url)
   return ''

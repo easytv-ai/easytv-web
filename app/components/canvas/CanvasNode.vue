@@ -21,6 +21,7 @@ import {
   type CanvasNodeData,
 } from '~/utils/canvas-node-kinds'
 import { isMediaUrl, resolveMediaUrl } from '~/utils/media'
+import { OSS_IMAGE_DISPLAY_WIDTH, ossImageDisplayUrl } from '~/utils/canvas-video-frame'
 import CanvasVideoPlayer from '~/components/canvas/CanvasVideoPlayer.vue'
 import CanvasAudioPlayer from '~/components/canvas/CanvasAudioPlayer.vue'
 import CanvasFramePanel from '~/components/canvas/CanvasFramePanel.vue'
@@ -103,6 +104,17 @@ const imageSrc = computed(() => {
   if ((!isImage.value && !isDirector.value) || !value || !isMediaUrl(value))
     return ''
   return resolveMediaUrl(value)
+})
+/** 缩略图处理失败时退回原图，避免卡片空白 */
+const imageThumbBroken = ref(false)
+watch(imageSrc, () => {
+  imageThumbBroken.value = false
+})
+const imageDisplaySrc = computed(() => {
+  const src = imageSrc.value
+  if (!src || imageThumbBroken.value)
+    return src
+  return ossImageDisplayUrl(src, OSS_IMAGE_DISPLAY_WIDTH)
 })
 const videoSrc = computed(() => {
   const value = props.data.content?.trim() || ''
@@ -433,7 +445,17 @@ function fitStageToMedia(width: number, height: number, dirty: boolean, label = 
 function fitImageNode(img: { naturalWidth: number, naturalHeight: number }) {
   if (!isImage.value || isPanorama.value)
     return
-  fitStageToMedia(img.naturalWidth, img.naturalHeight, imageSrc.value !== initialImageSrc)
+  // 缩小后的宽等于上限，说明原图更大，像素标签不能拿缩略图的尺寸冒充
+  const capped = imageDisplaySrc.value !== imageSrc.value && img.naturalWidth >= OSS_IMAGE_DISPLAY_WIDTH - 1
+  if (capped)
+    mediaPx.value = ''
+  fitStageToMedia(img.naturalWidth, img.naturalHeight, imageSrc.value !== initialImageSrc, !capped)
+}
+
+function onImageError() {
+  if (imageThumbBroken.value || imageDisplaySrc.value === imageSrc.value)
+    return
+  imageThumbBroken.value = true
 }
 
 function videoRatioPixels() {
@@ -770,15 +792,16 @@ onMounted(() => {
           </template>
         </ClientOnly>
         <img
-          v-else-if="imageSrc"
+          v-else-if="imageDisplaySrc"
           ref="mediaRef"
           class="cnode__media"
-          :src="imageSrc"
+          :src="imageDisplaySrc"
           alt=""
           loading="lazy"
           decoding="async"
           draggable="false"
           @load="onMediaLoad"
+          @error="onImageError"
         >
         <CanvasFramePanel
           v-else-if="isFramePull"

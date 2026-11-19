@@ -20,7 +20,6 @@ import '@vue-flow/core/dist/style.css'
 import CanvasNode from '~/components/canvas/CanvasNode.vue'
 import CanvasGroupNode from '~/components/canvas/CanvasGroupNode.vue'
 import CanvasSelBar from '~/components/canvas/CanvasSelBar.vue'
-import CanvasEdge from '~/components/canvas/CanvasEdge.vue'
 import CanvasConnectLine from '~/components/canvas/CanvasConnectLine.vue'
 import CanvasInspector from '~/components/canvas/CanvasInspector.vue'
 import type { StylePreset } from '~/components/canvas/CanvasStyleEditModal.vue'
@@ -161,6 +160,7 @@ import {
   sameCanvasLiveViewport,
   type CanvasLiveViewport,
 } from '~/utils/canvas-live-viewport'
+import { paintCanvasEdgeCamera, publishCanvasEdgeCamera } from '~/utils/canvas-edge-camera'
 import {
   CANVAS_CULL_FRAME_BUDGET,
   CANVAS_CULL_MARGIN_SCREENS,
@@ -551,7 +551,8 @@ const {
   closeOverlaysForNodes,
 } = useCanvasToolOverlays({ selectedId })
 const nodeTypes = { easytv: markRaw(CanvasNode), group: markRaw(CanvasGroupNode) }
-const edgeTypes = { easytv: markRaw(CanvasEdge) }
+/** 类型必须留着。缺了它，Vue Flow 会退回默认 SVG 贝塞尔。线本身画在 CanvasEdgeLayer。 */
+const edgeTypes = { easytv: markRaw(() => null) }
 const showInspector = computed(() => {
   const node = selected.value
   if (!node || selectedNodes.value.length !== 1 || !isContentNode(node) || node.data.kind === 'director')
@@ -877,6 +878,8 @@ function paintLiveCursorLayer(vp: CanvasLiveViewport) {
 function paintWheelPan(shown: CanvasLiveViewport) {
   applyCanvasPaneTransform(canvasTransformPane(), shown)
   paintLiveCursorLayer(shown)
+  publishCanvasEdgeCamera(shown, true)
+  paintCanvasEdgeCamera()
   if (!liveHudStart)
     return
   applyCanvasLiveHud(
@@ -1184,6 +1187,8 @@ watch(() => [dimensions.value.width, dimensions.value.height] as const, () => {
 function paintDragPan(shown: CanvasLiveViewport) {
   applyCanvasPaneTransform(canvasTransformPane(), shown)
   paintLiveCursorLayer(shown)
+  publishCanvasEdgeCamera(shown, true)
+  paintCanvasEdgeCamera()
   if (!liveHudStart)
     return
   applyCanvasLiveHud(
@@ -1612,6 +1617,8 @@ function endLiveViewport() {
   commitWheelPan()
   liveHudStart = null
   applyCanvasLiveHud(liveHudRef.value, '', false)
+  publishCanvasEdgeCamera(viewport.value, false)
+  paintCanvasEdgeCamera()
   scheduleSettleViewport()
 }
 
@@ -1657,8 +1664,12 @@ watch(
         canvasLiveHudTransform(liveHudStart, live, liveHudOrigin),
         true,
       )
+      publishCanvasEdgeCamera(live, true)
+      paintCanvasEdgeCamera()
       return
     }
+    publishCanvasEdgeCamera(live, false)
+    paintCanvasEdgeCamera()
     if (!sameCanvasLiveViewport(committedViewport.value, live)) {
       committedViewport.value = live
       revealCull(live)
@@ -7503,7 +7514,12 @@ const styleLibValue = computed(() => {
       />
     </VueFlow>
 
-    <CanvasEdgeFlowLayer />
+    <CanvasEdgeLayer
+      :nodes="nodes"
+      :edges="edges"
+      :hide-edges="hideEdges"
+      :can-cut="!readonly && !canvasLocked && !practiceLocked"
+    />
 
     <svg v-if="alignLines.length" class="canvas-align" aria-hidden="true">
       <line
