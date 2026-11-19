@@ -182,6 +182,8 @@ export type GenerationModel = {
   model: string
   type: TaskType
   label: string
+  /** Lobe 图标名（GET /generation/models 附带；没有则为空，选择器再用首字母） */
+  icon?: string
   /** 积分定价（GET /generation/models 附带；priced=false 表示运营未定价，不能下任务） */
   unit: 'second' | 'image' | 'call' | ''
   points_per_unit: number

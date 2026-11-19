@@ -1,6 +1,6 @@
 /** 智能续写大弹窗（视频节点）：类型 / 输出规格的共享定义与提交负载 */
 
-/** 续写类型：延长沿用源任务续写接口；片段重拍走 retake_segment 媒体作业；其余两类按视频生成（POST /user/task）提交 */
+/** 续写类型：延长在浏览器抽出尾帧再按视频生成；片段重拍也在浏览器抽帧并拼回；其余按视频生成（POST /user/task）提交 */
 export type ExtendStudioType = 'extend' | 'reference' | 'fl2v' | 'edit' | 'retake'
 
 export const EXTEND_STUDIO_TYPES: Array<{ id: ExtendStudioType, label: string, hint: string }> = [
@@ -44,7 +44,7 @@ export type ExtendStudioPayload = {
   /** 源视频上的选区（比例 0-1），首尾帧用选区尾帧作首帧 */
   range: { start: number, end: number, duration: number }
   refs: ExtendStudioRef[]
-  /** 首尾帧模式：弹窗里抽好并上传的选区尾帧（first_frame） */
+  /** 视频延长 / 首尾帧：弹窗里抽好并上传的选区尾帧（first_frame） */
   firstFrameAssetId?: number
   /** 片段重拍：时间线分成的段数（RETAKE_SEGMENT_COUNT） */
   total?: number

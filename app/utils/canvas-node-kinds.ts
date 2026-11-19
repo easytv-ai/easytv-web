@@ -128,6 +128,16 @@ export type CanvasNodeData = {
     total: number
     duration?: number
   }
+  /**
+   * 片段重拍在浏览器里拼回整段：生成任务成功后用。
+   * start / end / duration 都是秒。
+   */
+  retakeStitch?: {
+    sourceUrl: string
+    start: number
+    end: number
+    duration: number
+  }
   /** 逐帧拉片（浏览器抽帧，可选视觉解读）：抽帧数与是否生成解读，随画布保存 */
   frameParams?: {
     sourceId: string
@@ -313,6 +323,7 @@ export function cloneContentNodeData(data: CanvasNodeData, extra?: Partial<Canva
     scene,
     viralPlan: data.viralPlan ? JSON.parse(JSON.stringify(data.viralPlan)) as CanvasNodeData['viralPlan'] : data.viralPlan,
     bgmMix: undefined,
+    retakeStitch: undefined,
     taskId: undefined,
     taskStatus: '',
     taskProgress: 0,

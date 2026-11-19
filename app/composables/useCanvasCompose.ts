@@ -1,10 +1,13 @@
 import { onScopeDispose, ref, type Ref } from 'vue'
+import assetApi from '~/api/asset'
 import { composeApi } from '~/api/screenplay'
 import type { ComposeJob } from '~/types/creative'
+import { canvasMergeRunning, publishMergeProgress } from '~/utils/canvas-merge-state'
+import { probeMediaDuration } from '~/utils/canvas-video-frame'
+import { MergeVideoError } from '~/utils/canvas-video-merge'
 import {
   composeNodeSize,
   composeReady,
-  composeTimeline,
   type ComposeOptions,
   type ComposeSource,
 } from '~/utils/canvas-compose'
@@ -32,8 +35,8 @@ export type ComposeSubmitHooks = {
 }
 
 /**
- * 画布多段合成：先把画布存一次（合成按 node_id 找已落库的视频），
- * 再在选区右侧落一个空视频节点，把这次时间线快照交给 compose 接口，轮询写回。
+ * 画布多段合成：在浏览器里按入出点裁切后拼接，可选混入配乐。
+ * 结果先落在选区右侧的视频节点上。以前没跑完的服务端合成仍会接着轮询。
  */
 export function useCanvasCompose(opts: {
   canvasId: () => number
@@ -166,23 +169,22 @@ export function useCanvasCompose(opts: {
       return
     }
 
+    if (canvasMergeRunning.value) {
+      opts.notify(opts.t('canvas.cut.busy'), 'error')
+      hooks?.onDone?.({ ok: false, error: 'busy' })
+      return
+    }
     submitHooks = hooks
-    run.value = { nodeId: '', sourceIds: ordered.map(item => item.id), job: null, error: '', busy: true }
+    run.value = {
+      nodeId: '',
+      sourceIds: ordered.map(item => item.id),
+      job: { id: 0, status: 1, progress: 0 } as ComposeJob,
+      error: '',
+      busy: true,
+    }
+    const owned: string[] = []
+    canvasMergeRunning.value = true
     try {
-      await opts.requestSave?.()
-      let canvasId = opts.canvasId()
-      for (let i = 0; i < 12 && !canvasId; i++) {
-        await new Promise(resolve => setTimeout(resolve, 500))
-        canvasId = opts.canvasId()
-      }
-      if (!canvasId) {
-        const message = opts.t('canvas.compose.needSave')
-        patchRun({ busy: false, error: message })
-        opts.notify(message, 'error')
-        settleSubmit({ ok: false, error: message })
-        return
-      }
-
       const right = Math.max(...ordered.map(item => item.x + item.w))
       const top = Math.min(...ordered.map(item => item.y))
       const size = composeNodeSize(options.aspect)
@@ -193,55 +195,91 @@ export function useCanvasCompose(opts: {
         data: {
           prompt: '',
           taskStatus: 'running',
-          taskProgress: 0,
+          taskProgress: 5,
         },
         select: true,
         link: true,
       })
       hooks?.onNode?.(sibling.id)
-      patchRun({ nodeId: sibling.id })
-
-      const timeline = composeTimeline(ordered, options)
-      const res = await composeApi.create(canvasId, {
-        timeline,
-        preview: options.preview || undefined,
-        ...(options.preview || !options.package ? {} : { package: true }),
+      patchRun({
+        nodeId: sibling.id,
+        job: { id: 0, status: 1, progress: 5 } as ComposeJob,
       })
-      if (!res?.success || !res.data) {
-        const message = res?.message || opts.t('canvas.compose.submitFail')
-        opts.dropNode(sibling.id)
-        patchRun({ busy: false, error: message, nodeId: '' })
-        opts.notify(message, 'error')
-        settleSubmit({ ok: false, error: message })
-        return
-      }
 
-      applyJob(sibling.id, res.data)
-      patchRun({ nodeId: sibling.id, job: res.data, error: '' })
+      const { mergeVideoBlobs, trimVideoBlob, mixBgmBlobs } = await import('~/utils/canvas-video-merge.ffmpeg')
+      const urls: string[] = []
+      for (const item of ordered) {
+        const start = Math.max(0, Number(item.trimIn) || 0)
+        const end = Math.max(0, Number(item.trimOut) || 0)
+        const duration = item.duration > 0 ? item.duration : 0
+        const clipEnd = end > start ? end : duration
+        const trimmed = start > 0.05 || (clipEnd > start + 0.05 && duration > 0 && clipEnd < duration - 0.05)
+        if (!trimmed) {
+          urls.push(item.url)
+          continue
+        }
+        const blob = await trimVideoBlob(item.url, start, clipEnd, publishMergeProgress)
+        const url = URL.createObjectURL(blob)
+        owned.push(url)
+        urls.push(url)
+      }
+      opts.updateNodeData(sibling.id, { taskProgress: 40 })
+      patchRun({ job: { id: 0, status: 1, progress: 40 } as ComposeJob })
+      let blob = await mergeVideoBlobs(urls, publishMergeProgress)
+      const bgmId = Number(options.bgmAssetId) || 0
+      if (bgmId > 0) {
+        const audio = opts.nodes.value.find(node =>
+          isContentNode(node) && node.data.kind === 'audio' && Number(node.data.assetId) === bgmId)
+        const bgmUrl = audio && isContentNode(audio) ? String(audio.data.content || '').trim() : ''
+        if (bgmUrl) {
+          const preview = URL.createObjectURL(blob)
+          owned.push(preview)
+          const duration = await probeMediaDuration(preview)
+          if (duration > 0.3)
+            blob = await mixBgmBlobs(preview, bgmUrl, duration, options.bgmVolume, publishMergeProgress)
+        }
+      }
+      const localUrl = URL.createObjectURL(blob)
+      opts.updateNodeData(sibling.id, {
+        content: localUrl,
+        taskStatus: 'succeeded',
+        taskProgress: 100,
+        taskError: '',
+        params: { videoEditOperation: 'concat' },
+      })
+      patchRun({ busy: false, error: '', job: { id: 0, status: 2, progress: 100 } as ComposeJob })
       opts.pushHistory()
-      opts.track('canvas_compose_submit', {
-        canvas_id: canvasId,
-        compose_id: res.data.id,
+      opts.track('canvas_compose_ok', {
+        canvas_id: opts.canvasId(),
         clips: ordered.length,
-        preview: options.preview,
-        aspect: options.aspect,
+        browser: true,
       })
-      if (res.data.status === 2 || res.data.status === -1) {
-        patchRun({ busy: false })
-        if (res.data.status === 2) {
-          opts.notify(opts.t('canvas.compose.ok'))
-          settleSubmit({ ok: true, nodeId: sibling.id })
-        }
-        else {
-          const message = res.data.error || opts.t('canvas.compose.failed')
-          opts.notify(message, 'error')
-          settleSubmit({ ok: false, nodeId: sibling.id, error: message })
-        }
-        return
+      opts.notify(opts.t('canvas.compose.ok'))
+      settleSubmit({ ok: true, nodeId: sibling.id })
+      const file = new File([blob], `compose-${ordered.length}.mp4`, { type: 'video/mp4' })
+      const uploaded = await assetApi.upload(file)
+      if (uploaded?.success && uploaded.data?.url) {
+        URL.revokeObjectURL(localUrl)
+        opts.updateNodeData(sibling.id, { content: uploaded.data.url, assetId: uploaded.data.id })
+        opts.pushHistory()
       }
-      watchJob()
+    }
+    catch (error) {
+      const current = run.value
+      if (current?.nodeId)
+        opts.dropNode(current.nodeId)
+      const message = error instanceof MergeVideoError
+        ? opts.t('canvas.merge.fail')
+        : (error instanceof Error && error.message ? error.message : opts.t('canvas.compose.submitFail'))
+      patchRun({ busy: false, error: message, nodeId: '', job: { id: 0, status: -1, progress: 0, error: message } as ComposeJob })
+      opts.notify(message, 'error')
+      settleSubmit({ ok: false, error: message })
     }
     finally {
+      canvasMergeRunning.value = false
+      publishMergeProgress(null)
+      for (const url of owned)
+        URL.revokeObjectURL(url)
       if (run.value && !run.value.job && run.value.busy) {
         patchRun({ busy: false })
         settleSubmit({ ok: false, error: run.value.error || opts.t('canvas.compose.submitFail') })

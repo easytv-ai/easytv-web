@@ -64,8 +64,10 @@ describe('mediaActionState', () => {
     expect(MEDIA_BAR_ACTIONS['frame-crop']).toBeUndefined()
     expect(MEDIA_BAR_ACTIONS['extract-frames']).toBeUndefined()
     expect(MEDIA_BAR_ACTIONS['frame-by-frame']).toBeUndefined()
-    expect(MEDIA_BAR_ACTIONS['grid-split']).toBe('grid_split')
-    expect(MEDIA_BAR_ACTIONS['smart-extend']).toBe('extend')
+    expect(MEDIA_BAR_ACTIONS['grid-split']).toBeUndefined()
+    expect(MEDIA_BAR_ACTIONS['smart-extend']).toBeUndefined()
+    expect(MEDIA_BAR_ACTIONS.retake).toBeUndefined()
+    expect(MEDIA_BAR_ACTIONS.transcribe).toBe('transcribe')
     expect(mediaBarItemState(actions, 'depth').available).toBe(false)
     expect(mediaBarItemState([], 'depth').available).toBe(true)
   })
@@ -87,6 +89,9 @@ describe('mediaActionState', () => {
     expect(mediaBarItemState(noFfmpeg, 'capture-frame')).toEqual({ available: true, reason: '', known: false })
     expect(mediaBarItemState(noFfmpeg, 'frame-crop')).toEqual({ available: true, reason: '', known: false })
     expect(mediaBarItemState(noFfmpeg, 'extract-frames')).toEqual({ available: true, reason: '', known: false })
+    expect(mediaBarItemState(noFfmpeg, 'smart-extend').available).toBe(true)
+    expect(mediaBarItemState(noFfmpeg, 'grid-split').available).toBe(true)
+    expect(mediaBarItemState(noFfmpeg, 'retake').available).toBe(true)
   })
 
   it('独立接口：清单里没有这条就放行，有就听清单', () => {

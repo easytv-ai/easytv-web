@@ -1,5 +1,7 @@
 /** 图片浮条：AI 编辑动作对应的提示词与参数（提交 POST /user/task） */
 
+import { mergeReadableUrl } from '~/utils/canvas-video-merge'
+
 export type ImageTransformOp = 'rotate-left' | 'rotate-right' | 'flip-h' | 'flip-v'
 
 export type ImageEditAction =
@@ -185,6 +187,12 @@ async function fetchImageBlob(src: string, sameOrigin: boolean) {
   return res.blob()
 }
 
+function imagePixelUrl(src: string) {
+  if (typeof location === 'undefined')
+    return src
+  return mergeReadableUrl(src, location.origin)
+}
+
 async function loadEditBitmap(src: string): Promise<ImageBitmap> {
   if (isBlobOrDataUrl(src))
     return createImageBitmap(await decodeHtmlImage(src, false))
@@ -194,7 +202,15 @@ async function loadEditBitmap(src: string): Promise<ImageBitmap> {
     return await createImageBitmap(await fetchImageBlob(src, sameOrigin))
   }
   catch {
-    return createImageBitmap(await decodeHtmlImage(src, !sameOrigin))
+    try {
+      return await createImageBitmap(await decodeHtmlImage(src, !sameOrigin))
+    }
+    catch (error) {
+      const proxied = imagePixelUrl(src)
+      if (proxied === src)
+        throw error
+      return createImageBitmap(await fetchImageBlob(proxied, true))
+    }
   }
 }
 
@@ -288,28 +304,127 @@ export async function transformImage(
   }
 }
 
+function cropBitmap(
+  img: ImageBitmap,
+  box: { x: number, y: number, w: number, h: number },
+) {
+  const x = Math.max(0, Math.min(img.width - 1, Math.round(box.x)))
+  const y = Math.max(0, Math.min(img.height - 1, Math.round(box.y)))
+  const w = Math.max(1, Math.min(img.width - x, Math.round(box.w)))
+  const h = Math.max(1, Math.min(img.height - y, Math.round(box.h)))
+  const canvas = document.createElement('canvas')
+  canvas.width = w
+  canvas.height = h
+  const ctx = canvas.getContext('2d')
+  if (!ctx)
+    throw new Error('ctx')
+  ctx.drawImage(img, x, y, w, h, 0, 0, w, h)
+  return canvasToJpeg(canvas)
+}
+
 export async function cropImage(
   src: string,
   box: { x: number, y: number, w: number, h: number },
 ): Promise<Blob> {
   const img = await loadEditBitmap(src)
   try {
-    const x = Math.max(0, Math.round(box.x))
-    const y = Math.max(0, Math.round(box.y))
-    const w = Math.max(1, Math.round(box.w))
-    const h = Math.max(1, Math.round(box.h))
-    const canvas = document.createElement('canvas')
-    canvas.width = w
-    canvas.height = h
-    const ctx = canvas.getContext('2d')
-    if (!ctx)
-      throw new Error('ctx')
-    ctx.drawImage(img, x, y, w, h, 0, 0, w, h)
-    return await canvasToJpeg(canvas)
+    return await cropBitmap(img, box)
   }
   finally {
     img.close()
   }
+}
+
+/** 按 0~1 的比例框裁一张图。跨域图走本站代理，不依赖服务器 ffmpeg */
+export async function cropImageFraction(
+  src: string,
+  rect: { x: number, y: number, w: number, h: number },
+): Promise<Blob> {
+  const img = await loadEditBitmap(src)
+  try {
+    return await cropBitmap(img, {
+      x: rect.x * img.width,
+      y: rect.y * img.height,
+      w: rect.w * img.width,
+      h: rect.h * img.height,
+    })
+  }
+  finally {
+    img.close()
+  }
+}
+
+/** 同一张图按多个比例框切片，只解码一次 */
+export async function sliceImageFractions(
+  src: string,
+  rects: Array<{ x: number, y: number, w: number, h: number }>,
+): Promise<Blob[]> {
+  const img = await loadEditBitmap(src)
+  try {
+    const out: Blob[] = []
+    for (const rect of rects) {
+      out.push(await cropBitmap(img, {
+        x: rect.x * img.width,
+        y: rect.y * img.height,
+        w: rect.w * img.width,
+        h: rect.h * img.height,
+      }))
+    }
+    return out
+  }
+  finally {
+    img.close()
+  }
+}
+
+/**
+ * 把多张图拼成宫格：每格按比例缩小后居中，留白补白底。
+ * 和原先服务器 ffmpeg 的 montage 同一套排法，像素在浏览器里画。
+ */
+export async function montageImages(
+  urls: string[],
+  opts: { cols: number, gap: number, number: boolean, cellW: number, cellH: number },
+): Promise<Blob> {
+  const cols = Math.max(1, Math.round(opts.cols) || 1)
+  const gap = Math.max(0, Math.round(opts.gap) || 0)
+  const cellW = Math.max(2, Math.round(opts.cellW) || 2)
+  const cellH = Math.max(2, Math.round(opts.cellH) || 2)
+  const rows = Math.ceil(urls.length / cols)
+  const canvas = document.createElement('canvas')
+  canvas.width = cols * cellW + Math.max(0, cols - 1) * gap
+  canvas.height = rows * cellH + Math.max(0, rows - 1) * gap
+  const ctx = canvas.getContext('2d')
+  if (!ctx)
+    throw new Error('ctx')
+  ctx.fillStyle = '#ffffff'
+  ctx.fillRect(0, 0, canvas.width, canvas.height)
+  for (let i = 0; i < urls.length; i++) {
+    const bmp = await loadEditBitmap(urls[i] || '')
+    try {
+      const col = i % cols
+      const row = Math.floor(i / cols)
+      const x = col * (cellW + gap)
+      const y = row * (cellH + gap)
+      const scale = Math.min(cellW / Math.max(1, bmp.width), cellH / Math.max(1, bmp.height))
+      const dw = Math.max(1, Math.round(bmp.width * scale))
+      const dh = Math.max(1, Math.round(bmp.height * scale))
+      ctx.drawImage(bmp, x + (cellW - dw) / 2, y + (cellH - dh) / 2, dw, dh)
+      if (opts.number) {
+        const label = String(i + 1)
+        ctx.font = 'bold 28px sans-serif'
+        const pad = 8
+        const tw = ctx.measureText(label).width
+        ctx.fillStyle = 'rgba(0,0,0,0.55)'
+        ctx.fillRect(x + 12, y + 12, tw + pad * 2, 36)
+        ctx.fillStyle = '#ffffff'
+        ctx.fillText(label, x + 12 + pad, y + 38)
+      }
+    }
+    finally {
+      bmp.close()
+    }
+  }
+  return canvasToJpeg(canvas)
 }
 
 /** 把原图完整放进目标比例画布：宽了左右留空，高了上下留空 */

@@ -18,7 +18,6 @@ import { effectiveUnitPrice, estimateSecondDuration, estimateTaskPoints, modelPr
 import { shortModelName } from '~/utils/model-name'
 import { fetchLobeInlineSvg } from '~/utils/lobe-icon'
 import { startHiddenAwarePoll } from '~/utils/hidden-poll'
-import { useGenerationModelDetail } from '~/composables/useGenerationModelDetail'
 import { CANVAS_AGENT_SETTINGS_KEY } from '~/composables/useCanvasAgentSettings'
 import {
   briefAnchorPrompt,
@@ -487,20 +486,16 @@ function stepSeconds(dir: -1 | 1) {
   if (next)
     genSeconds.value = next
 }
-const { prefetch: prefetchModelDetails, peek: peekModelDetail } = useGenerationModelDetail()
-const modelIconTick = ref(0)
-
-/** 详情里的 icon / vendor.icon 是 Lobe 图标名（ByteDance.Color），不是图片地址 */
-function detailIconName(model: string) {
-  const detail = peekModelDetail(model) as any
-  return String(detail?.icon || detail?.vendor?.icon || '').trim()
+/** 列表上的 icon 是 Lobe 图标名，选择器不再为图标打详情 */
+function listedIcon(model: string) {
+  const row = models.value.find(item => item.model === model)
+  return String(row?.icon || '').trim()
 }
 
-function modelIconKey(item: { model: string } | null | undefined) {
+function modelIconKey(item: { model: string, icon?: string } | null | undefined) {
   if (!item?.model)
     return ''
-  void modelIconTick.value
-  return detailIconName(item.model)
+  return String(item.icon || '').trim() || listedIcon(item.model)
 }
 
 function modelMark(item: { model: string, label?: string } | null | undefined) {
@@ -510,36 +505,24 @@ function modelMark(item: { model: string, label?: string } | null | undefined) {
   return (name[0] || '?').toUpperCase()
 }
 
-async function paintModelIcon(model: string) {
-  const icon = detailIconName(model)
-  if (icon)
-    await fetchLobeInlineSvg(icon)
-  modelIconTick.value += 1
-}
-
 /** 当前展示的模型一确定就拉图标，不必等点开模型列表 */
 function ensureModelIcon(model: string) {
-  const name = String(model || '').trim()
-  if (!name)
-    return
-  if (detailIconName(name)) {
-    paintModelIcon(name)
-    return
-  }
-  void prefetchModelDetails([name]).then(() => paintModelIcon(name))
+  const icon = listedIcon(model)
+  if (icon)
+    void fetchLobeInlineSvg(icon)
 }
 
-/** 点开模型菜单后再补这一类的图标，已有图标名的不再打详情 */
-async function warmModelIcons(type = modelTab.value) {
+/** 点开模型菜单后预取这一类的图标文件，名字来自列表 */
+function warmModelIcons(type = modelTab.value) {
   const group = modelGroups.value.find(item => item.type === type)
   const ids = (group?.items || []).map(item => item.model)
   if (displayModel.value && !agentAutoModel.value)
     ids.push(displayModel.value.model)
-  const missing = ids.filter(id => !detailIconName(id))
-  if (missing.length)
-    await prefetchModelDetails(missing)
-  await Promise.all(ids.map(id => fetchLobeInlineSvg(detailIconName(id))))
-  modelIconTick.value += 1
+  for (const id of ids) {
+    const icon = listedIcon(id)
+    if (icon)
+      void fetchLobeInlineSvg(icon)
+  }
 }
 
 watch(displayModel, (model) => {

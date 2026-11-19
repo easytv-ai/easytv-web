@@ -7,6 +7,7 @@ import { authUserHeaders } from '~/utils/auth-user'
 import {
   concatOutputTruncated,
   extractAudioArgs,
+  speechAudioArgs,
   keepRanges,
   mergeReadableUrl,
   mergeReencodeArgs,
@@ -253,6 +254,82 @@ export async function mergeVideoBlobs(
   }
   finally {
     await Promise.all([...names, 'merged.mp4'].map(file => ffmpeg.deleteFile(file).catch(() => undefined)))
+  }
+}
+
+/** 抽出 16k 单声道音轨，给语音转字幕用。 */
+export async function extractSpeechBlob(
+  url: string,
+  onProgress?: (progress: MergeVideoProgress) => void,
+) {
+  if (!import.meta.client)
+    throw new MergeVideoError('browser')
+  const report = (progress: MergeVideoProgress) => onProgress?.({ ...progress, job: 'split-av' })
+  const ffmpeg = await loadFfmpeg(report)
+  const input = 'speech-in'
+  const output = 'speech.m4a'
+  try {
+    report({ phase: 'reading', progress: 12 })
+    await writeSource(ffmpeg, url, input)
+    report({ phase: 'encoding', progress: 40 })
+    const code = await ffmpeg.exec(speechAudioArgs(input, output))
+    if (code !== 0)
+      throw new MergeVideoError('encode')
+    return await outputBlob(ffmpeg, output, 'audio/mp4')
+  }
+  finally {
+    await Promise.all([input, output].map(file => ffmpeg.deleteFile(file).catch(() => undefined)))
+  }
+}
+
+/**
+ * 片段重拍拼接：源视频的头、新片段、源视频的尾。
+ * 新片段比选区长就裁到选区长度；某一头贴着片头或片尾就省掉。
+ */
+export async function stitchRetakeBlob(
+  sourceUrl: string,
+  clipUrl: string,
+  range: { start: number, end: number, duration: number },
+  onProgress?: (progress: MergeVideoProgress) => void,
+) {
+  if (!import.meta.client)
+    throw new MergeVideoError('browser')
+  const start = Math.max(0, range.start)
+  const end = Math.max(start, range.end)
+  const total = Math.max(end, range.duration)
+  const owned: string[] = []
+  try {
+    const parts: string[] = []
+    if (start > 0.2) {
+      const head = await trimVideoBlob(sourceUrl, 0, start, onProgress)
+      const url = URL.createObjectURL(head)
+      owned.push(url)
+      parts.push(url)
+    }
+    const span = Math.max(0.3, end - start)
+    let middle: Blob
+    try {
+      middle = await trimVideoBlob(clipUrl, 0, span, onProgress)
+    }
+    catch {
+      middle = await readVideoBlob(clipUrl)
+    }
+    const midUrl = URL.createObjectURL(middle)
+    owned.push(midUrl)
+    parts.push(midUrl)
+    if (total - end > 0.2) {
+      const tail = await trimVideoBlob(sourceUrl, end, total, onProgress)
+      const url = URL.createObjectURL(tail)
+      owned.push(url)
+      parts.push(url)
+    }
+    if (parts.length < 2)
+      return await readVideoBlob(parts[0] || clipUrl)
+    return await mergeVideoBlobs(parts, onProgress)
+  }
+  finally {
+    for (const url of owned)
+      URL.revokeObjectURL(url)
   }
 }
 

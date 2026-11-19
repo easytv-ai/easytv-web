@@ -9,7 +9,6 @@ import type { CanvasOverlayKey } from '~/composables/useCanvasToolOverlays'
 import type { Asset, GeneratePayload, GenerationModel, GenerationTask, TaskInput } from '~/types/creative'
 import { cameraMovesPrompt, isRetakeNode, RETAKE_SEGMENT_COUNT, type CanvasNodeData } from '~/utils/canvas-node-kinds'
 import { isContentNode, isNodeLocked, nodeSize, type CanvasFlowNode } from '~/utils/canvas-group'
-import { expandPromptTokens } from '~/utils/canvas-mark'
 import type { ExtendStudioPayload, ExtendStudioRef } from '~/utils/canvas-extend-studio'
 import { isMediaUrl } from '~/utils/media'
 import { shortModelName } from '~/utils/model-name'
@@ -55,11 +54,6 @@ export function useCanvasVideoOps(opts: {
   extendStripOpen: Ref<boolean>
   canvasId: () => number
 }) {
-  const extendOpen = ref(false)
-  const extendBusy = ref(false)
-  /** 打开续写弹窗时锁定源节点，弹窗期间选中项变了也不跑偏 */
-  const extendSource = ref<{ nodeId: string, taskId: number, assetId?: number, prompt: string } | null>(null)
-
   /** 超分 / 续写要「已完成的视频」：有来源任务或已入库资产都行（上传 / 处理得到的视频没有任务）；重拍另要求来源任务 */
   const videoOpsNode = computed(() => {
     const node = opts.selected.value
@@ -87,13 +81,11 @@ export function useCanvasVideoOps(opts: {
     return { node, taskId, assetId }
   }
 
-  /** 片段重拍：在源视频右侧派生节点，用胶片条圈选要重拍的片段；点「生成」走 retake_segment（API.md 23.8） */
+  /** 片段重拍：在源视频右侧派生节点，用胶片条圈选要重拍的片段；点「生成」在浏览器抽帧后提交视频任务 */
   function onNodeMenuRetake() {
     opts.nodeMenu.value = null
     const from = opts.selected.value
     if (!from || !isContentNode(from) || isNodeLocked(from, opts.nodes.value))
-      return
-    if (!opts.ensureMediaAction('retake_segment'))
       return
     if (from.data.kind !== 'video' && from.data.kind !== 'director')
       return
@@ -185,6 +177,7 @@ export function useCanvasVideoOps(opts: {
         name,
         desc: label && label !== name ? label : String(item.provider || ''),
         priced: Boolean(item.priced),
+        icon: String(item.icon || ''),
       }
     }))
 
@@ -242,7 +235,7 @@ export function useCanvasVideoOps(opts: {
     })
   }
 
-  /** 智能续写弹窗提交：延长走源任务/资产续写接口，片段重拍走 retake_segment 媒体作业，其余类型按视频生成（POST /user/task）提交 */
+  /** 智能续写弹窗提交：延长用浏览器抽出的尾帧当首帧提交视频任务，片段重拍走浏览器抽帧，其余类型按视频生成（POST /user/task）提交 */
   async function onExtendStudioSubmit(payload: ExtendStudioPayload) {
     const node = opts.findNode(extendStudioNodeId.value)
     if (!node || !isContentNode(node))
@@ -258,7 +251,7 @@ export function useCanvasVideoOps(opts: {
       finalPrompt = `${finalPrompt}\n${opts.t('运镜：{moves}', { moves: camLine })}`
 
     if (payload.type === 'retake') {
-      // 片段重拍：把选区写回 retakeParams，交回现有的 retake_segment 提交链路
+      // 片段重拍：把选区写回 retakeParams，再在浏览器抽帧并提交视频任务
       const params = node.data.retakeParams
       if (!params) {
         opts.notify(opts.t('请重新发起片段重拍'), 'error')
@@ -280,35 +273,18 @@ export function useCanvasVideoOps(opts: {
       return
     }
 
-    if (payload.type === 'extend') {
-      const taskId = Number(node.data.taskId)
-      const assetId = Number(node.data.assetId)
-      // 上传 / 处理得到的视频没有来源任务：按资产续写（API.md 30）；两者都没有时先入库
-      if (!(taskId > 0) && !(assetId > 0)) {
-        opts.notify(opts.t('请先把视频保存到资产库'), 'error')
-        return
-      }
-      extendSource.value = {
-        nodeId: node.id,
-        taskId: taskId > 0 ? taskId : 0,
-        assetId: taskId > 0 ? undefined : assetId,
-        prompt: String(node.data.prompt || '').trim(),
-      }
-      extendStudioOpen.value = false
-      await onExtendSubmit({ prompt: finalPrompt || extendSource.value.prompt, seconds: Math.max(1, Math.round(payload.seconds)), model: payload.model })
-      return
-    }
-
-    // 全能参考 / 首尾帧 / 视频编辑：源视频入库后按视频生成提交
+    // 全能参考 / 视频编辑要源视频已入库。延长和首尾帧只用浏览器抽出的尾帧，不走服务器抽帧
     const assetId = Number(node.data.assetId)
-    if (payload.type !== 'fl2v' && !(assetId > 0)) {
+    if (payload.type !== 'fl2v' && payload.type !== 'extend' && !(assetId > 0)) {
       opts.notify(opts.t('请先把视频保存到资产库'), 'error')
       return
     }
-    if (payload.type === 'fl2v' && !payload.firstFrameAssetId) {
+    if ((payload.type === 'fl2v' || payload.type === 'extend') && !payload.firstFrameAssetId) {
       opts.notify(opts.t('没能抽出选区尾帧，请重试或换一段视频'), 'error')
       return
     }
+    if (payload.type === 'extend' && !finalPrompt)
+      finalPrompt = opts.t('承接上一段画面，自然延续镜头与动作')
     extendStudioBusy.value = true
     try {
       const from = node
@@ -328,12 +304,14 @@ export function useCanvasVideoOps(opts: {
       })
       opts.updateNodeData(newId, { prompt: finalPrompt })
       const inputs: TaskInput[] = []
-      if (payload.type === 'fl2v') {
+      if (payload.type === 'fl2v' || payload.type === 'extend') {
         if (payload.firstFrameAssetId)
           inputs.push({ asset_id: payload.firstFrameAssetId, role: 'first_frame' })
-        const lastImage = payload.refs.find(item => item.kind === 'image')
-        if (lastImage)
-          inputs.push({ asset_id: lastImage.assetId, role: 'last_frame' })
+        if (payload.type === 'fl2v') {
+          const lastImage = payload.refs.find(item => item.kind === 'image')
+          if (lastImage)
+            inputs.push({ asset_id: lastImage.assetId, role: 'last_frame' })
+        }
       }
       else {
         inputs.push({ asset_id: assetId, role: 'reference_video' })
@@ -343,7 +321,7 @@ export function useCanvasVideoOps(opts: {
         }
       }
       const params: Record<string, unknown> = {
-        mode: payload.type === 'fl2v' ? 'fl2v' : 'reference',
+        mode: payload.type === 'fl2v' || payload.type === 'extend' ? 'fl2v' : 'reference',
         resolution: payload.resolution,
         duration: payload.seconds,
         audio: payload.audio,
@@ -366,67 +344,6 @@ export function useCanvasVideoOps(opts: {
     }
     finally {
       extendStudioBusy.value = false
-    }
-  }
-
-  /** 续写：结果落在源节点右侧的新视频节点上，并从源节点连一条线过去 */
-  async function onExtendSubmit(payload: { prompt: string, seconds: number, model?: string }) {
-    const source = extendSource.value
-    if (!source || extendBusy.value)
-      return
-    extendBusy.value = true
-    try {
-      // 先建节点再提交，这样能把新节点 id 一起发给后端（任务归属正确）；失败则回滚节点
-      const from = opts.findNode(source.nodeId)
-      if (!from) {
-        opts.notify(opts.t('源节点已不存在'), 'error')
-        return
-      }
-      const box = nodeSize(from)
-      const newId = opts.addNode('video', from.position.x + box.w + 80, from.position.y, from.parentNode ?? null)
-      if (!newId) {
-        opts.notify(opts.t('提交失败'), 'error')
-        return
-      }
-      opts.addEdges({
-        id: `e-${from.id}-${newId}-${Date.now()}`,
-        source: from.id,
-        target: newId,
-        sourceHandle: 'out',
-        targetHandle: 'in',
-        ...opts.defaultEdgeOptions,
-      })
-      opts.updateNodeData(newId, { prompt: payload.prompt || source.prompt })
-      const body: { prompt?: string, seconds?: number, node_id?: string, model?: string } = { node_id: newId }
-      if (payload.model)
-        body.model = payload.model
-      if (payload.prompt)
-        body.prompt = expandPromptTokens(payload.prompt, isContentNode(from) ? from.data.markElements : null)
-      if (payload.seconds > 0)
-        body.seconds = payload.seconds
-      const res = source.taskId > 0
-        ? await taskApi.extend(source.taskId, body)
-        : await taskApi.extendAsset(Number(source.assetId), { ...body, canvas_id: opts.canvasId() || undefined })
-      if (!res?.success || !res.data) {
-        opts.removeNodes([newId])
-        opts.notify(res?.message || opts.t('提交失败'), 'error')
-        return
-      }
-      extendOpen.value = false
-      opts.extendStripOpen.value = false
-      opts.applyTaskToNode(newId, res.data)
-      opts.pushHistory()
-      void opts.refreshWallet()
-      if (res.data.status === 'pending' || res.data.status === 'running') {
-        opts.notify(opts.t('已提交续写任务'))
-        opts.pollTask(newId, res.data.id)
-      }
-      else if (res.data.status === 'failed') {
-        opts.notify(res.data.error_msg || opts.t('生成失败'), 'error')
-      }
-    }
-    finally {
-      extendBusy.value = false
     }
   }
 
@@ -482,9 +399,6 @@ export function useCanvasVideoOps(opts: {
   })
 
   return {
-    extendOpen,
-    extendBusy,
-    extendSource,
     canVideoOps,
     canRetake,
     onNodeMenuRetake,
@@ -501,7 +415,6 @@ export function useCanvasVideoOps(opts: {
     openExtendStudio,
     pickExtendStudioRefs,
     onExtendStudioSubmit,
-    onExtendSubmit,
     onNodeMenuUpscale,
     retakeClip,
   }

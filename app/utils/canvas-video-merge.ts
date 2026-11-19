@@ -229,6 +229,11 @@ export function extractAudioArgs(input: string, output: string) {
   return ['-i', input, '-vn', '-c:a', 'aac', '-b:a', '192k', output]
 }
 
+/** 送给语音转写的音轨：16k 单声道，最长 20 分钟，浏览器里抽，不再要服务器 ffmpeg */
+export function speechAudioArgs(input: string, output: string) {
+  return ['-i', input, '-vn', '-ac', '1', '-ar', '16000', '-c:a', 'aac', '-b:a', '48k', '-t', '1200', output]
+}
+
 export function muteVideoCopyArgs(input: string, output: string) {
   return ['-i', input, '-c:v', 'copy', '-an', '-movflags', '+faststart', output]
 }

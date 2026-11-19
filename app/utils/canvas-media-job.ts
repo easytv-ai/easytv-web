@@ -40,14 +40,12 @@ export function pickMediaSourceNode<T extends { id: string }>(
  * 画布工具条按钮 → 媒体工具动作（API.md 23）。
  * 只列需要按 GET /user/media/actions 的 available 决定能不能点的按钮；没列的按钮不受清单影响。
  * 片段裁剪 / 视频分割 / 分离音频 / 去停顿 / 配乐 / 取帧 / 画面裁切 / 抽帧
- * 在浏览器里用 ffmpeg.wasm 或现有视觉模型完成，故意不映射到服务端动作。
+ * 智能续写 / 宫格切分 / 片段重拍在浏览器里完成，故意不映射到服务端动作。
+ * 语音转字幕仍看清单里有没有转写模型；抽音轨在浏览器里做。
  */
 export const MEDIA_BAR_ACTIONS: Record<string, string> = {
   'hd': 'upscale',
   'depth': 'depth_extract',
-  'retake': 'retake_segment',
-  'smart-extend': 'extend',
-  'grid-split': 'grid_split',
   'depth-motion': 'motion_capture',
   'remove-subtitles': 'remove_subtitle',
   'box-subtitles': 'remove_subtitle',

@@ -1,10 +1,8 @@
 <script setup lang="ts">
 import assetApi from '~/api/asset'
-import mediaApi from '~/api/media'
 import taskApi from '~/api/task'
-import type { GenerationModel, GenerationTask, MediaJob } from '~/types/creative'
+import type { GenerationModel, GenerationTask } from '~/types/creative'
 import { cropImage } from '~/utils/canvas-image-edit'
-import { isMediaJobActive, mediaOutputsOf } from '~/utils/canvas-media-job'
 import { listImageEditModels, pickVisionTextModel } from '~/utils/image-input'
 import { effectiveUnitPrice, estimateTaskPoints, modelPromoDisplay } from '~/utils/model-price'
 import { shortModelName } from '~/utils/model-name'
@@ -18,7 +16,7 @@ const { isMember } = useWallet()
 const props = withDefaults(defineProps<{
   open: boolean
   src: string
-  /** 原图资产。有编号时框选识别走服务端裁切，避免浏览器跨域读不到像素 */
+  /** 原图资产编号，识别上传后的图片仍记在素材上 */
   assetId?: number
   refs: SmartEditRef[]
   submitting?: boolean
@@ -671,37 +669,6 @@ async function cropRegionBlob(item: SmartRegion) {
   })
 }
 
-/** 框选区域交给服务端裁成一张图。OSS 没有跨域头时浏览器 canvas 裁不出来 */
-async function cropRegionOnServer(item: SmartRegion, gen: number): Promise<{ id: number, url: string } | null> {
-  const created = await mediaApi.create({
-    action: 'crop',
-    asset_id: props.assetId,
-    params: { rect: regionNorm(item) },
-  })
-  if (gen !== recognizeGen || !props.open)
-    return null
-  if (!created?.success || !created.data)
-    throw new Error(created?.message || t('识别失败，请稍后重试'))
-  let job: MediaJob = created.data
-  const deadline = Date.now() + 90_000
-  while (isMediaJobActive(job.status)) {
-    if (Date.now() > deadline)
-      throw new Error(t('识别超时，请稍后重试'))
-    await new Promise(resolve => setTimeout(resolve, 1600))
-    if (gen !== recognizeGen || !props.open)
-      return null
-    const poll = await mediaApi.get(job.id)
-    if (poll?.success && poll.data)
-      job = poll.data
-  }
-  if (job.status !== 2)
-    throw new Error(job.error || t('识别失败，请稍后重试'))
-  const output = mediaOutputsOf(job).find(row => row.asset_id > 0 && row.url)
-  if (!output)
-    throw new Error(t('识别失败，请稍后重试'))
-  return { id: output.asset_id, url: output.url }
-}
-
 async function uploadRegionCrop(item: SmartRegion, gen: number): Promise<{ id: number, url: string } | null> {
   const blob = await cropRegionBlob(item)
   if (gen !== recognizeGen || !props.open)
@@ -750,9 +717,7 @@ async function recognizeRegion(item: SmartRegion) {
       useToast().add({ title: t('暂无可用的识别模型'), color: 'error' })
       return
     }
-    const cropped = props.assetId > 0
-      ? await cropRegionOnServer(item, gen)
-      : await uploadRegionCrop(item, gen)
+    const cropped = await uploadRegionCrop(item, gen)
     if (!cropped || gen !== recognizeGen || !props.open)
       return
     const created = await taskApi.create({

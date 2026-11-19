@@ -27,7 +27,7 @@ const props = withDefaults(defineProps<{
   open: boolean
   src: string
   prompt?: string
-  models?: Array<{ id: string, name: string, desc: string, priced: boolean }>
+  models?: Array<{ id: string, name: string, desc: string, priced: boolean, icon?: string }>
   refs?: ExtendStudioRef[]
   submitting?: boolean
   /** 浏览器读不到视频时的时长兜底（秒），来自资产库 */
@@ -155,6 +155,10 @@ const points = computed(() => {
   const sec = duration.value > 0 ? span * duration.value : span * 5
   return estimateTaskPoints(effectiveUnitPrice(found, isMember.value), found.unit, 1, sec)
 })
+
+function modelIconOf(id: string) {
+  return String(props.models.find(item => item.id === id)?.icon || '').trim()
+}
 
 function toggleCamera(id: string) {
   cameraMoves.value = cameraMoves.value.includes(id)
@@ -406,7 +410,7 @@ function onSubmit() {
   }
   void (async () => {
     let firstFrameAssetId: number | undefined
-    if (type.value === 'fl2v') {
+    if (type.value === 'fl2v' || type.value === 'extend') {
       const id = await uploadTailFrame()
       if (!id)
         return
@@ -647,7 +651,7 @@ const fallbackTicks = computed(() => {
             <div class="ext-studio__bar">
               <div class="ext-studio__bar-left">
                 <button type="button" class="ext-studio__bar-btn is-model" data-pop="model" @click="popover = popover === 'model' ? '' : 'model'">
-                  <UIcon name="i-lucide-audio-lines" class="size-4" />
+                  <CanvasModelIcon :icon="modelIconOf(modelId)" :fallback="modelMeta?.name || ''" />
                   <span class="ext-studio__bar-name">{{ modelMeta?.name || t('选择模型') }}</span>
                   <UIcon name="i-lucide-chevron-down" class="size-3 ext-studio__caret" />
                 </button>
@@ -712,12 +716,10 @@ const fallbackTicks = computed(() => {
                 :class="{ 'is-on': item.id === modelId }"
                 @click="modelId = item.id; popover = ''"
               >
-                <span class="ext-studio__model-icon">
-                  <UIcon name="i-lucide-clapperboard" class="size-4" />
-                </span>
+                <CanvasModelIcon :icon="modelIconOf(item.id)" :fallback="item.name" />
                 <span class="ext-studio__model-meta">
                   <strong>{{ item.name }}</strong>
-                  <small>{{ item.desc || (item.priced ? '' : t('未定价')) }}</small>
+                  <small v-if="item.desc || !item.priced">{{ item.desc || t('未定价') }}</small>
                 </span>
                 <UIcon v-if="item.id === modelId" name="i-lucide-check" class="size-4 ext-studio__model-check" />
               </button>
@@ -1293,6 +1295,13 @@ const fallbackTicks = computed(() => {
   color: #f3f3f4;
 }
 
+.ext-studio__bar-btn .canvas-chat__model-logo {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  font-size: 10px;
+}
+
 .ext-studio__bar-name {
   overflow: hidden;
   max-width: 168px;
@@ -1342,13 +1351,13 @@ const fallbackTicks = computed(() => {
   margin-left: 6px;
   border: 0;
   border-radius: 999px;
-  background: #d946ef;
-  color: #fff;
+  background: var(--st-on);
+  color: var(--st-on-text);
   cursor: pointer;
 }
 
 .ext-studio__send:hover:not(:disabled) {
-  background: #e879f9;
+  filter: brightness(0.92);
 }
 
 .ext-studio__send:disabled {
@@ -1372,9 +1381,10 @@ const fallbackTicks = computed(() => {
 }
 
 .ext-studio__pop--model {
-  width: 300px;
+  width: min(320px, calc(100% - 24px));
   left: 12px;
   bottom: 52px;
+  overflow-x: hidden;
 }
 
 .ext-studio__pop--type {
@@ -1424,10 +1434,12 @@ const fallbackTicks = computed(() => {
 
 .ext-studio__model {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 8px;
   width: 100%;
-  padding: 6px;
+  min-width: 0;
+  max-width: 100%;
+  padding: 7px 8px;
   border: 0;
   border-radius: 8px;
   background: transparent;
@@ -1441,36 +1453,39 @@ const fallbackTicks = computed(() => {
   background: rgba(255, 255, 255, 0.08);
 }
 
-.ext-studio__model-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.08);
-  color: #9a9aa3;
-}
-
 .ext-studio__model-meta {
   display: flex;
+  flex: 1;
   flex-direction: column;
+  gap: 2px;
   min-width: 0;
+  overflow: hidden;
+}
+
+.ext-studio__model-meta strong,
+.ext-studio__model-meta small {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .ext-studio__model-meta strong {
   font-size: 12px;
+  font-weight: 600;
+  line-height: 1.35;
 }
 
 .ext-studio__model-meta small {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
   color: #9a9aa3;
-  font-size: 10px;
+  font-size: 11px;
+  line-height: 1.35;
 }
 
 .ext-studio__model-check {
+  flex-shrink: 0;
+  margin-top: 2px;
   margin-left: auto;
   color: #f3f3f4;
 }
@@ -1538,7 +1553,8 @@ const fallbackTicks = computed(() => {
 }
 
 .ext-studio__pick.is-on {
-  background: rgba(255, 255, 255, 0.18);
+  background: var(--st-on);
+  color: var(--st-on-text);
   font-weight: 600;
 }
 
@@ -1604,10 +1620,11 @@ const fallbackTicks = computed(() => {
 }
 
 .ext-studio__switch.is-on {
-  background: #e879f9;
+  background: var(--st-on);
 }
 
 .ext-studio__switch.is-on i {
   left: 16px;
+  background: var(--st-on-text);
 }
 </style>

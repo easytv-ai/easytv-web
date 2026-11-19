@@ -17,6 +17,9 @@ import {
   upscalePrompt,
   upscaleRatio,
   upscaleTierSize,
+  cropImageFraction,
+  montageImages,
+  sliceImageFractions,
 } from '~/utils/canvas-image-edit'
 import {
   captureVideoFrame,
@@ -28,10 +31,10 @@ import {
   samplePromptReverseTimes,
 } from '~/utils/canvas-video-frame'
 import { isGptImageModel, pickCanvasImageEditModel, pickImageEditModel, pickImageUpscaleModel, pickVisionTextModel, preferredImageModel } from '~/utils/image-input'
-import { cellNodeLayout, type GridCell } from '~/utils/canvas-grid-split'
-import { montageNodeSize, montageParams, type MontageOptions, type MontageSource } from '~/utils/canvas-montage'
+import { cellNodeLayout, fitCellBox, type GridCell } from '~/utils/canvas-grid-split'
+import { MONTAGE_CELL, montageCellAspect, montageNodeSize, type MontageOptions, type MontageSource } from '~/utils/canvas-montage'
 import { applyOptimizedPrompt, canOptimizePrompt, cleanOptimizedPrompt, promptOptimizeInstruction } from '~/utils/canvas-prompt-optimize'
-import { mediaGridLayout, mediaSourceRef } from '~/utils/canvas-media-job'
+import { mediaGridLayout } from '~/utils/canvas-media-job'
 import { expandPromptTokens } from '~/utils/canvas-mark'
 import { isMediaUrl, resolveMediaUrl } from '~/utils/media'
 import { canvasMergeRunning, publishMergeProgress, trackMergeUpload } from '~/utils/canvas-merge-state'
@@ -1328,15 +1331,32 @@ async function onTranscribeConfirm(opts: { language: string, diarize: boolean, m
   const from = findNode(transcribeDialog.sourceId) as CanvasFlowNode | undefined
   if (!from || !isContentNode(from))
     return
-  const source = mediaSourceOf(from)
-  if (!source)
+  const raw = String(from.data.content || '').trim()
+  if (!raw || !isMediaUrl(raw))
     return
+  const url = resolveMediaUrl(raw)
+  const blob = await withBrowserMediaJob('split-av', async () => {
+    const { extractSpeechBlob } = await import('~/utils/canvas-video-merge.ffmpeg')
+    return extractSpeechBlob(url, publishMergeProgress)
+  })
+  if (!blob)
+    return
+  const file = new File([blob], 'speech.m4a', { type: 'audio/mp4' })
+  const uploaded = await assetApi.upload(file)
+  if (!uploaded?.success || !uploaded.data?.id) {
+    notify(uploaded?.message || t('提交失败'), 'error')
+    return
+  }
   const textNode = spawnDerivedText(from, '字幕') as CanvasFlowNode & { data: CanvasNodeData }
   updateNodeData(textNode.id, { label: `${transcribeDialog.sourceLabel}_${t('字幕')}` })
-  const params: Record<string, unknown> = { language: opts.language }
+  const params: Record<string, unknown> = {
+    language: opts.language,
+    prepared: true,
+    duration: transcribeDialog.duration > 0 ? transcribeDialog.duration : undefined,
+  }
   if (opts.diarize)
     params.diarize = true
-  await submitMediaJob(textNode, 'transcribe', source, params, { label: '语音转字幕', model: opts.model, dropOnFail: [textNode.id] })
+  await submitMediaJob(textNode, 'transcribe', { asset_id: uploaded.data.id }, params, { label: '语音转字幕', model: opts.model, dropOnFail: [textNode.id] })
 }
 
 /** 去停顿：浏览器 ffmpeg 剪掉长静音，音画同步。 */
@@ -1670,8 +1690,7 @@ function onOptimizeApply(mode: OptimizeApplyMode) {
 }
 
 /**
- * 分镜组拼接确认：结果节点落在选区右侧，作业交给本地 ffmpeg（免费）。
- * asset_ids 已按阅读顺序排好，请求的 asset_id 取第一张（后端要求它在列表里）。
+ * 分镜组拼接：在浏览器里把选中的图拼成一张宫格，结果落在选区右侧。
  */
 async function onMontageConfirm(opts: MontageOptions) {
   const ordered = montageSources.value
@@ -1683,21 +1702,45 @@ async function onMontageConfirm(opts: MontageOptions) {
   const first = findNode(ordered[0]!.id) as CanvasFlowNode | undefined
   if (!first || !isContentNode(first))
     return
+  const urls = ordered.map(item => item.url).filter(Boolean)
+  if (urls.length < 2) {
+    notify(t('请先把图片保存到资产库'), 'error')
+    return
+  }
   const right = Math.max(...ordered.map(item => item.x + item.w))
   const top = Math.min(...ordered.map(item => item.y))
   const size = montageNodeSize(ordered.length, opts, ordered[0])
+  let blob: Blob
+  try {
+    const aspect = montageCellAspect(opts.ratio, ordered[0])
+    blob = await montageImages(urls, {
+      cols: opts.cols,
+      gap: opts.gap,
+      number: opts.number,
+      cellW: MONTAGE_CELL,
+      cellH: Math.max(2, Math.round(MONTAGE_CELL / aspect)),
+    })
+  }
+  catch {
+    notify(t('拼接失败，请重试'), 'error')
+    return
+  }
+  const localUrl = URL.createObjectURL(blob)
   const sibling = spawnMediaNode(first, 'image', t('分镜组'), t('分镜组 {n} 张', { n: ordered.length }), {
     at: { x: right + 80, y: top },
     w: size.w,
     h: size.h,
-    data: { prompt: '' },
+    select: true,
+    data: {
+      content: localUrl,
+      prompt: '',
+      taskStatus: 'succeeded',
+      taskProgress: 100,
+      taskError: '',
+    },
   })
-  await submitMediaJob(sibling, 'montage', { asset_id: ordered[0]!.assetId }, montageParams(ordered, opts), {
-    label: '分镜组拼接',
-    dropOnFail: [sibling.id],
-  })
-  // 源节点按阅读顺序收进一个分镜组（可改列数 / 转普通组）；已经在别的组里的不动，避免重挂父节点
   groupStoryboard(ordered.map(item => item.id), opts.cols)
+  void uploadBrowserMedia(sibling.id, blob, 'montage.jpg', 'image/jpeg').catch(() => undefined)
 }
 
 /**
@@ -1794,36 +1837,60 @@ function onGridSplit() {
 }
 
 /**
- * 宫格切分确认：一次 grid_split 作业出 N 片（本地 ffmpeg，免费）。
- * 不在浏览器里裁：OSS 图片没有 CORS 头，读不到像素；也不拆成 N 个 crop 作业：会撞单用户 3 个的排队上限。
- * 作业挂在第一片的位置上，产物回来后第一片落在它身上、其余按原行列摆开，一起打成一组。
+ * 宫格切分：浏览器按分割线把原图裁开。跨域图走本站代理读像素。
+ * 第一片落在源节点右侧，其余按原行列摆开，一起打成一组。
  */
 async function onGridSplitConfirm(cells: GridCell[]) {
   const node = findNode(gridSplitNodeId.value) as CanvasFlowNode | undefined
   gridSplitOpen.value = false
-  if (!node || !isContentNode(node) || !cells.length)
+  if (!node || !isContentNode(node) || !cells.length || nodeFrozen(node))
     return
-  if (!ensureMediaAction('grid_split'))
+  const src = nodeImageUrl(node)
+  if (!src) {
+    notify(t('这个节点还没有图片'), 'error')
     return
-  const assetId = Number(node.data.assetId)
-  if (!(assetId > 0)) {
-    notify(t('请先把图片保存到资产库'), 'error')
+  }
+  let slices: Blob[]
+  try {
+    slices = await sliceImageFractions(src, cells)
+  }
+  catch {
+    notify(t('切分失败，请重试'), 'error')
     return
   }
   const box = nodeSize(node)
   const source = { x: node.position.x, y: node.position.y, w: box.w, h: box.h }
   const label = node.data.label || t('图片')
-  const first = cellNodeLayout(cells[0]!, source)
-  const holder = spawnMediaNode(node, 'image', t('宫格切分'), `${label}_1`, {
-    at: { x: first.x, y: first.y },
-    w: first.w,
-    h: first.h,
-    // 切片沿用源图提示词（产物回来后其余切片也从这里抄）
-    data: { prompt: String(node.data.prompt || ''), gridSplit: { source, cells: cells.map(cell => ({ ...cell })) } },
-  })
-  await submitMediaJob(holder, 'grid_split', { asset_id: assetId }, {
-    cells: cells.map(cell => ({ x: cell.x, y: cell.y, w: cell.w, h: cell.h })),
-  }, { label: '宫格切分', dropOnFail: [holder.id] })
+  const prompt = String(node.data.prompt || '')
+  const ids: string[] = []
+  for (let i = 0; i < slices.length; i++) {
+    const cell = cells[i]
+    const blob = slices[i]
+    if (!cell || !blob)
+      continue
+    const layout = cellNodeLayout(cell, source)
+    const bitmap = await createImageBitmap(blob).catch(() => null)
+    const fitted = bitmap ? fitCellBox({ w: bitmap.width, h: bitmap.height }, layout) : null
+    bitmap?.close()
+    const localUrl = URL.createObjectURL(blob)
+    const sibling = spawnMediaNode(node, 'image', t('宫格切分'), `${label}_${i + 1}`, {
+      at: { x: layout.x, y: layout.y },
+      w: fitted?.w || layout.w,
+      h: fitted?.h || layout.h,
+      select: i === 0,
+      data: {
+        content: localUrl,
+        prompt,
+        taskStatus: 'succeeded',
+        taskProgress: 100,
+        taskError: '',
+      },
+    })
+    ids.push(sibling.id)
+    void uploadBrowserMedia(sibling.id, blob, `grid-${i + 1}.jpg`, 'image/jpeg').catch(() => undefined)
+  }
+  if (ids.length > 1)
+    nextTick(() => groupNodeList?.(ids))
 }
 
 async function onCropConfirm(box: {
@@ -1846,7 +1913,7 @@ async function onCropConfirm(box: {
 }
 
 /**
- * 图片裁剪走服务端 crop 作业。OSS 图没有跨域头，浏览器 canvas 读不到像素。
+ * 图片裁剪在浏览器里完成。跨域图走本站代理读像素。
  * 原图留着，裁切结果落到下方新节点。
  */
 async function submitImageCrop(nodeId: string, box: {
@@ -1859,27 +1926,37 @@ async function submitImageCrop(nodeId: string, box: {
   const from = findNode(nodeId) as CanvasFlowNode | undefined
   if (!from || !isContentNode(from) || from.data.kind !== 'image')
     return
-  if (!ensureMediaAction('crop'))
-    return
-  const assetId = Number(from.data.assetId || from.data.refAssetId || 0)
-  const source = assetId > 0 ? { asset_id: assetId } : mediaSourceRef(from.data)
-  if (!source) {
-    notify(t('请先把图片保存到资产库'), 'error')
+  const src = nodeImageUrl(from)
+  if (!src) {
+    notify(t('这个节点还没有图片'), 'error')
     return
   }
   const rect = box.rect
   if (!rect || !(rect.w > 0) || !(rect.h > 0))
     return
+  let blob: Blob
+  try {
+    blob = await cropImageFraction(src, rect)
+  }
+  catch {
+    notify(t('裁剪失败，请重试'), 'error')
+    return
+  }
   const index = canvasKindIndex(nodes.value, from.id, 'image')
   const sourceLabel = from.data.label || canvasNodeTitle('image', index, t)
   const next = canvasFitMediaSize(Math.max(8, box.w), Math.max(8, box.h))
+  const localUrl = URL.createObjectURL(blob)
   const sibling = spawnMediaNode(from, 'image', '裁剪', `${sourceLabel}_${t('裁剪')}`, {
     place: 'down',
     w: next.w,
     h: next.h,
     select: true,
     data: {
+      content: localUrl,
       prompt: String(from.data.prompt || ''),
+      taskStatus: 'succeeded',
+      taskProgress: 100,
+      taskError: '',
       cropRect: {
         x: rect.x,
         y: rect.y,
@@ -1891,9 +1968,7 @@ async function submitImageCrop(nodeId: string, box: {
       },
     },
   })
-  await submitMediaJob(sibling, 'crop', source, {
-    rect: { x: rect.x, y: rect.y, w: rect.w, h: rect.h },
-  }, { label: '画面裁切', dropOnFail: [sibling.id] })
+  void uploadBrowserMedia(sibling.id, blob, 'crop.jpg', 'image/jpeg').catch(() => undefined)
 }
 
 async function runVideoCrop(nodeId: string, box: {
