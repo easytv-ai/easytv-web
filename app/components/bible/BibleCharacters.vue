@@ -4,6 +4,8 @@ import { TTS_VOICES } from '~/utils/plan-dialogue'
 import { BIBLE_LIMITS, bibleName, dropCharacterRefs, factLabel, knows, newCharacter, setKnowledge } from '~/utils/bible'
 
 const { t } = useI18n()
+const { confirm } = useConfirm()
+const root = ref<HTMLElement | null>(null)
 
 const props = defineProps<{
   bible: Bible
@@ -25,17 +27,29 @@ function characterOptions(exclude?: string) {
   ]
 }
 
-function addCharacter() {
+async function addCharacter() {
   if (props.bible.characters.length >= BIBLE_LIMITS.characters)
     return
   props.bible.characters.push(newCharacter(props.bible.characters))
   emit('change')
+  await nextTick()
+  const fields = root.value?.querySelectorAll<HTMLInputElement>('.bible-item__name')
+  fields?.[fields.length - 1]?.focus()
 }
 
-function removeCharacter(index: number) {
-  const removed = props.bible.characters.splice(index, 1)[0]
-  if (removed)
-    dropCharacterRefs(props.bible, removed.key)
+async function removeCharacter(index: number) {
+  const removed = props.bible.characters[index]
+  if (!removed)
+    return
+  if (!(await confirm({
+    title: t('删除'),
+    message: t('bible.character.remove', { name: removed.name || removed.key }),
+    confirmText: t('删除'),
+    danger: true,
+  })))
+    return
+  props.bible.characters.splice(index, 1)
+  dropCharacterRefs(props.bible, removed.key)
   emit('change')
 }
 
@@ -68,9 +82,13 @@ function toggleKnowledge(charKey: string, factKey: string) {
 </script>
 
 <template>
-  <div class="create-card plan-editor__block">
+  <div ref="root" class="create-card plan-editor__block">
     <header class="plan-editor__head">
-      <h3>{{ t('人物') }}</h3>
+      <h3>{{ t('人物') }}<small class="num">{{ bible.characters.length }}/{{ BIBLE_LIMITS.characters }}</small></h3>
+      <button v-if="bible.characters.length" type="button" class="studio-chip" :disabled="bible.characters.length >= BIBLE_LIMITS.characters" @click="addCharacter">
+        <UIcon name="i-lucide-plus" class="size-4" />
+        {{ t('添加人物') }}
+      </button>
     </header>
     <button v-if="!bible.characters.length" type="button" class="bible-empty" @click="addCharacter">
       <UIcon name="i-lucide-plus" class="size-4" />
@@ -79,8 +97,7 @@ function toggleKnowledge(charKey: string, factKey: string) {
     <article v-for="(c, i) in bible.characters" :key="c.key" class="bible-item">
       <header class="bible-item__head">
         <span class="plan-editor__key">{{ c.key }}</span>
-        <input v-model="c.name" class="bible-item__name" :maxlength="BIBLE_LIMITS.name" :placeholder="t('名字')" @input="emit('change')">
-        <span class="plan-shot__spacer" />
+        <input v-model="c.name" class="bible-item__name bible-item__name--wide" :maxlength="BIBLE_LIMITS.name" :placeholder="t('名字')" @input="emit('change')">
         <button type="button" class="plan-editor__icon is-danger" :aria-label="t('删除')" @click="removeCharacter(i)">
           <UIcon name="i-lucide-trash-2" class="size-4" />
         </button>
@@ -157,9 +174,5 @@ function toggleKnowledge(charKey: string, factKey: string) {
         </div>
       </div>
     </article>
-    <button v-if="bible.characters.length" type="button" class="bible-empty" :disabled="bible.characters.length >= BIBLE_LIMITS.characters" @click="addCharacter">
-      <UIcon name="i-lucide-plus" class="size-4" />
-      {{ t('添加人物') }}
-    </button>
   </div>
 </template>

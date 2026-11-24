@@ -30,8 +30,6 @@ definePageMeta({
   keepalive: false,
 })
 
-useHead({ title: () => t('剧集设定') })
-
 const route = useRoute()
 const localePath = useLocalePath()
 const toast = useToast()
@@ -49,6 +47,8 @@ const bible = ref<Bible>(emptyBible())
 const revision = ref(0)
 const dirty = ref(false)
 const saving = ref(false)
+
+useHead({ title: () => (dirty.value ? '* ' : '') + t('剧集设定') })
 const episodes = ref<Episode[]>([])
 const plans = ref<Record<number, ScreenplayPlan | null>>({})
 const plansLoading = ref(false)
@@ -141,7 +141,7 @@ async function reload() {
   await load()
 }
 
-onBeforeRouteLeave(async () => {
+async function confirmDiscard() {
   if (!dirty.value)
     return true
   return confirm({
@@ -150,6 +150,14 @@ onBeforeRouteLeave(async () => {
     confirmText: t('离开'),
     danger: true,
   })
+}
+
+onBeforeRouteLeave(() => confirmDiscard())
+onBeforeRouteUpdate((to) => {
+  const nextId = Number(Array.isArray(to.query.project) ? to.query.project[0] : to.query.project) || 0
+  if (nextId === projectId.value)
+    return true
+  return confirmDiscard()
 })
 
 // ---- 集目录 ----
@@ -293,6 +301,8 @@ watch([impactKind, impactValueOptions], () => {
 
 function openImpact() {
   impactOpen.value = true
+  if (dirty.value)
+    notify(t('bible.impact.unsaved'))
 }
 
 async function runImpact() {
@@ -318,7 +328,34 @@ async function runImpact() {
 
 const impactReady = computed(() => impactKind.value === 'text' ? !!impactText.value.trim() : !!impactValue.value)
 
-onMounted(() => void load())
+function jump(id: string) {
+  document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+}
+
+function onBeforeUnload(event: BeforeUnloadEvent) {
+  if (!dirty.value)
+    return
+  event.preventDefault()
+  event.returnValue = ''
+}
+
+function onKeydown(event: KeyboardEvent) {
+  if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== 's')
+    return
+  event.preventDefault()
+  if (dirty.value && !saving.value && projectId.value)
+    void save()
+}
+
+onMounted(() => {
+  window.addEventListener('keydown', onKeydown)
+  window.addEventListener('beforeunload', onBeforeUnload)
+  void load()
+})
+onUnmounted(() => {
+  window.removeEventListener('keydown', onKeydown)
+  window.removeEventListener('beforeunload', onBeforeUnload)
+})
 watch(projectId, () => void load())
 </script>
 
@@ -357,19 +394,19 @@ watch(projectId, () => void load())
           <textarea v-model="bible.logline" class="bible-logline" rows="2" :maxlength="BIBLE_LIMITS.logline" :placeholder="t('bible.loglinePlaceholder')" :aria-label="t('梗概')" @input="touch" />
         </div>
         <dl class="bible-ledger">
-          <div class="bible-ledger__lead">
+          <div class="bible-ledger__lead" role="button" tabindex="0" @click="jump('bible-cast')" @keydown.enter.prevent="jump('bible-cast')" @keydown.space.prevent="jump('bible-cast')">
             <dt>{{ t('人物') }}</dt>
             <dd><span class="num">{{ bible.characters.length }}</span><small>/{{ BIBLE_LIMITS.characters }}</small></dd>
           </div>
-          <div>
+          <div role="button" tabindex="0" @click="jump('bible-props')" @keydown.enter.prevent="jump('bible-props')" @keydown.space.prevent="jump('bible-props')">
             <dt>{{ t('道具') }}</dt>
             <dd><span class="num">{{ bible.props.length }}</span><small>/{{ BIBLE_LIMITS.props }}</small></dd>
           </div>
-          <div>
+          <div role="button" tabindex="0" @click="jump('bible-threads')" @keydown.enter.prevent="jump('bible-threads')" @keydown.space.prevent="jump('bible-threads')">
             <dt>{{ t('线索') }}</dt>
             <dd><span class="num">{{ bible.threads.length }}</span><small>/{{ BIBLE_LIMITS.threads }}</small></dd>
           </div>
-          <div>
+          <div role="button" tabindex="0" @click="jump('bible-facts')" @keydown.enter.prevent="jump('bible-facts')" @keydown.space.prevent="jump('bible-facts')">
             <dt>{{ t('事实') }}</dt>
             <dd><span class="num">{{ bible.facts.length }}</span><small>/{{ BIBLE_LIMITS.facts }}</small></dd>
           </div>
@@ -396,10 +433,10 @@ watch(projectId, () => void load())
           @commit="commitNo"
           @cancel="cancelEditNo"
         />
-        <BibleCharacters class="bible-cast" :bible="bible" @change="touch" />
-        <BibleProps class="bible-props" :bible="bible" @change="touch" />
-        <BibleThreads class="bible-threads" :bible="bible" :last-episode-no="lastEpisodeNo" @change="touch" />
-        <BibleFacts class="bible-facts" :bible="bible" :last-episode-no="lastEpisodeNo" @change="touch" />
+        <BibleCharacters id="bible-cast" class="bible-cast" :bible="bible" @change="touch" />
+        <BibleProps id="bible-props" class="bible-props" :bible="bible" @change="touch" />
+        <BibleThreads id="bible-threads" class="bible-threads" :bible="bible" :last-episode-no="lastEpisodeNo" @change="touch" />
+        <BibleFacts id="bible-facts" class="bible-facts" :bible="bible" :last-episode-no="lastEpisodeNo" @change="touch" />
         <BibleRecords
           v-model:record-target="recordTarget"
           class="bible-records"

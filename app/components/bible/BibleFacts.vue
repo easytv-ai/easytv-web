@@ -3,6 +3,7 @@ import type { Bible } from '~/types/creative'
 import { BIBLE_LIMITS, bibleName, dropFactRefs, knows, newFact, setKnowledge } from '~/utils/bible'
 
 const { t } = useI18n()
+const root = ref<HTMLElement | null>(null)
 
 const props = defineProps<{
   bible: Bible
@@ -13,11 +14,14 @@ const emit = defineEmits<{
   change: []
 }>()
 
-function addFact() {
+async function addFact() {
   if (props.bible.facts.length >= BIBLE_LIMITS.facts)
     return
   props.bible.facts.push(newFact(props.bible.facts, props.lastEpisodeNo))
   emit('change')
+  await nextTick()
+  const fields = root.value?.querySelectorAll<HTMLInputElement>('.bible-item__name')
+  fields?.[fields.length - 1]?.focus()
 }
 
 function removeFact(index: number) {
@@ -39,9 +43,13 @@ function toggleKnowledge(charKey: string, factKey: string) {
 </script>
 
 <template>
-  <div class="create-card plan-editor__block">
+  <div ref="root" class="create-card plan-editor__block">
     <header class="plan-editor__head">
-      <h3>{{ t('事实') }}</h3>
+      <h3>{{ t('事实') }}<small class="num">{{ bible.facts.length }}/{{ BIBLE_LIMITS.facts }}</small></h3>
+      <button v-if="bible.facts.length" type="button" class="studio-chip" :disabled="bible.facts.length >= BIBLE_LIMITS.facts" @click="addFact">
+        <UIcon name="i-lucide-plus" class="size-4" />
+        {{ t('添加事实') }}
+      </button>
     </header>
     <button v-if="!bible.facts.length" type="button" class="bible-empty" @click="addFact">
       <UIcon name="i-lucide-plus" class="size-4" />
@@ -86,9 +94,5 @@ function toggleKnowledge(charKey: string, factKey: string) {
         </div>
       </div>
     </article>
-    <button v-if="bible.facts.length" type="button" class="bible-empty" :disabled="bible.facts.length >= BIBLE_LIMITS.facts" @click="addFact">
-      <UIcon name="i-lucide-plus" class="size-4" />
-      {{ t('添加事实') }}
-    </button>
   </div>
 </template>

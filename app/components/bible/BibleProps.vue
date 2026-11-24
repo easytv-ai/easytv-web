@@ -3,6 +3,7 @@ import type { Bible } from '~/types/creative'
 import { BIBLE_LIMITS, bibleName, newProp } from '~/utils/bible'
 
 const { t } = useI18n()
+const root = ref<HTMLElement | null>(null)
 
 const props = defineProps<{
   bible: Bible
@@ -17,11 +18,14 @@ const holderOptions = computed(() => [
   ...props.bible.characters.map(c => ({ value: c.key, label: bibleName(props.bible.characters, c.key) })),
 ])
 
-function addProp() {
+async function addProp() {
   if (props.bible.props.length >= BIBLE_LIMITS.props)
     return
   props.bible.props.push(newProp(props.bible.props))
   emit('change')
+  await nextTick()
+  const fields = root.value?.querySelectorAll<HTMLInputElement>('.bible-item__name')
+  fields?.[fields.length - 1]?.focus()
 }
 
 function removeProp(index: number) {
@@ -39,9 +43,13 @@ function setHolder(index: number, value: string | number) {
 </script>
 
 <template>
-  <div class="create-card plan-editor__block">
+  <div ref="root" class="create-card plan-editor__block">
     <header class="plan-editor__head">
-      <h3>{{ t('道具') }}</h3>
+      <h3>{{ t('道具') }}<small class="num">{{ bible.props.length }}/{{ BIBLE_LIMITS.props }}</small></h3>
+      <button v-if="bible.props.length" type="button" class="studio-chip" :disabled="bible.props.length >= BIBLE_LIMITS.props" @click="addProp">
+        <UIcon name="i-lucide-plus" class="size-4" />
+        {{ t('添加道具') }}
+      </button>
     </header>
     <button v-if="!bible.props.length" type="button" class="bible-empty" @click="addProp">
       <UIcon name="i-lucide-plus" class="size-4" />
@@ -50,8 +58,7 @@ function setHolder(index: number, value: string | number) {
     <article v-for="(p, i) in bible.props" :key="p.key" class="bible-item">
       <header class="bible-item__head">
         <span class="plan-editor__key">{{ p.key }}</span>
-        <input v-model="p.name" class="bible-item__name" :maxlength="BIBLE_LIMITS.propName" :placeholder="t('道具名')" @input="emit('change')">
-        <span class="plan-shot__spacer" />
+        <input v-model="p.name" class="bible-item__name bible-item__name--wide" :maxlength="BIBLE_LIMITS.propName" :placeholder="t('道具名')" @input="emit('change')">
         <button type="button" class="plan-editor__icon is-danger" :aria-label="t('删除')" @click="removeProp(i)">
           <UIcon name="i-lucide-trash-2" class="size-4" />
         </button>
@@ -77,9 +84,5 @@ function setHolder(index: number, value: string | number) {
         </label>
       </div>
     </article>
-    <button v-if="bible.props.length" type="button" class="bible-empty" :disabled="bible.props.length >= BIBLE_LIMITS.props" @click="addProp">
-      <UIcon name="i-lucide-plus" class="size-4" />
-      {{ t('添加道具') }}
-    </button>
   </div>
 </template>

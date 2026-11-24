@@ -3,6 +3,7 @@ import type { Bible, BibleThread } from '~/types/creative'
 import { BIBLE_LIMITS, newThread } from '~/utils/bible'
 
 const { t } = useI18n()
+const root = ref<HTMLElement | null>(null)
 
 const props = defineProps<{
   bible: Bible
@@ -18,11 +19,14 @@ const threadStatusOptions = computed(() => [
   { value: 'resolved', label: t('已解决') },
 ])
 
-function addThread() {
+async function addThread() {
   if (props.bible.threads.length >= BIBLE_LIMITS.threads)
     return
   props.bible.threads.push(newThread(props.bible.threads, props.lastEpisodeNo))
   emit('change')
+  await nextTick()
+  const fields = root.value?.querySelectorAll<HTMLInputElement>('.bible-item__name')
+  fields?.[fields.length - 1]?.focus()
 }
 
 function removeThread(index: number) {
@@ -46,9 +50,13 @@ function episodeNoOf(event: Event) {
 </script>
 
 <template>
-  <div class="create-card plan-editor__block">
+  <div ref="root" class="create-card plan-editor__block">
     <header class="plan-editor__head">
-      <h3>{{ t('线索') }}</h3>
+      <h3>{{ t('线索') }}<small class="num">{{ bible.threads.length }}/{{ BIBLE_LIMITS.threads }}</small></h3>
+      <button v-if="bible.threads.length" type="button" class="studio-chip" :disabled="bible.threads.length >= BIBLE_LIMITS.threads" @click="addThread">
+        <UIcon name="i-lucide-plus" class="size-4" />
+        {{ t('添加线索') }}
+      </button>
     </header>
     <button v-if="!bible.threads.length" type="button" class="bible-empty" @click="addThread">
       <UIcon name="i-lucide-plus" class="size-4" />
@@ -80,9 +88,5 @@ function episodeNoOf(event: Event) {
         </label>
       </div>
     </article>
-    <button v-if="bible.threads.length" type="button" class="bible-empty" :disabled="bible.threads.length >= BIBLE_LIMITS.threads" @click="addThread">
-      <UIcon name="i-lucide-plus" class="size-4" />
-      {{ t('添加线索') }}
-    </button>
   </div>
 </template>

@@ -3644,6 +3644,12 @@
     "summaryCounts": "Đã ghi {c} nhân vật, {p} đạo cụ, {n} tuyến truyện và {f} sự kiện.",
     "recordsCost": "Dùng mô hình văn bản để tóm tắt kế hoạch của tập thành ghi chép liên tục và gộp vào thiết lập phía trên (nhân vật mới, sự kiện đã lộ, tuyến truyện còn mở, đạo cụ đổi chủ). Trừ điểm một lần theo đơn giá của mô hình văn bản.",
     "recordsEmpty": "Chưa có ghi chép theo tập. Sau khi tạo kế hoạch, hãy dùng AI để gộp nhân vật, sự kiện và tuyến truyện của tập đó vào thiết lập.",
+    "impact": {
+      "unsaved": "Tra ảnh hưởng dùng bản đã lưu. Nếu còn chỉnh chưa lưu, hãy lưu trước."
+    },
+    "character": {
+      "remove": "Xóa «{name}»? Các tham chiếu tới người này trong đạo cụ, tri thức và quan hệ cũng sẽ bị gỡ."
+    },
     "board": {
       "shots": "{n} cảnh",
       "cast": "Nhân vật",

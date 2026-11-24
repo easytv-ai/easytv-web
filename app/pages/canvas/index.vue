@@ -1324,7 +1324,7 @@ function onResizeStart(event: PointerEvent) {
   <div
     ref="editorRoot"
     class="canvas-editor"
-    :class="{ 'is-resizing': resizing }"
+    :class="{ 'is-resizing': resizing, 'is-spine': spineOpen }"
     :style="{ '--canvas-chat-pct': `${chatPct}%` }"
     :aria-busy="booting"
   >
@@ -1467,7 +1467,7 @@ function onResizeStart(event: PointerEvent) {
         @close="closeSpine"
       />
       <ClientOnly>
-        <CanvasWorkspace ref="workspace" :canvas-id="canvasId" :initial-prompt="initialPrompt" :readonly="readonly" :request-save="save" @change="markDirty" @history="openHistory" @comment="openComments" @assist="onWorkspaceAssist" @open-director="onOpenDirector" @chat-assets="onChatAssets" @chat-style="onChatStyle" @skill-start="onSkillStart" @peer-saved="onPeerSaved" />
+        <CanvasWorkspace ref="workspace" :canvas-id="canvasId" :initial-prompt="initialPrompt" :readonly="readonly" :request-save="save" :inert="spineOpen" @change="markDirty" @history="openHistory" @comment="openComments" @assist="onWorkspaceAssist" @open-director="onOpenDirector" @chat-assets="onChatAssets" @chat-style="onChatStyle" @skill-start="onSkillStart" @peer-saved="onPeerSaved" />
         <template #fallback>
           <div class="canvas-editor__stage" />
         </template>

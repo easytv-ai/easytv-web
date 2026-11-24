@@ -302,10 +302,26 @@
   overflow: hidden;
 }
 
+/* 各集画布打开时把画布工作层整层藏起来。节点生成条 / 选中工具条是 position:fixed，
+   z-index 又高于 .canvas-spine，不藏会穿到分集页上。visibility 会连固定层一起藏。 */
+.canvas-editor.is-spine .canvas-workspace {
+  z-index: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.canvas-editor.is-spine .canvas-live-hud,
+.canvas-editor.is-spine .canvas-sel-layer,
+.canvas-editor.is-spine .canvas-connect-ghost,
+.canvas-editor.is-spine .canvas-inspector-mask {
+  visibility: hidden;
+  pointer-events: none;
+}
+
 .canvas-editor__stage,
 .canvas-workspace {
   position: relative;
-  min-width: 0;
+  min-width: 0; 
   min-height: 0;
   flex: 1;
   overflow: hidden;

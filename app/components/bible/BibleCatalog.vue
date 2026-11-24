@@ -8,7 +8,6 @@ const localePath = useLocalePath()
 defineProps<{
   episodes: Episode[]
   newEpisodeHref: string
-  creating: boolean
   editingNo: number
   noDraft: string
   savingNo: number
@@ -19,7 +18,6 @@ const emit = defineEmits<{
   edit: [row: Episode]
   commit: [row: Episode]
   cancel: []
-  create: []
 }>()
 
 function episodeHref(id: number) {
@@ -38,7 +36,7 @@ function openEpisode(event: MouseEvent, id: number) {
 <template>
   <div class="create-card">
     <header class="plan-editor__head">
-      <h3>{{ t('集目录') }}</h3>
+      <h3>{{ t('集目录') }}<small v-if="episodes.length" class="num">{{ episodes.length }}</small></h3>
       <NuxtLink v-if="episodes.length" :to="newEpisodeHref" class="studio-chip">
         <UIcon name="i-lucide-plus" class="size-4" />
         {{ t('新建一集') }}

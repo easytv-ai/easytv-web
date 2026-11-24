@@ -53,7 +53,7 @@ function propChangeLabel(pc: BiblePropChange) {
 <template>
   <div class="create-card plan-editor__block">
     <header class="plan-editor__head">
-      <h3>{{ t('每集记录') }}</h3>
+      <h3>{{ t('每集记录') }}<small v-if="bible.episodes.length" class="num">{{ bible.episodes.length }}</small></h3>
       <div class="bible-record__tools">
         <StudioSelect
           v-if="recordOptions.length"

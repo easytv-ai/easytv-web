@@ -3644,6 +3644,12 @@
     "summaryCounts": "{c} personnages, {p} accessoires, {n} intrigues et {f} faits enregistrés.",
     "recordsCost": "Le modèle de texte résume le plan de l'épisode en un récapitulatif de continuité et l'intègre à la bible ci-dessus (nouveaux personnages, faits révélés, intrigues ouvertes, changements de main des accessoires). Facturé une fois au tarif du modèle de texte.",
     "recordsEmpty": "Aucun récapitulatif d'épisode pour l'instant. Une fois le plan généré, utilisez l'IA pour intégrer les personnages, faits et intrigues de l'épisode à la bible.",
+    "impact": {
+      "unsaved": "La vérification d'impact utilise la bible enregistrée. Enregistrez d'abord s'il reste des modifications."
+    },
+    "character": {
+      "remove": "Supprimer « {name} » ? Les mentions de ce personnage dans les accessoires, les connaissances et les relations seront aussi effacées."
+    },
     "board": {
       "shots": "{n} plans",
       "cast": "Distribution",

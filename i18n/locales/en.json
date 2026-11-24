@@ -3669,6 +3669,12 @@
     "summaryCounts": "{c} characters, {p} props, {n} threads and {f} facts are on the bible.",
     "recordsCost": "Uses the text model to summarize the episode's plan into a continuity record and merges it into the bible above (new characters, revealed facts, open threads, prop hand-offs). Charged once at the text model's rate.",
     "recordsEmpty": "No episode records yet. After a plan is generated, use AI to merge that episode's characters, facts and threads into the bible.",
+    "impact": {
+      "unsaved": "Impact check uses the last saved bible. Save first if you have unsaved edits."
+    },
+    "character": {
+      "remove": "Delete “{name}”? Mentions of this character in props, knowledge and relationships will be cleared too."
+    },
     "board": {
       "shots": "{n} shots",
       "cast": "Cast",

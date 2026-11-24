@@ -151,7 +151,7 @@ watch(() => props.projectId, () => { void load() }, { immediate: true })
 .boards {
   height: 100%;
   overflow: auto;
-  padding: 72px 28px 32px 88px;
+  padding: 72px 28px 32px 28px;
   background: var(--st-canvas);
   color: var(--st-text);
 }
@@ -383,7 +383,7 @@ watch(() => props.projectId, () => { void load() }, { immediate: true })
 
 @media (max-width: 860px) {
   .boards {
-    padding: 64px 16px 24px 72px;
+    padding: 64px 16px 24px 16px;
   }
 
   .boards__mast {
