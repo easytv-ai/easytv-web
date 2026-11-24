@@ -58,7 +58,8 @@ import {
   isFramePullNode,
   isHdNode,
   pickHdUpscaleModel,
-  isRetakeNode,
+  isRetakeInProgress,
+  settledRetakePatch,
   isPanoramaRatio,
   stripCameraTokens,
   type CanvasEmptyStart,
@@ -561,8 +562,8 @@ const showInspector = computed(() => {
   // 高清 / 逐帧拉片节点用专用参数面板，不走普通 Inspector
   if (isHdNode(node.data) || isFramePullNode(node.data) || isDepthMotionNode(node.data))
     return false
-  // 片段重拍在原片时间轴上改选中的几秒，不走全能参考生成栏
-  if (isRetakeNode(node.data))
+  // 片段重拍还在出片时改选中的几秒，不走全能参考生成栏；成片之后就是普通视频
+  if (isRetakeInProgress(node.data))
     return false
   // 浏览器拼接的成片已经是视频，不再弹出模型生成栏
   if (isMergeResult(node.data))
@@ -586,7 +587,7 @@ const mediaPanelSubmitting = computed(() => {
 })
 const showRetakeStrip = computed(() => {
   const node = selected.value
-  return Boolean(node && selectedNodes.value.length === 1 && isContentNode(node) && isRetakeNode(node.data) && !canvasLocked.value && !nodeLocked(node))
+  return Boolean(node && selectedNodes.value.length === 1 && isContentNode(node) && isRetakeInProgress(node.data) && !canvasLocked.value && !nodeLocked(node))
 })
 /**
  * 画布舞台尺寸 / 屏幕位置变化（窗口 resize、侧栏开合）时由 ResizeObserver bump 一下，
@@ -2708,9 +2709,15 @@ function loadGraph(graph: CanvasGraph | null | undefined, opts: { keepHistory?: 
   gate.lock = true
   const loaded = (Array.isArray(graph?.nodes) ? graph!.nodes : []).map((node) => {
     const data = (node as CanvasFlowNode).data
-    const next = (!data || (data as { kind?: string }).kind !== 'script')
+    let next = (!data || (data as { kind?: string }).kind !== 'script')
       ? node
       : { ...node, data: { ...data, kind: 'text' } }
+    const flow = next as CanvasFlowNode
+    if (isContentNode(flow)) {
+      const patch = settledRetakePatch(flow.data)
+      if (patch)
+        next = { ...flow, data: { ...flow.data, ...patch } }
+    }
     return next as CanvasFlowNode
   })
   nodes.value = loaded.map((node) => {
@@ -5887,13 +5894,25 @@ async function submitRetakeSegment(node: CanvasFlowNode & { data: CanvasNodeData
   }
 }
 
+/** 重拍已经出片：摘掉标记，这张卡片之后就是普通视频 */
+function releaseSettledRetake(nodeId: string) {
+  const node = findNode(nodeId) as CanvasFlowNode | undefined
+  if (!node || !isContentNode(node))
+    return
+  const patch = settledRetakePatch(node.data)
+  if (patch)
+    updateNodeData(nodeId, patch)
+}
+
 /** 重拍片段生成完后，在浏览器里把头、新片段、尾拼回一条 */
 async function finishRetakeStitch(nodeId: string, clipUrl?: string) {
   const node = findNode(nodeId) as CanvasFlowNode | undefined
   const stitch = node && isContentNode(node) ? node.data.retakeStitch : undefined
   const clip = String(clipUrl || (node && isContentNode(node) ? node.data.content : '') || '').trim()
-  if (!stitch?.sourceUrl || !clip || !isMediaUrl(clip))
+  if (!stitch?.sourceUrl || !clip || !isMediaUrl(clip)) {
+    releaseSettledRetake(nodeId)
     return
+  }
   if (canvasMergeRunning.value) {
     notify(t('canvas.cut.busy'), 'error')
     return
@@ -5909,6 +5928,9 @@ async function finishRetakeStitch(nodeId: string, clipUrl?: string) {
       taskStatus: 'succeeded',
       taskProgress: 100,
       taskError: '',
+      tag: '',
+      retakeParams: undefined,
+      retakeStitch: undefined,
     })
     const file = new File([blob], 'retake.mp4', { type: 'video/mp4' })
     const uploaded = await assetApi.upload(file)
@@ -5920,7 +5942,8 @@ async function finishRetakeStitch(nodeId: string, clipUrl?: string) {
     notify(t('{label} 处理完成', { label: node?.data && isContentNode(node) ? node.data.label : t('片段重拍') }))
   }
   catch {
-    updateNodeData(nodeId, { taskStatus: 'succeeded', taskProgress: 100 })
+    updateNodeData(nodeId, { taskStatus: 'succeeded', taskProgress: 100, retakeStitch: undefined })
+    releaseSettledRetake(nodeId)
     notify(t('新片段已经生成，拼回原片失败，请重试'), 'error')
   }
   finally {
@@ -6770,7 +6793,7 @@ const rerollAsk = ref<{ nodeId: string, payload: GeneratePayload } | null>(null)
 
 /** 这些节点的「生成」其实是派生动作（片段重拍 / 高清 / 逐帧拉片 / 深度捕捉），不算重抽 */
 function isDerivedNode(data: CanvasNodeData) {
-  return isRetakeNode(data) || isHdNode(data) || isFramePullNode(data) || isDepthMotionNode(data)
+  return isRetakeInProgress(data) || isHdNode(data) || isFramePullNode(data) || isDepthMotionNode(data)
 }
 
 /**

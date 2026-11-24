@@ -10,6 +10,8 @@ import {
   canvasMediaSizeClose,
   cloneContentNodeData,
   videoPlayerCrop,
+  isRetakeInProgress,
+  settledRetakePatch,
   CAMERA_MOVE_VIDEO,
   cameraIdsInPrompt,
   cameraMoveMotionPreview,
@@ -227,6 +229,30 @@ describe('canvasCommentNodeHint', () => {
       data: { kind: 'image' as const, content: 'https://tv-oss.easyapi.com/a.png', prompt: '雨夜橘猫', label: '', tag: '打光' },
     }]
     expect(canvasCommentNodeHint(image, 'image-2')).toEqual({ title: '打光', excerpt: '雨夜橘猫' })
+  })
+})
+
+describe('settledRetakePatch', () => {
+  const base = {
+    tag: '片段重拍',
+    content: 'https://cdn.example/out.mp4',
+    retakeParams: { sourceId: 'video-1', sourceLabel: '镜4', start: 0, end: 0.8, total: 5 },
+  }
+
+  it('正在生成或还在拼接时保持重拍', () => {
+    expect(isRetakeInProgress({ ...base, taskStatus: 'running' })).toBe(true)
+    expect(settledRetakePatch({ ...base, taskStatus: 'running' })).toBeNull()
+    expect(isRetakeInProgress({ ...base, taskStatus: 'succeeded', retakeStitch: { sourceUrl: 'https://cdn.example/src.mp4', start: 0, end: 4, duration: 5 } })).toBe(true)
+    expect(isRetakeInProgress({ ...base, taskStatus: 'failed' })).toBe(true)
+  })
+
+  it('成片已经出来就摘掉重拍标记', () => {
+    expect(isRetakeInProgress({ ...base, taskStatus: 'succeeded' })).toBe(false)
+    expect(settledRetakePatch({ ...base, taskStatus: 'succeeded' })).toEqual({
+      tag: '',
+      retakeParams: undefined,
+      retakeStitch: undefined,
+    })
   })
 })
 

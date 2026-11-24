@@ -15,7 +15,7 @@ import {
   isFramePullNode,
   isDepthMotionNode,
   isHdNode,
-  isRetakeNode,
+  isRetakeInProgress,
   isSilentNode,
   FRAME_PULL_STAGE_SIZE,
   type CanvasNodeData,
@@ -130,7 +130,7 @@ const audioSrc = computed(() => {
 })
 const isBlank = computed(() => isMediaCard.value && !isDirector.value && !isStoryboard.value && !imageSrc.value && !videoSrc.value && !audioSrc.value)
 const isHd = computed(() => isHdNode(props.data))
-const isRetake = computed(() => isRetakeNode(props.data))
+const isRetake = computed(() => isRetakeInProgress(props.data))
 /** 重拍卡片上标出改的是哪几秒，避免看起来像整段又生成了一条 */
 const retakeSpanLabel = computed(() => {
   const params = props.data.retakeParams
@@ -240,7 +240,7 @@ const tagIcon = computed(() => {
     return 'i-lucide-sun'
   if (isHd.value || props.data.tag === '高清' || props.data.tag === '图片高清')
     return 'i-lucide-scan-search'
-  if (isRetake.value || props.data.tag === '片段重拍')
+  if (isRetake.value)
     return 'i-lucide-clapperboard'
   if (isFramePull.value || props.data.tag === '逐帧拉片')
     return 'i-lucide-gem'
@@ -252,7 +252,7 @@ const tagIcon = computed(() => {
     return 'i-lucide-music'
   if (isFrameCapture.value)
     return 'i-lucide-image'
-  if (props.data.tag)
+  if (props.data.tag && (props.data.tag !== '片段重拍' || isRetake.value))
     return 'i-lucide-layers'
   return canvasNodeIcon(props.data.kind)
 })
@@ -279,7 +279,7 @@ const tagText = computed(() => {
     return props.data.label || t(props.data.tag || '')
   if (props.data.tag === '图片高清')
     return props.data.label || t('图片高清')
-  if (props.data.tag)
+  if (props.data.tag && (props.data.tag !== '片段重拍' || isRetake.value))
     return t(props.data.tag)
   return kindLabel.value ? `${t(kindLabel.value)}${kindNo.value || ''}` : ''
 })

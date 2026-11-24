@@ -8,7 +8,7 @@ import taskApi from '~/api/task'
 import type { ConfirmOptions } from '~/composables/useConfirm'
 import type { CanvasOverlayKey } from '~/composables/useCanvasToolOverlays'
 import type { Asset, GeneratePayload, GenerationModel, GenerationTask, TaskInput } from '~/types/creative'
-import { cameraMovesPrompt, isRetakeNode, RETAKE_SEGMENT_COUNT, type CanvasNodeData } from '~/utils/canvas-node-kinds'
+import { cameraMovesPrompt, isRetakeInProgress, RETAKE_SEGMENT_COUNT, type CanvasNodeData } from '~/utils/canvas-node-kinds'
 import { isContentNode, isNodeLocked, nodeSize, type CanvasFlowNode } from '~/utils/canvas-group'
 import { extendSourceWindow, type ExtendStudioPayload, type ExtendStudioRef } from '~/utils/canvas-extend-studio'
 import { canvasMergeRunning } from '~/utils/canvas-merge-state'
@@ -194,7 +194,7 @@ export function useCanvasVideoOps(opts: {
     const node = opts.findNode(extendStudioNodeId.value)
     if (!node || !isContentNode(node))
       return ''
-    if (extendStudioVariant.value === 'retake' && !isRetakeNode(node.data))
+    if (extendStudioVariant.value === 'retake' && !isRetakeInProgress(node.data))
       return ''
     return String(node.data.prompt || '')
   })
@@ -211,7 +211,7 @@ export function useCanvasVideoOps(opts: {
     if (extendStudioVariant.value !== 'retake')
       return null
     const node = opts.findNode(extendStudioNodeId.value)
-    if (!node || !isContentNode(node) || !isRetakeNode(node.data) || !node.data.retakeParams)
+    if (!node || !isContentNode(node) || !isRetakeInProgress(node.data) || !node.data.retakeParams)
       return null
     return {
       start: node.data.retakeParams.start,
@@ -351,8 +351,8 @@ export function useCanvasVideoOps(opts: {
         opts.notify(opts.t(payload.model ? '这个模型不能接视频，请换一个支持参考视频的模型' : '暂无支持参考视频的模型'), 'error')
         return
       }
-      // 在源视频上发起时，发送这一刻才把结果节点放到右侧；已有重拍节点则改它自己
-      const spawned = isRetakeNode(node.data) ? node : spawnRetakeNode(node)
+      // 在源视频上发起时，发送这一刻才把结果节点放到右侧；还在出片的重拍节点则改它自己
+      const spawned = isRetakeInProgress(node.data) ? node : spawnRetakeNode(node)
       const params = spawned?.data.retakeParams
       if (!spawned || !params) {
         opts.notify(opts.t('请先生成或添加一段视频'), 'error')
@@ -515,7 +515,7 @@ export function useCanvasVideoOps(opts: {
 
   const retakeClip = computed(() => {
     const node = opts.selected.value
-    if (!node || !isContentNode(node) || !isRetakeNode(node.data) || !node.data.retakeParams)
+    if (!node || !isContentNode(node) || !isRetakeInProgress(node.data) || !node.data.retakeParams)
       return null
     const params = node.data.retakeParams
     const duration = params.duration || 5

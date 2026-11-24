@@ -1,7 +1,7 @@
 import { absPosition, isContentNode, isGroupNode, nodeSize, type CanvasFlowNode, type CanvasGroupData } from '~/utils/canvas-group'
 import { canvasGenerateTaskType, planCanvasGenerate } from '~/utils/canvas-generate-plan'
 import { nodeGeneratePatch } from '~/utils/canvas-node-params'
-import { canvasNodeTitle, isRetakeNode, type CanvasNodeData, type CanvasNodeKind } from '~/utils/canvas-node-kinds'
+import { canvasNodeTitle, isRetakeInProgress, type CanvasNodeData, type CanvasNodeKind } from '~/utils/canvas-node-kinds'
 import { canvasConnectedRefs, canvasNodeMediaUrl } from '~/utils/canvas-refs'
 import { buildCanvasTaskInputs, countUnlinkedCanvasRefs, pushCanvasRefImage, type CanvasRefImage } from '~/utils/canvas-task-inputs'
 import { syncViralPromptRefs, viralExtraRefCount } from '~/utils/canvas-viral'
@@ -294,7 +294,7 @@ export function useCanvasGenerate(opts: {
     if (opts.replaySubmit?.(node, { type } as TaskRequest))
       return
     payload = payload || opts.inspectorRef.value?.generatePayload?.()
-    if (isRetakeNode(node.data)) {
+    if (isRetakeInProgress(node.data)) {
       await opts.submitRetakeSegment(node, payload)
       return
     }

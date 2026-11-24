@@ -1,4 +1,4 @@
-import { PLACEHOLDER_VIDEO_URL } from './media'
+import { isMediaUrl, PLACEHOLDER_VIDEO_URL } from './media'
 
 export type CanvasNodeKind =
   | 'character'
@@ -231,6 +231,31 @@ export function pickHdUpscaleModel(params: { model?: string } | null | undefined
 
 export function isRetakeNode(data?: Pick<CanvasNodeData, 'tag' | 'retakeParams'> | null) {
   return Boolean(data && (data.tag === '片段重拍' || data.retakeParams))
+}
+
+type RetakeProgressData = Pick<CanvasNodeData, 'tag' | 'retakeParams' | 'taskStatus' | 'retakeStitch' | 'content'>
+
+/**
+ * 片段重拍还没出片：正在生成、正在拼回原片，或失败后还能再提交。
+ * 任务已成功并且卡片上有成片时，按普通视频节点用。
+ */
+export function isRetakeInProgress(data?: RetakeProgressData | null) {
+  if (!isRetakeNode(data) || !data)
+    return false
+  if (data.retakeStitch)
+    return true
+  if (data.taskStatus === 'pending' || data.taskStatus === 'running')
+    return true
+  if (data.taskStatus === 'succeeded' && isMediaUrl(data.content))
+    return false
+  return true
+}
+
+/** 成片已经出来：摘掉重拍标记，点开后走普通视频生成栏 */
+export function settledRetakePatch(data?: RetakeProgressData | null): Partial<CanvasNodeData> | null {
+  if (!data || !isRetakeNode(data) || isRetakeInProgress(data))
+    return null
+  return { tag: '', retakeParams: undefined, retakeStitch: undefined }
 }
 
 export function isFramePullNode(data?: Pick<CanvasNodeData, 'tag' | 'frameParams'> | null) {
@@ -751,7 +776,7 @@ function commentNodeTitle(
 ) {
   if (isHdNode(data))
     return hdNodeTag(data.hdParams?.resolution)
-  if (isRetakeNode(data)) {
+  if (isRetakeInProgress(data)) {
     const source = data.retakeParams?.sourceLabel
     return source ? `${source}-${tr('片段重拍')}` : tr('片段重拍')
   }
@@ -771,7 +796,7 @@ function commentNodeTitle(
     return data.label || tr(data.tag || '节点')
   if (data.tag === '图片高清')
     return data.label || tr('图片高清')
-  if (data.tag)
+  if (data.tag && data.tag !== '片段重拍')
     return tr(data.tag)
   const label = CANVAS_NODE_ITEMS.find(item => item.kind === data.kind)?.label ?? ''
   if (!label)
