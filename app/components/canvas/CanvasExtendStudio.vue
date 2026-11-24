@@ -6,9 +6,11 @@
  */
 import { captureVideoFrame, captureVideoStripFrames } from '~/utils/canvas-video-frame'
 import { CAMERA_MOVE_ITEMS } from '~/utils/canvas-node-kinds'
+import { rangeToSeconds, retakeChargeSeconds } from '~/utils/canvas-media-job'
+import { viralParamOptions } from '~/utils/canvas-viral'
 import { estimateTaskPoints, effectiveUnitPrice } from '~/utils/model-price'
 import assetApi from '~/api/asset'
-import type { GenerationModel } from '~/types/creative'
+import type { GenerationModel, GenerationModelDetail } from '~/types/creative'
 import {
   EXTEND_STUDIO_COUNTS,
   EXTEND_STUDIO_FORMATS,
@@ -16,6 +18,11 @@ import {
   EXTEND_STUDIO_RESOLUTIONS,
   EXTEND_STUDIO_SECONDS_MAX,
   EXTEND_STUDIO_TYPES,
+  initialRetakeRange,
+  retakeOutputRatio,
+  retakeOutputResolution,
+  retakeOutputSeconds,
+  retakeSnapRange,
   type ExtendStudioPayload,
   type ExtendStudioRef,
   type ExtendStudioType,
@@ -32,10 +39,12 @@ const props = withDefaults(defineProps<{
   submitting?: boolean
   /** 浏览器读不到视频时的时长兜底（秒），来自资产库 */
   fallbackDuration?: number
-  /** extend=智能续写（默认）；retake=片段重拍：类型固定、无资产/输出规格，发送键旁显示预估积分 */
+  /** extend=智能续写（默认）；retake=片段重拍：类型固定，发送前可选生成秒数和分辨率 */
   variant?: 'extend' | 'retake'
   /** retake 变体：时间线分成的段数 */
   total?: number
+  /** retake 变体：上次圈选的区间（0–1）。没有则打开时落在第一段 */
+  initialRange?: { start: number, end: number } | null
 }>(), {
   prompt: '',
   models: () => [],
@@ -44,6 +53,7 @@ const props = withDefaults(defineProps<{
   fallbackDuration: 0,
   variant: 'extend',
   total: 5,
+  initialRange: null,
 })
 
 const emit = defineEmits<{
@@ -78,9 +88,14 @@ const prompt = ref('')
 const modelId = ref('')
 const type = ref<ExtendStudioType>('extend')
 const cameraMoves = ref<string[]>([])
-const ratio = ref('智能')
+const ratio = ref('9:16')
 const seconds = ref(5)
-const resolution = ref('720p')
+const resolution = ref('720P')
+/** 重拍时长、比例被手动改过之后，不再被选区或原片比例盖掉 */
+const secondsTouched = ref(false)
+const ratioTouched = ref(false)
+const frameWidth = ref(0)
+const frameHeight = ref(0)
 const videoFormat = ref<'mp4' | 'mov'>('mp4')
 const audio = ref(true)
 const count = ref(1)
@@ -127,6 +142,22 @@ function formatClock(sec: number) {
   return `${String(mins).padStart(2, '0')}:${String(whole).padStart(2, '0')}.${String(cs).padStart(2, '0')}`
 }
 
+function ratioBox(value: string) {
+  if (!value.includes(':'))
+    return null
+  const [aw, ah] = value.split(':').map(Number)
+  const w = Math.max(1, aw || 1)
+  const h = Math.max(1, ah || 1)
+  const scale = Math.min(22 / w, 14 / h)
+  return {
+    width: `${Math.max(6, Math.round(w * scale))}px`,
+    height: `${Math.max(6, Math.round(h * scale))}px`,
+  }
+}
+
+function ratioLabel(value: string) {
+  return value.toLowerCase() === 'adaptive' ? t('自适应') : value
+}
 const endClock = computed(() => formatClock(duration.value))
 const filmStyle = computed(() => (frameStyle.value ? { width: frameStyle.value.width } : undefined))
 const summaryLabel = computed(() => {
@@ -151,21 +182,91 @@ function onStripClick(event: MouseEvent) {
   if (moved)
     return
   const at = ratioAt(event as unknown as PointerEvent)
-  const total = Math.max(1, props.total)
-  pickSegment(Math.min(total, Math.max(1, Math.floor(at * total) + 1)))
+  if (!(duration.value > 0)) {
+    const total = Math.max(1, props.total)
+    pickSegment(Math.min(total, Math.max(1, Math.floor(at * total) + 1)))
+    return
+  }
+  const sec = Math.floor(at * duration.value)
+  start.value = sec / duration.value
+  snapRetakeWindow('move', seconds.value > 0 ? seconds.value : retakeMinSeconds())
 }
 
-/** 片段重拍：发送键旁的预估积分（按选中的模型 + 选区时长估算） */
+/** 片段重拍：发送键旁的预估积分，按即将提交的生成秒数算 */
 const generationModels = useState<GenerationModel[]>('generation-models', () => [])
 const { isMember } = useWallet()
+const { load: loadModelDetail } = useGenerationModelDetail()
+const retakeModelDetail = ref<GenerationModelDetail | null>(null)
+const retakeDetailStatus = ref<'loading' | 'ready' | 'missing'>('loading')
+const currentGenerationModel = computed(() => generationModels.value.find(item => item.model === modelId.value))
+const retakeParamHint = computed(() => retakeDetailStatus.value === 'loading' ? t('正在读取这个模型的参数') : t('这个模型没有这项参数'))
+watch(modelId, (id) => {
+  retakeModelDetail.value = null
+  retakeDetailStatus.value = 'loading'
+  const name = String(id || '').trim()
+  if (!name) {
+    retakeDetailStatus.value = 'missing'
+    return
+  }
+  void loadModelDetail(name).then((detail) => {
+    if (modelId.value !== name)
+      return
+    retakeModelDetail.value = detail
+    retakeDetailStatus.value = detail ? 'ready' : 'missing'
+  })
+}, { immediate: true })
+const retakeParamOptions = computed(() => viralParamOptions(retakeModelDetail.value, currentGenerationModel.value))
+const retakeDurations = computed(() => retakeParamOptions.value.durations.slice().sort((a, b) => a - b))
+const retakeRatios = computed(() => retakeParamOptions.value.ratiosDeclared ? retakeParamOptions.value.ratios : [])
+const retakeResolutions = computed(() => retakeParamOptions.value.resolutionsDeclared ? retakeParamOptions.value.resolutions : [])
+const retakeSupportsAudio = computed(() => retakeParamOptions.value.audio)
+const retakeSpecLabel = computed(() => `${ratioLabel(ratio.value)} · ${resolution.value || '—'} · ${seconds.value}s`)
+const retakeDurationChoices = computed(() => retakeDurations.value)
+
+function selectionSpanSeconds() {
+  const known = duration.value > 0 ? duration.value : 0
+  const window = known > 0
+    ? rangeToSeconds({ start: start.value, end: end.value }, known, 0.5)
+    : null
+  if (known > 0 && !window)
+    return 0
+  return window ? window.end - window.start : Math.max(0, end.value - start.value) * 5
+}
+
+/** 没手改过时长时，跟着选区落到模型允许的档位；换模型后手选的档不在清单里也会抬上去 */
+function syncRetakeOutput() {
+  if (!isRetake.value)
+    return
+  if (retakeResolutions.value.length)
+    resolution.value = retakeOutputResolution(resolution.value, retakeResolutions.value)
+  if (retakeRatios.value.length) {
+    ratio.value = retakeOutputRatio({
+      current: ratio.value,
+      allowed: retakeRatios.value,
+      width: frameWidth.value,
+      height: frameHeight.value,
+      touched: ratioTouched.value,
+    })
+  }
+  const list = retakeDurations.value
+  if (secondsTouched.value) {
+    if (list.length && !list.includes(seconds.value))
+      seconds.value = retakeOutputSeconds(seconds.value, list)
+    return
+  }
+  const span = selectionSpanSeconds()
+  if (!(span > 0))
+    return
+  seconds.value = retakeOutputSeconds(span, list)
+}
+
 const points = computed(() => {
   if (!isRetake.value)
     return 0
-  const found = generationModels.value.find(item => item.model === modelId.value)
+  const found = currentGenerationModel.value
   if (!found?.priced)
     return 0
-  const span = Math.max(0, end.value - start.value)
-  const sec = duration.value > 0 ? span * duration.value : span * 5
+  const sec = seconds.value > 0 ? seconds.value : retakeChargeSeconds(selectionSpanSeconds())
   return estimateTaskPoints(effectiveUnitPrice(found, isMember.value), found.unit, 1, sec)
 })
 
@@ -199,7 +300,33 @@ defineExpose({ applyStyle, clearStyle, styleId })
 
 /** 时长档跟随模型声明（有的模型只收特定秒数），没有声明就自由 1-30s */
 function stepSeconds(delta: number) {
+  if (isRetake.value)
+    secondsTouched.value = true
+  const list = isRetake.value ? retakeDurations.value : []
+  if (list.length) {
+    const index = list.findIndex(item => item >= seconds.value)
+    const at = index < 0 ? list.length - 1 : index
+    const exact = list[at] === seconds.value
+    const next = exact ? at + delta : (delta < 0 ? at - 1 : at)
+    seconds.value = list[Math.min(list.length - 1, Math.max(0, next))]!
+    return
+  }
   seconds.value = Math.min(EXTEND_STUDIO_SECONDS_MAX, Math.max(1, seconds.value + delta))
+}
+
+function pickRetakeSeconds(value: number) {
+  seconds.value = value
+  secondsTouched.value = true
+  snapRetakeWindow('fit', value)
+}
+
+function pickRetakeResolution(value: string) {
+  resolution.value = value
+}
+
+function pickRetakeRatio(value: string) {
+  ratio.value = value
+  ratioTouched.value = true
 }
 
 const rangeStyle = computed(() => ({
@@ -207,11 +334,39 @@ const rangeStyle = computed(() => ({
   width: `${Math.max(0, (end.value - start.value) * 100)}%`,
 }))
 
+const rangeClockLabel = computed(() => {
+  if (!(duration.value > 0))
+    return rangeLabel.value
+  return `${formatClock(start.value * duration.value)}–${formatClock(end.value * duration.value)}`
+})
+
 const rangeSecondsLabel = computed(() => {
   const span = Math.max(0, end.value - start.value)
   const sec = duration.value > 0 ? span * duration.value : span * 5
   return `${sec.toFixed(1)}s`
 })
+
+function retakeMinSeconds() {
+  return retakeDurations.value[0] || 0
+}
+
+/** 重拍选区按整秒吸附，短于模型最短时长的窗口会被撑开 */
+function snapRetakeWindow(mode: 'move' | 'start' | 'end' | 'fit', lengthSeconds?: number) {
+  if (!isRetake.value || !(duration.value > 0))
+    return
+  const snapped = retakeSnapRange({
+    duration: duration.value,
+    start: start.value,
+    end: end.value,
+    minSeconds: retakeMinSeconds(),
+    mode,
+    lengthSeconds,
+  })
+  start.value = snapped.start
+  end.value = snapped.end
+  if (snapped.seconds > 0 && mode !== 'move')
+    seconds.value = snapped.seconds
+}
 
 function clampRange(nextStart: number, nextEnd: number) {
   const a = Math.min(1, Math.max(0, nextStart))
@@ -232,8 +387,6 @@ function notePlayerDuration() {
   if (!(next > 0) || duration.value > 0)
     return
   duration.value = next
-  if (isRetake.value)
-    pickSegment(1)
 }
 
 /** 预览框按视频比例缩进黑场，播放键才能贴在画面上而不是黑边上 */
@@ -246,6 +399,11 @@ function fitFrame() {
   const video = playerRef.value
   const vw = video?.videoWidth || 16
   const vh = video?.videoHeight || 9
+  if (isRetake.value && video && video.videoWidth > 0 && video.videoHeight > 0) {
+    frameWidth.value = video.videoWidth
+    frameHeight.value = video.videoHeight
+    syncRetakeOutput()
+  }
   const style = getComputedStyle(screen)
   const padY = (Number.parseFloat(style.paddingTop) || 0) + (Number.parseFloat(style.paddingBottom) || 0)
   const maxW = Math.max(1, screen.clientWidth - 48)
@@ -310,6 +468,23 @@ function onHandleDown(which: 'move' | 'start' | 'end', event: PointerEvent) {
   function onMove(move: PointerEvent) {
     dragged.value = true
     const at = ratioAt(move)
+    if (isRetake.value && duration.value > 0) {
+      if (which === 'start')
+        start.value = Math.min(at, fromEnd)
+      else if (which === 'end')
+        end.value = Math.max(at, fromStart)
+      else {
+        start.value = fromStart + (at - origin)
+        end.value = start.value + span
+      }
+      const length = which === 'move'
+        ? (seconds.value > 0 ? seconds.value : retakeMinSeconds())
+        : undefined
+      snapRetakeWindow(which, length)
+      if (which !== 'move')
+        secondsTouched.value = true
+      return
+    }
     if (which === 'start')
       clampRange(Math.min(at, fromEnd - MIN_RANGE), fromEnd)
     else if (which === 'end')
@@ -328,13 +503,22 @@ function onHandleDown(which: 'move' | 'start' | 'end', event: PointerEvent) {
   el.addEventListener('pointercancel', onUp)
 }
 
+/** 打开时定一次选区。时长稍后才读到，不能在那时把用户圈好的区间盖掉 */
+function applyRetakeSelection() {
+  if (!isRetake.value) {
+    start.value = 0
+    end.value = 1
+    return
+  }
+  const next = initialRetakeRange(props.initialRange, props.total)
+  clampRange(next.start, next.end)
+}
+
 function applyKnownDuration(seconds: number) {
   if (!(seconds > 0))
     return
   duration.value = seconds
-  if (isRetake.value)
-    pickSegment(1)
-  else {
+  if (!isRetake.value) {
     start.value = 0
     end.value = 1
   }
@@ -364,30 +548,49 @@ function applyFallbackDuration() {
 }
 
 // 弹窗用 v-if 挂上时 open 和 src 已经有值，没有 immediate 这次抽帧不会跑，胶片条会一直停在「读取视频帧…」
-watch(() => [props.open, props.src] as const, ([open, src]) => {
+watch(() => [props.open, props.src] as const, ([open, src], prev) => {
   if (!open || !src) {
     captureSeq += 1
     frames.value = []
     return
   }
   type.value = props.variant === 'retake' ? 'retake' : 'extend'
+  applyRetakeSelection()
+  // 只在打开时填提示词。抽帧中途 src 变化不能把已经写下的改动清掉。
   // 视频延长写的是「接下来发生什么」，不能把上一条成片的提示词带进来，否则模型会重拍同一镜
-  prompt.value = type.value === 'extend' ? '' : (props.prompt || '')
+  if (!prev?.[0]) {
+    prompt.value = type.value === 'extend' ? '' : (props.prompt || '')
+    secondsTouched.value = false
+    ratioTouched.value = false
+    resolution.value = '720P'
+    ratio.value = '9:16'
+  }
   modelId.value = props.models[0]?.id || ''
   pickListedModel()
   playing.value = false
   muted.value = false
   clearStyle()
   cameraMoves.value = []
-  ratio.value = '智能'
-  seconds.value = 5
-  resolution.value = '720p'
+  if (!isRetake.value) {
+    seconds.value = 5
+    resolution.value = '720p'
+    ratio.value = '智能'
+  }
   videoFormat.value = 'mp4'
   audio.value = true
   count.value = 1
   popover.value = ''
+  syncRetakeOutput()
   void captureFrames(src)
 }, { immediate: true })
+
+watch([duration, () => retakeDurations.value[0] ?? 0, () => retakeRatios.value.join('|'), modelId, frameWidth, frameHeight], () => {
+  if (!props.open || !isRetake.value)
+    return
+  syncRetakeOutput()
+  if (duration.value > 0)
+    snapRetakeWindow('fit', secondsTouched.value ? seconds.value : undefined)
+})
 
 watch(() => props.fallbackDuration, () => {
   if (frameError.value || !(duration.value > 0))
@@ -437,6 +640,13 @@ function onSubmit() {
         return
       firstFrameAssetId = id
     }
+    if (isRetake.value && modelId.value) {
+      const name = modelId.value
+      const detail = await loadModelDetail(name)
+      if (modelId.value === name)
+        retakeModelDetail.value = detail
+      syncRetakeOutput()
+    }
     emit('submit', {
       type: type.value,
       model: modelId.value,
@@ -447,7 +657,7 @@ function onSubmit() {
       ratio: ratio.value,
       resolution: resolution.value,
       videoFormat: videoFormat.value,
-      audio: audio.value,
+      audio: isRetake.value && !retakeSupportsAudio.value ? undefined : audio.value,
       count: count.value,
       range: { start: start.value, end: end.value, duration: duration.value },
       refs: [...props.refs],
@@ -540,6 +750,14 @@ const fallbackTicks = computed(() => {
     return []
   return [0.25, 0.5, 0.75].map(pct => ({ pct: `${pct * 100}%`, label: formatClock(duration.value * pct) }))
 })
+
+/** 重拍按整秒分格，不再把片子切成等分的五段 */
+const retakeSecondTicks = computed(() => {
+  const n = Math.floor(duration.value)
+  if (!isRetake.value || n < 2)
+    return []
+  return Array.from({ length: n - 1 }, (_, index) => index + 1)
+})
 </script>
 
 <template>
@@ -595,7 +813,15 @@ const fallbackTicks = computed(() => {
               <template v-if="!frames.length">
                 <i v-for="n in FRAME_COUNT" :key="`ph-${n}`" class="ext-studio__ph" />
               </template>
-              <template v-if="isRetake">
+              <template v-if="isRetake && retakeSecondTicks.length">
+                <i
+                  v-for="sec in retakeSecondTicks"
+                  :key="`sec-${sec}`"
+                  class="ext-studio__seg"
+                  :style="{ left: `${(sec / duration) * 100}%` }"
+                />
+              </template>
+              <template v-else-if="isRetake">
                 <i
                   v-for="i in Math.max(0, props.total - 1)"
                   :key="`seg-${i}`"
@@ -644,7 +870,7 @@ const fallbackTicks = computed(() => {
               <span class="ext-studio__clip">
                 <em>[{{ dialogTitle }}]</em>
                 <UIcon name="i-lucide-clapperboard" class="size-3" />
-                <span>{{ rangeLabel }} {{ t('视频') }}</span>
+                <span>{{ isRetake ? rangeClockLabel : `${rangeLabel} ${t('视频')}` }}</span>
               </span>
               <button v-if="styleName" type="button" class="ext-studio__tag is-style" @click="clearStyle">
                 {{ styleName }}
@@ -666,7 +892,7 @@ const fallbackTicks = computed(() => {
               v-model="prompt"
               class="ext-studio__input"
               rows="2"
-              :placeholder="t('描述接下来要发生什么，或这次要怎么改')"
+              :placeholder="isRetake ? t('写下这一段要改成什么，例如：黑色西装换成白色，人物和机位保持不变') : t('描述接下来要发生什么，或这次要怎么改')"
             />
 
             <div class="ext-studio__bar">
@@ -691,7 +917,7 @@ const fallbackTicks = computed(() => {
                   <UIcon name="i-lucide-clapperboard" class="size-4" />
                   {{ typeLabel }}
                 </span>
-                <button type="button" class="ext-studio__bar-btn" :class="{ 'is-on': !!styleName }" @click="emit('open-style')">
+                <button v-if="!isRetake" type="button" class="ext-studio__bar-btn" :class="{ 'is-on': !!styleName }" @click="emit('open-style')">
                   <UIcon name="i-lucide-palette" class="size-4" />
                   {{ styleName || t('风格') }}
                 </button>
@@ -699,14 +925,14 @@ const fallbackTicks = computed(() => {
                   <UIcon name="i-lucide-images" class="size-4" />
                   {{ t('资产') }}
                 </button>
-                <button type="button" class="ext-studio__bar-btn" data-pop="camera" :class="{ 'is-on': cameraMoves.length > 0 }" @click="popover = popover === 'camera' ? '' : 'camera'">
+                <button v-if="!isRetake" type="button" class="ext-studio__bar-btn" data-pop="camera" :class="{ 'is-on': cameraMoves.length > 0 }" @click="popover = popover === 'camera' ? '' : 'camera'">
                   <UIcon name="i-lucide-video" class="size-4" />
                   {{ t('运镜') }}
                 </button>
               </div>
               <div class="ext-studio__bar-right">
-                <button v-if="!isRetake" type="button" class="ext-studio__bar-btn" data-pop="output" @click="popover = popover === 'output' ? '' : 'output'">
-                  {{ summaryLabel }}
+                <button type="button" class="ext-studio__bar-btn" data-pop="output" @click="popover = popover === 'output' ? '' : 'output'">
+                  {{ isRetake ? retakeSpecLabel : summaryLabel }}
                   <UIcon name="i-lucide-chevron-down" class="size-3 ext-studio__caret" />
                 </button>
                 <span v-if="isRetake && points > 0" class="ext-studio__points">
@@ -775,8 +1001,70 @@ const fallbackTicks = computed(() => {
               </button>
             </div>
 
-            <!-- 输出规格面板 -->
-            <div v-if="popover === 'output'" class="ext-studio__pop ext-studio__pop--out">
+            <!-- 输出规格。重拍用和画布生成栏同一张参数卡：比例、分辨率、时长、有声 -->
+            <div v-if="popover === 'output'" class="ext-studio__pop ext-studio__pop--out" :class="{ 'is-sheet': isRetake }">
+              <template v-if="isRetake">
+                <section>
+                  <h5>{{ t('比例') }}</h5>
+                  <p v-if="!retakeRatios.length" class="ext-studio__pop-empty">{{ retakeParamHint }}</p>
+                  <div v-else class="ext-studio__ratios">
+                    <button
+                      v-for="item in retakeRatios"
+                      :key="item"
+                      type="button"
+                      :class="{ 'is-on': ratio === item }"
+                      @click="pickRetakeRatio(item)"
+                    >
+                      <i v-if="ratioBox(item)" :style="ratioBox(item) || {}" />
+                      {{ ratioLabel(item) }}
+                    </button>
+                  </div>
+                </section>
+                <section>
+                  <h5>{{ t('分辨率') }}</h5>
+                  <p v-if="!retakeResolutions.length" class="ext-studio__pop-empty">{{ retakeParamHint }}</p>
+                  <div v-else class="ext-studio__picks is-duo">
+                    <button
+                      v-for="item in retakeResolutions"
+                      :key="item"
+                      type="button"
+                      class="ext-studio__pick"
+                      :class="{ 'is-on': resolution === item }"
+                      @click="pickRetakeResolution(item)"
+                    >
+                      {{ item }}
+                    </button>
+                  </div>
+                </section>
+                <section>
+                  <h5>{{ t('时长') }}</h5>
+                  <p v-if="!retakeDurationChoices.length" class="ext-studio__pop-empty">{{ retakeParamHint }}</p>
+                  <div v-else class="ext-studio__picks">
+                    <button
+                      v-for="item in retakeDurationChoices"
+                      :key="item"
+                      type="button"
+                      class="ext-studio__pick"
+                      :class="{ 'is-on': seconds === item }"
+                      @click="pickRetakeSeconds(item)"
+                    >
+                      {{ item }}s
+                    </button>
+                  </div>
+                </section>
+                <section v-if="retakeSupportsAudio">
+                  <h5>{{ t('音频') }}</h5>
+                  <div class="ext-studio__picks is-duo">
+                    <button type="button" class="ext-studio__pick" :class="{ 'is-on': audio }" @click="audio = true">
+                      {{ t('有声') }}
+                    </button>
+                    <button type="button" class="ext-studio__pick" :class="{ 'is-on': !audio }" @click="audio = false">
+                      {{ t('无声') }}
+                    </button>
+                  </div>
+                </section>
+              </template>
+              <template v-else>
               <h5>{{ t('比例') }}</h5>
               <div class="ext-studio__picks">
                 <button
@@ -850,6 +1138,7 @@ const fallbackTicks = computed(() => {
                   {{ item }}
                 </button>
               </div>
+              </template>
             </div>
           </div>
       </div>
@@ -1423,11 +1712,87 @@ const fallbackTicks = computed(() => {
 }
 
 .ext-studio__pop--out {
-  right: 60px;
+  right: 12px;
   bottom: 52px;
   width: 248px;
-  max-height: none;
+  max-height: min(360px, calc(100vh - 160px));
+  overflow: auto;
   padding: 12px;
+}
+
+.ext-studio__pop--out.is-sheet {
+  width: 392px;
+  display: grid;
+  gap: 16px;
+  padding: 16px;
+  border-radius: 18px;
+}
+
+.ext-studio__pop--out.is-sheet section {
+  display: grid;
+  gap: 8px;
+}
+
+.ext-studio__pop--out.is-sheet h5 {
+  margin: 0;
+}
+
+.ext-studio__ratios {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
+}
+
+.ext-studio__ratios button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 56px;
+  padding: 6px 4px;
+  border: 1px solid var(--st-border, rgba(255, 255, 255, 0.12));
+  border-radius: 10px;
+  background: transparent;
+  color: var(--st-text-soft, #9a9aa3);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.ext-studio__ratios button.is-on {
+  border-color: var(--st-text, #f3f3f4);
+  background: var(--st-hover, rgba(255, 255, 255, 0.06));
+  color: var(--st-text, #f3f3f4);
+}
+
+.ext-studio__ratios i {
+  display: block;
+  flex-shrink: 0;
+  border: 1.5px solid currentColor;
+  border-radius: 2px;
+  font-style: normal;
+}
+
+.ext-studio__pop--out.is-sheet .ext-studio__picks {
+  gap: 8px;
+}
+
+.ext-studio__pop--out.is-sheet .ext-studio__picks.is-duo {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.ext-studio__pop--out.is-sheet .ext-studio__pick {
+  min-height: 36px;
+  border: 1px solid var(--st-border, rgba(255, 255, 255, 0.12));
+  border-radius: 10px;
+  background: transparent;
+}
+
+.ext-studio__pop--out.is-sheet .ext-studio__pick.is-on {
+  border-color: var(--st-text, #f3f3f4);
+  background: var(--st-hover, rgba(255, 255, 255, 0.08));
+  color: var(--st-text, #f3f3f4);
 }
 
 .ext-studio__pop h4 {

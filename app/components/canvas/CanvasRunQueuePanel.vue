@@ -94,7 +94,7 @@ function toRow(task: GenerationTask, active: boolean, nodeIds: Set<string>): Row
     progress: runQueueProgress(task),
     points: runQueuePoints(task),
     error: runQueueError(task),
-    action: runQueueAction(task.status),
+    action: runQueueAction(task.status, task.type),
     canLocate: verdict.ok,
     reason: verdict.ok ? '' : t(verdict.reason),
     busy: props.busyId === task.id,

@@ -131,6 +131,18 @@ const audioSrc = computed(() => {
 const isBlank = computed(() => isMediaCard.value && !isDirector.value && !isStoryboard.value && !imageSrc.value && !videoSrc.value && !audioSrc.value)
 const isHd = computed(() => isHdNode(props.data))
 const isRetake = computed(() => isRetakeNode(props.data))
+/** 重拍卡片上标出改的是哪几秒，避免看起来像整段又生成了一条 */
+const retakeSpanLabel = computed(() => {
+  const params = props.data.retakeParams
+  const duration = Number(params?.duration) || 0
+  if (!params || !(duration > 0) || !(params.end > params.start))
+    return ''
+  const clock = (sec: number) => {
+    const total = Math.max(0, Math.floor(sec))
+    return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`
+  }
+  return `${clock(params.start * duration)}–${clock(params.end * duration)}`
+})
 const isFramePull = computed(() => isFramePullNode(props.data))
 const isDepthMotion = computed(() => isDepthMotionNode(props.data))
 const isDepthExtract = computed(() => props.data.tag === '深度提取' || Boolean(props.data.depthParams))
@@ -307,7 +319,12 @@ function onFrameSubmit(payload: { count: number, analyze: boolean }) {
   canvasFrameSubmit.value = { seq: Date.now(), nodeId: props.id, ...payload }
 }
 
-const canCancelTask = computed(() => taskBusy.value && Number(props.data.taskId) > 0 && !writeFrozen.value)
+/** 图片 / 视频 / 音频 / 全景图交给模型后不能取消，也不退积分。文本任务仍可取消。 */
+const mediaCommitKind = computed(() => {
+  const kind = props.data.kind
+  return kind === 'image' || kind === 'video' || kind === 'audio' || kind === 'panorama'
+})
+const canCancelTask = computed(() => taskBusy.value && Number(props.data.taskId) > 0 && !writeFrozen.value && !mediaCommitKind.value)
 const canRetryTask = computed(() =>
   taskFailed.value && Number(props.data.taskId) > 0 && !writeFrozen.value)
 
@@ -922,7 +939,7 @@ onMounted(() => {
         </template>
         <span v-if="isRetake && data.retakeParams?.sourceLabel && videoSrc" class="cnode__src-chip">
           <UIcon name="i-lucide-film" class="size-3" />
-          {{ data.retakeParams.sourceLabel }}
+          {{ data.retakeParams.sourceLabel }}<template v-if="retakeSpanLabel"> · {{ retakeSpanLabel }}</template>
         </span>
         <button
           v-if="isDirector && imageSrc"

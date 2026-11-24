@@ -2,6 +2,7 @@
 import taskApi from '~/api/task'
 import type { GenerationTask, TaskStatus, TaskSummary, TaskType } from '~/types/creative'
 import { startHiddenAwarePoll } from '~/utils/hidden-poll'
+import { taskCancelable } from '~/utils/canvas-run-queue'
 
 const { t } = useI18n()
 
@@ -99,6 +100,10 @@ function duration(item: GenerationTask) {
 
 function isActive(item: GenerationTask) {
   return item.status === 'pending' || item.status === 'running'
+}
+
+function canCancel(item: GenerationTask) {
+  return taskCancelable(item.status, item.type)
 }
 
 function canRetry(item: GenerationTask) {
@@ -494,7 +499,7 @@ onBeforeUnmount(() => {
             <span class="canvas-tip canvas-tip--up">{{ t('复制提示词') }}</span>
           </button>
           <button
-            v-if="isActive(item)"
+            v-if="canCancel(item)"
             type="button"
             class="tasks-item__icon is-danger"
             :disabled="busy === item.id"

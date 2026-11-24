@@ -77,36 +77,98 @@ export const VIRAL_RATIO_CANDIDATES: readonly string[] = RATIO_CANDIDATES
 export function viralParamOptions(
   detail: { params?: Record<string, { properties?: Record<string, unknown> }> } | null,
   model?: { durations?: number[] | null, resolutions?: string[] | null } | null,
-): { ratios: string[], resolutions: string[], durations: number[] } {
-  const props = detail?.params?.video?.properties ?? detail?.params?.text_to_video?.properties ?? {}
+): {
+  ratios: string[]
+  resolutions: string[]
+  durations: number[]
+  /** 比例来自该模型参数表，不是常用比例兜底 */
+  ratiosDeclared: boolean
+  resolutionsDeclared: boolean
+  /** 参数表里有 generate_audio / audio 才显示有声开关 */
+  audio: boolean
+} {
+  const groups = videoParamGroups(detail)
   const enumOf = (key: string): string[] => {
-    const list = (props[key] as { enum?: unknown } | undefined)?.enum
-    return Array.isArray(list) ? list.map(item => String(item || '').trim()).filter(Boolean) : []
+    for (const props of groups) {
+      const list = (props[key] as { enum?: unknown } | undefined)?.enum
+      if (!Array.isArray(list))
+        continue
+      const values = list.map(item => String(item || '').trim()).filter(Boolean)
+      if (values.length)
+        return values
+    }
+    return []
   }
-  const ratios = enumOf('aspect_ratio')
-  const resolutions = enumOf('resolution')
+  const declaredRatios = uniqueStrings([...enumOf('aspect_ratio'), ...enumOf('ratio')])
+  const declaredResolutions = enumOf('resolution')
   let durations = (model?.durations || []).map(n => Number(n) || 0).filter(n => n > 0)
   if (!durations.length) {
-    const spec = props.duration as { enum?: unknown, min?: unknown, max?: unknown } | undefined
-    const enumList = Array.isArray(spec?.enum)
-      ? (spec?.enum as unknown[]).map(n => Number(n) || 0).filter(n => n > 0)
-      : []
-    if (enumList.length) {
-      durations = enumList
-    }
-    else {
-      const min = Number(spec?.min) || 0
-      const max = Number(spec?.max) || 0
+    for (const props of groups) {
+      const spec = props.duration as { enum?: unknown, min?: unknown, max?: unknown } | undefined
+      if (!spec)
+        continue
+      const enumList = Array.isArray(spec.enum)
+        ? spec.enum.map(n => Number(n) || 0).filter(n => n > 0)
+        : []
+      if (enumList.length) {
+        durations = enumList
+        break
+      }
+      const min = Number(spec.min) || 0
+      const max = Number(spec.max) || 0
       // 连续区间只在跨度合理时展开成逐秒档位，否则视为不限（只有自动）
-      if (min > 0 && max >= min && max - min <= 20)
+      if (min > 0 && max >= min && max - min <= 20) {
         durations = Array.from({ length: max - min + 1 }, (_, i) => min + i)
+        break
+      }
     }
   }
+  const audio = groups.some(props => 'generate_audio' in props || 'audio' in props)
   return {
-    ratios: ratios.length ? ratios : [...VIRAL_RATIO_CANDIDATES],
-    resolutions: resolutions.length ? resolutions : (model?.resolutions || []).map(item => String(item || '').trim().toUpperCase()).filter(Boolean),
+    ratios: declaredRatios.length ? declaredRatios : [...VIRAL_RATIO_CANDIDATES],
+    resolutions: declaredResolutions.length
+      ? declaredResolutions
+      : (model?.resolutions || []).map(item => String(item || '').trim().toUpperCase()).filter(Boolean),
     durations,
+    ratiosDeclared: declaredRatios.length > 0,
+    resolutionsDeclared: declaredResolutions.length > 0,
+    audio,
   }
+}
+
+/** 视频参数可能写在 video / text_to_video，也可能写在别的分类；ratio 和 aspect_ratio 都要认 */
+function videoParamGroups(
+  detail: { params?: Record<string, { properties?: Record<string, unknown> }> } | null,
+): Record<string, unknown>[] {
+  const params = detail?.params
+  if (!params)
+    return []
+  const preferred = ['video', 'text_to_video', 'image_to_video']
+  const groups: Record<string, unknown>[] = []
+  for (const key of preferred) {
+    const properties = params[key]?.properties
+    if (properties)
+      groups.push(properties)
+  }
+  for (const [key, group] of Object.entries(params)) {
+    if (preferred.includes(key) || !group?.properties)
+      continue
+    groups.push(group.properties)
+  }
+  return groups
+}
+
+function uniqueStrings(list: string[]): string[] {
+  const seen = new Set<string>()
+  const out: string[] = []
+  for (const item of list) {
+    const key = item.toLowerCase()
+    if (!item || seen.has(key))
+      continue
+    seen.add(key)
+    out.push(item)
+  }
+  return out
 }
 
 /** 复刻比例：按原片像素尺寸落到最接近的常用比例；尺寸读不到时横屏 16:9 */

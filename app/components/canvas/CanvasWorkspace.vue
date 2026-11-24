@@ -79,7 +79,8 @@ import { useToast } from '#imports'
 import type { Asset, AssetType, CanvasGraph, GeneratePayload, GenerationModel, GenerationTask, MediaJob, NodeCandidate, Style, TaskInput } from '~/types/creative'
 import taskApi from '~/api/task'
 import mediaApi from '~/api/media'
-import { rangeToSeconds } from '~/utils/canvas-media-job'
+import { rangeToSeconds, retakeChargeSeconds } from '~/utils/canvas-media-job'
+import { composeRetakePrompt } from '~/utils/canvas-extend-studio'
 import { clipStripMetrics } from '~/utils/canvas-strip-keys'
 import { addNodeDataPatch, buildAssistNodes, orderAssistChanges, updatePromptPatch, type AssistChange, type AssistNodeSummary } from '~/utils/canvas-assist'
 import { CANVAS_STALE_KEY, computeStaleMap, snapshotNodeInput, type InputSnapshot } from '~/utils/canvas-upstream'
@@ -559,6 +560,9 @@ const showInspector = computed(() => {
     return false
   // 高清 / 逐帧拉片节点用专用参数面板，不走普通 Inspector
   if (isHdNode(node.data) || isFramePullNode(node.data) || isDepthMotionNode(node.data))
+    return false
+  // 片段重拍在原片时间轴上改选中的几秒，不走全能参考生成栏
+  if (isRetakeNode(node.data))
     return false
   // 浏览器拼接的成片已经是视频，不再弹出模型生成栏
   if (isMergeResult(node.data))
@@ -5782,19 +5786,38 @@ async function submitRetakeSegment(node: CanvasFlowNode & { data: CanvasNodeData
     notify(t('暂无支持参考视频的模型'), 'error')
     return
   }
-  const span = Math.min(15, Math.max(2, Math.round(seconds.end - seconds.start)))
+  const pickedDuration = Number(payload?.params?.duration)
+  const span = pickedDuration > 0 ? pickedDuration : retakeChargeSeconds(seconds.end - seconds.start)
   if (!await gateSpend(estimateSpend(model, { duration: span })))
     return
-  let prompt = stripCameraTokens(String(payload?.prompt || node.data.prompt || '')).trim()
-  if (prompt)
-    prompt = expandMarkTokens(expandCameraTokens(prompt), node.data.markElements)
-  if (!prompt)
-    prompt = t('按原画面重拍这一段，保持主体、场景和光影')
+  // 裁参考片段和上传都在创建任务之前。先转起来，避免节点先播着原片干等。
+  updateNodeData(node.id, { taskStatus: 'pending', taskProgress: 0, taskError: '' })
+  const clearRetakePending = () => {
+    updateNodeData(node.id, { taskStatus: '', taskProgress: 0, retakeStitch: undefined })
+  }
+  // 改动框里写的是「这一段要改成什么」。源视频上的镜头描述另带给模型，不能被兜底句换掉。
+  let change = stripCameraTokens(String(payload?.prompt || node.data.prompt || '')).trim()
+  if (change)
+    change = expandMarkTokens(expandCameraTokens(change), node.data.markElements)
+  let sourcePrompt = ''
+  if (isContentNode(sourceNode) && sourceNode.id !== node.id) {
+    sourcePrompt = stripCameraTokens(String(sourceNode.data.prompt || '')).trim()
+    if (sourcePrompt)
+      sourcePrompt = expandMarkTokens(expandCameraTokens(sourcePrompt), sourceNode.data.markElements)
+  }
+  const prompt = composeRetakePrompt({
+    change,
+    sourcePrompt,
+    start: seconds.start,
+    end: seconds.end,
+    fallback: t('按原画面重拍这一段，保持主体、场景和光影'),
+  })
   const sourceAssetId = isContentNode(sourceNode) ? Number(sourceNode.data.assetId) || 0 : 0
   const wholeClip = seconds.start <= 0.15 && duration - seconds.end <= 0.15
   let videoId = wholeClip && sourceAssetId > 0 ? sourceAssetId : 0
   if (!videoId) {
     if (canvasMergeRunning.value) {
+      clearRetakePending()
       notify(t('canvas.cut.busy'))
       return
     }
@@ -5805,12 +5828,14 @@ async function submitRetakeSegment(node: CanvasFlowNode & { data: CanvasNodeData
       const file = new File([blob], 'retake-source.mp4', { type: 'video/mp4' })
       const uploaded = await assetApi.upload(file)
       if (!uploaded?.success || !uploaded.data?.id) {
+        clearRetakePending()
         notify(uploaded?.message || t('提交失败'), 'error')
         return
       }
       videoId = Number(uploaded.data.id)
     }
     catch {
+      clearRetakePending()
       notify(t('读不到这段视频，请重试'), 'error')
       return
     }
@@ -5819,20 +5844,30 @@ async function submitRetakeSegment(node: CanvasFlowNode & { data: CanvasNodeData
     }
   }
   updateNodeData(node.id, {
-    prompt,
+    prompt: change,
     retakeStitch: { sourceUrl: src, start: seconds.start, end: seconds.end, duration },
   })
+  const resolution = typeof payload?.params?.resolution === 'string' ? payload.params.resolution.trim() : ''
+  const ratio = typeof payload?.params?.ratio === 'string' ? payload.params.ratio.trim() : ''
+  const audio = typeof payload?.params?.audio === 'boolean' ? payload.params.audio : undefined
   const res = await taskApi.create({
     type: 'video',
     model,
     prompt,
-    params: { mode: 'reference', duration: span, count: 1 },
+    params: {
+      mode: 'reference',
+      duration: span,
+      count: 1,
+      ...(resolution ? { resolution } : {}),
+      ...(ratio && ratio !== '智能' ? { ratio } : {}),
+      ...(audio !== undefined ? { audio } : {}),
+    },
     inputs: [{ asset_id: videoId, role: 'reference_video' }],
     canvas_id: props.canvasId || undefined,
     node_id: node.id,
   })
   if (!res?.success || !res.data) {
-    updateNodeData(node.id, { retakeStitch: undefined })
+    clearRetakePending()
     notify(res?.message || t('提交失败'), 'error')
     return
   }
@@ -5847,7 +5882,7 @@ async function submitRetakeSegment(node: CanvasFlowNode & { data: CanvasNodeData
     void finishRetakeStitch(node.id, res.data.result_url)
   }
   else if (res.data.status === 'failed') {
-    updateNodeData(node.id, { retakeStitch: undefined })
+    updateNodeData(node.id, { retakeStitch: undefined, taskStatus: 'failed', taskError: res.data.error_msg || '' })
     notify(res.data.error_msg || t('生成失败'), 'error')
   }
 }
@@ -7460,6 +7495,7 @@ const {
   extendStudioRefs,
   extendStudioBusy,
   extendStudioTotal,
+  extendStudioRange,
   openExtendStudio,
   pickExtendStudioRefs,
   onExtendStudioSubmit,
@@ -8250,6 +8286,7 @@ const styleLibValue = computed(() => {
       :submitting="extendStudioBusy"
       :fallback-duration="stripAssetDuration"
       :total="extendStudioTotal"
+      :initial-range="extendStudioRange"
       @close="extendStudioOpen = false"
       @open-style="openStyleLibrary('extend')"
       @pick-refs="pickExtendStudioRefs"

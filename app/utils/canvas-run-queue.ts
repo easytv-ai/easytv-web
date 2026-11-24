@@ -146,13 +146,25 @@ export function runQueueError(task: GenerationTask): string {
 }
 
 /**
- * 这条任务能接哪个既有端点（不能的返回 null，不伪造按钮）：
- * 进行中 → `POST /user/task/:id/cancel`；失败 / 已取消 → `POST /user/task/:id/retry`。
- * 成功的不给「重新生成」：那是画布节点上的动作（retake / extend / upscale 也各有入口）。
+ * 图片 / 视频 / 音频提交后上游停不掉。进行中不提供取消，避免界面上退了分、模型侧仍在计费。
+ * 文本任务仍可取消。没带类型时保持旧口径（进行中可取消），调用方拿得到类型就必须传进来。
  */
-export function runQueueAction(status: TaskStatus): RunQueueAction {
+export function taskCancelable(status: TaskStatus, type?: TaskType): boolean {
+  if (!isRunQueueActive(status))
+    return false
+  if (type === 'image' || type === 'video' || type === 'audio')
+    return false
+  return true
+}
+
+/**
+ * 这条任务能接哪个既有端点（不能的返回 null，不伪造按钮）：
+ * 进行中的文本任务 → `POST /user/task/:id/cancel`；失败 / 已取消 → `POST /user/task/:id/retry`。
+ * 图片 / 视频 / 音频进行中没有取消。成功的不给「重新生成」：那是画布节点上的动作。
+ */
+export function runQueueAction(status: TaskStatus, type?: TaskType): RunQueueAction {
   if (isRunQueueActive(status))
-    return 'cancel'
+    return taskCancelable(status, type) ? 'cancel' : null
   if (status === 'failed' || status === 'cancelled')
     return 'retry'
   return null

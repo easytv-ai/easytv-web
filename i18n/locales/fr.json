@@ -3217,6 +3217,8 @@
   "回滚派生节点": "Annuler les nœuds dérivés",
   "回滚这次派生？": "Annuler cette dérivation ?",
   "会取消还在跑的批次，并从画布拿走这次派生的节点。已经生成完的版本也会一起删掉。": "Cela annule le lot en cours et retire les nœuds dérivés du canevas, y compris les versions déjà générées.",
+  "还没提交的会停掉。已经提交给模型的会继续生成，积分不退。派生出来的节点会从画布拿走，包括已经生成完的版本。": "Ce qui n’est pas encore envoyé s’arrête. Ce qui est déjà parti au modèle continue, sans remboursement de points. Les nœuds dérivés quittent le canevas, y compris les versions déjà générées.",
+  "生成已经提交，不能取消，积分不会退回": "La génération est déjà envoyée : elle ne peut pas être annulée et les points ne sont pas remboursés.",
   "确认回滚": "Confirmer l’annulation",
   "已按指令改好场景": "Scène mise à jour d’après les instructions",
   "查看模型原文": "Voir la réponse du modèle",

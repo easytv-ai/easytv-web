@@ -134,6 +134,15 @@ export function retakeSegmentSeconds(params: NonNullable<CanvasNodeData['retakeP
 }
 
 /**
+ * 片段重拍提交和预估共用的计费秒数。
+ * 选区是带小数的秒，服务端 paramInt 只认整数；这里四舍五入后夹在 2～15，避免 5.04 × 单价冒出一长串小数。
+ */
+export function retakeChargeSeconds(spanSeconds: number): number {
+  const n = Math.round(Number(spanSeconds) || 0)
+  return Math.min(15, Math.max(2, n))
+}
+
+/**
  * 片段重拍的区间参数：读到了时长就发秒数；读不到（素材跨域、还没探完）就发 0~1 比例，
  * 由服务端按探到的源时长换算（API.md 23.8 start_ratio / end_ratio）。区间无效返回 null。
  */

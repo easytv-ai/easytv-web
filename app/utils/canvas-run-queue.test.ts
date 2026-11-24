@@ -190,12 +190,20 @@ describe('runQueueError', () => {
 })
 
 describe('runQueueAction', () => {
-  it('进行中可取消，失败 / 取消可重试，成功没有动作', () => {
-    expect(runQueueAction('pending')).toBe('cancel')
-    expect(runQueueAction('running')).toBe('cancel')
+  it('文本任务进行中可取消，失败 / 取消可重试，成功没有动作', () => {
+    expect(runQueueAction('pending', 'text')).toBe('cancel')
+    expect(runQueueAction('running', 'text')).toBe('cancel')
     expect(runQueueAction('failed')).toBe('retry')
     expect(runQueueAction('cancelled')).toBe('retry')
     expect(runQueueAction('succeeded')).toBeNull()
+  })
+
+  it('图片 / 视频 / 音频提交后不能取消', () => {
+    expect(runQueueAction('pending', 'video')).toBeNull()
+    expect(runQueueAction('running', 'video')).toBeNull()
+    expect(runQueueAction('running', 'image')).toBeNull()
+    expect(runQueueAction('pending', 'audio')).toBeNull()
+    expect(runQueueAction('failed', 'video')).toBe('retry')
   })
 })
 

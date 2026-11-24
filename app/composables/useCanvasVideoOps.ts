@@ -206,6 +206,19 @@ export function useCanvasVideoOps(opts: {
     return Number(total) || RETAKE_SEGMENT_COUNT
   })
 
+  /** 再次打开重拍节点时，时间轴停在上次圈的那一段 */
+  const extendStudioRange = computed(() => {
+    if (extendStudioVariant.value !== 'retake')
+      return null
+    const node = opts.findNode(extendStudioNodeId.value)
+    if (!node || !isContentNode(node) || !isRetakeNode(node.data) || !node.data.retakeParams)
+      return null
+    return {
+      start: node.data.retakeParams.start,
+      end: node.data.retakeParams.end,
+    }
+  })
+
   /** 再次选中已有的重拍节点时打开弹窗。刚提交产生的那次选中跳过 */
   watch(opts.showRetakeStrip, (on) => {
     if (!on)
@@ -359,7 +372,16 @@ export function useCanvasVideoOps(opts: {
       opts.pushHistory()
       const target = opts.findNode(spawned.id)
       if (target && isContentNode(target))
-        await opts.submitRetakeSegment(target, { model: payload.model, params: {}, prompt: finalPrompt })
+        await opts.submitRetakeSegment(target, {
+          model: payload.model,
+          params: {
+            duration: payload.seconds,
+            resolution: payload.resolution,
+            ratio: payload.ratio,
+            audio: payload.audio,
+          },
+          prompt: finalPrompt,
+        })
       return
     }
 
@@ -521,6 +543,7 @@ export function useCanvasVideoOps(opts: {
     extendStudioRefs,
     extendStudioBusy,
     extendStudioTotal,
+    extendStudioRange,
     openExtendStudio,
     pickExtendStudioRefs,
     onExtendStudioSubmit,

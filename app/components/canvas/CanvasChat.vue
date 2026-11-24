@@ -830,6 +830,8 @@ const bodyRef = ref<HTMLElement | null>(null)
 const busy = ref(false)
 /** 正在取消当前这一轮，按钮变灰，避免连点 */
 const stopping = ref(false)
+/** 这一轮是图片 / 视频 / 音频出片：已经交给模型，停止不会取消任务，也不退积分 */
+const mediaBusy = ref(false)
 /** 历史删除 / 清空进行中，避免连点打出两次请求 */
 const historyBusy = ref(false)
 let seq = 0
@@ -1610,6 +1612,7 @@ function stopPolling() {
 function nextRun() {
   runId += 1
   runTaskId = 0
+  mediaBusy.value = false
   return runId
 }
 
@@ -1620,12 +1623,14 @@ function runAlive(id: number) {
 /** 离开当前轮：停掉轮询，并把已经创建的任务取消掉，避免切对话后还在扣积分 */
 function dropRun() {
   const taskId = runTaskId
+  const holdMedia = mediaBusy.value
   nextRun()
   stopPolling()
   busy.value = false
   stopping.value = false
   pendingBriefBatch.clear()
-  if (taskId)
+  // 出片已经提交的不取消：上游停不掉，取消只会把积分退给用户
+  if (taskId && !holdMedia)
     void taskApi.cancel(taskId)
 }
 
@@ -1749,6 +1754,10 @@ function markStopped(reply: ChatMsg | null) {
 async function stopReply() {
   if (!busy.value || stopping.value)
     return
+  if (mediaBusy.value) {
+    notify(t('生成已经提交，不能取消，积分不会退回'))
+    return
+  }
   stopping.value = true
   const reply = activeReply() || lockedMediaReply()
   const taskId = runTaskId
@@ -3129,6 +3138,7 @@ function runFreeMedia(card: ChatMediaConfirmCard, reply: ChatMsg, id: number) {
   runAgent = false
   busy.value = true
   stopping.value = false
+  mediaBusy.value = true
   const thinking = stripChatGenerateAction(String(reply.text || '')).trim()
   reply.text = thinking ? `${thinking}\n\n${mediaRunningText(kind)}` : mediaRunningText(kind)
   persistSession()
@@ -3144,16 +3154,17 @@ function runFreeMedia(card: ChatMediaConfirmCard, reply: ChatMsg, id: number) {
     refs: card.refs,
   }, {
     onTask: (taskId, nodeId) => {
-      // 任务 id 记在卡上并落盘：这一轮之后若被丢弃（切会话 / 刷新），回来能按它向后端问终态
+      // 任务 id 记在卡上并落盘：这一轮之后若被丢弃（切会话 / 刷新），回来能按它向后端问终态。
+      // 出片不取消：离开对话后任务继续跑，积分不退。
       noteChatMediaTask(card, taskId, nodeId)
-      if (!runAlive(id) || stopping.value) {
-        void taskApi.cancel(taskId)
+      if (!runAlive(id))
         return
-      }
       runTaskId = taskId
       persistSession()
     },
     onDone: (report) => {
+      if (runAlive(id))
+        mediaBusy.value = false
       if (!runAlive(id))
         return
       endChatMediaRun(card)
@@ -4528,14 +4539,14 @@ function promoOf(item: GenerationModel) {
             <button
               type="button"
               class="canvas-chat__send"
-              :class="{ 'is-on': stopping || busy || (prompt.trim() && !quotaExhausted && !chatDisabled && !practice), 'is-stop': busy || stopping }"
-              :disabled="stopping || (!busy && (quotaExhausted || chatDisabled || practice))"
-              :aria-label="stopping ? t('canvas.chat.msg.stopping') : busy ? t('停止') : t('发送')"
-              @click="busy ? stopReply() : send()"
+              :class="{ 'is-on': stopping || busy || (prompt.trim() && !quotaExhausted && !chatDisabled && !practice), 'is-stop': (busy || stopping) && !mediaBusy }"
+              :disabled="stopping || mediaBusy || (!busy && (quotaExhausted || chatDisabled || practice))"
+              :aria-label="mediaBusy ? t('生成中') : stopping ? t('canvas.chat.msg.stopping') : busy ? t('停止') : t('发送')"
+              @click="busy && !mediaBusy ? stopReply() : send()"
             >
-              <i v-if="busy && !stopping" class="canvas-chat__stop-mark" />
-              <UIcon v-else :name="stopping ? 'i-lucide-loader-circle' : 'i-lucide-arrow-up'" class="size-5" :class="{ 'animate-spin': stopping }" />
-              <span :class="entry ? 'canvas-tip canvas-tip--end' : 'canvas-tip canvas-tip--up'">{{ stopping ? t('canvas.chat.msg.stopping') : busy ? t('停止') : t('发送') }}</span>
+              <i v-if="busy && !stopping && !mediaBusy" class="canvas-chat__stop-mark" />
+              <UIcon v-else :name="(stopping || mediaBusy) ? 'i-lucide-loader-circle' : 'i-lucide-arrow-up'" class="size-5" :class="{ 'animate-spin': stopping || mediaBusy }" />
+              <span :class="entry ? 'canvas-tip canvas-tip--end' : 'canvas-tip canvas-tip--up'">{{ mediaBusy ? t('生成已经提交，不能取消，积分不会退回') : stopping ? t('canvas.chat.msg.stopping') : busy ? t('停止') : t('发送') }}</span>
             </button>
           </div>
         </div>

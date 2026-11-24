@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { GenerationModel } from '~/types/creative'
-import { buildViralPrompt, buildViralShotPrompt, hasVideoReference, parseViralBreakdown, pickViralModel, syncViralPromptRefs, trimViralStructure, viralCarryRefs, viralDuration, viralExtraRefCount, viralMappedEntities, viralModels, viralRatio, viralResolution } from './canvas-viral'
+import { buildViralPrompt, buildViralShotPrompt, hasVideoReference, parseViralBreakdown, pickViralModel, syncViralPromptRefs, trimViralStructure, viralCarryRefs, viralDuration, viralExtraRefCount, viralMappedEntities, viralModels, viralParamOptions, viralRatio, viralResolution } from './canvas-viral'
 
 function model(name: string, extra: Partial<GenerationModel> = {}): GenerationModel {
   return {
@@ -215,5 +215,29 @@ describe('buildViralShotPrompt', () => {
     expect(prompt).not.toContain('公路')
     expect(prompt).toContain('改成黄昏')
     expect(viralMappedEntities(entities).map(item => item.assetId)).toEqual([3])
+  })
+})
+
+describe('viralParamOptions', () => {
+  it('认 ratio 字段，并标出这是模型自己的枚举', () => {
+    const options = viralParamOptions({
+      params: {
+        video: {
+          properties: {
+            ratio: { enum: ['21:9', '16:9', '4:3', '1:1', '3:4', '9:16', 'adaptive'] },
+            resolution: { enum: ['480p', '720p'] },
+            duration: { min: 4, max: 15 },
+            generate_audio: { type: 'boolean' },
+          },
+        },
+      },
+    }, { durations: [], resolutions: [] })
+    expect(options.ratios).toEqual(['21:9', '16:9', '4:3', '1:1', '3:4', '9:16', 'adaptive'])
+    expect(options.ratiosDeclared).toBe(true)
+    expect(options.resolutions).toEqual(['480p', '720p'])
+    expect(options.resolutionsDeclared).toBe(true)
+    expect(options.durations[0]).toBe(4)
+    expect(options.audio).toBe(true)
+    expect(options.ratios).not.toContain('2:3')
   })
 })

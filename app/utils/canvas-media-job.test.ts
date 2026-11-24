@@ -16,6 +16,7 @@ import {
   pickMediaSourceNode,
   rangeToSeconds,
   ratioToSeconds,
+  retakeChargeSeconds,
   retakeSegmentOutputs,
   retakeSegmentRange,
   retakeSegmentSeconds,
@@ -131,6 +132,14 @@ describe('比例 → 秒', () => {
 
   it('rangeToSeconds 起止倒置也能换算', () => {
     expect(rangeToSeconds({ start: 0.6, end: 0.2 }, 10)).toEqual({ start: 2, end: 6 })
+  })
+
+  it('retakeChargeSeconds 按整数秒计费，5.04 秒收成 5 秒', () => {
+    const clip = rangeToSeconds({ start: 0, end: 1 }, 5 + 1 / 24, 0.5)
+    expect(clip).toEqual({ start: 0, end: 5.04 })
+    expect(retakeChargeSeconds((clip?.end ?? 0) - (clip?.start ?? 0))).toBe(5)
+    expect(retakeChargeSeconds(0.4)).toBe(2)
+    expect(retakeChargeSeconds(20)).toBe(15)
   })
 
   it('retakeSegmentSeconds 用节点存的探测时长，段长不足 0.5 秒返回 null', () => {

@@ -3217,6 +3217,8 @@
   "回滚派生节点": "Hoàn tác các nút đã tạo",
   "回滚这次派生？": "Hoàn tác lần tạo này?",
   "会取消还在跑的批次，并从画布拿走这次派生的节点。已经生成完的版本也会一起删掉。": "Sẽ hủy lô đang chạy và gỡ các nút vừa tạo khỏi canvas, kể cả phiên bản đã sinh xong.",
+  "还没提交的会停掉。已经提交给模型的会继续生成，积分不退。派生出来的节点会从画布拿走，包括已经生成完的版本。": "Mục chưa gửi sẽ dừng. Việc đã gửi cho mô hình tiếp tục chạy và không hoàn điểm. Các nút vừa tạo sẽ bị gỡ khỏi canvas, kể cả bản đã sinh xong.",
+  "生成已经提交，不能取消，积分不会退回": "Đã gửi tạo, không thể hủy và không hoàn điểm.",
   "确认回滚": "Xác nhận hoàn tác",
   "已按指令改好场景": "Đã chỉnh cảnh theo hướng dẫn",
   "查看模型原文": "Xem câu trả lời gốc",

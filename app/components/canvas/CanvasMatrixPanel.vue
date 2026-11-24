@@ -357,7 +357,7 @@ async function onRollback() {
     return
   const ok = await confirm({
     title: t('回滚这次派生？'),
-    message: t('会取消还在跑的批次，并从画布拿走这次派生的节点。已经生成完的版本也会一起删掉。'),
+    message: t('还没提交的会停掉。已经提交给模型的会继续生成，积分不退。派生出来的节点会从画布拿走，包括已经生成完的版本。'),
     confirmText: t('确认回滚'),
     danger: true,
   })
