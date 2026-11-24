@@ -42,8 +42,11 @@ const { load: loadAppConfig } = useStudioAppConfig()
 void loadAppConfig()
 
 definePageMeta({
-  layout: false,
+  layout: 'studio',
   middleware: 'auth',
+  pageTransition: false,
+  immersive: true,
+  keepalive: false,
 })
 
 useHead({ title: t('自由画布') })

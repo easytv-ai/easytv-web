@@ -4,6 +4,9 @@ const { restorePricingAfterLogin } = usePricingModal()
 const { load: loadAppConfig } = useStudioAppConfig()
 const { settingsMounted } = useSettingsModal()
 const mobileNavOpen = useState('studio-mobile-nav', () => false)
+const route = useRoute()
+/** 画布等全屏页：侧栏还在 DOM 里，只是藏起来，回首页不用重新挂菜单 */
+const immersive = computed(() => Boolean(route.meta.immersive))
 
 onMounted(() => {
   hydrate()
@@ -14,8 +17,8 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="studio-shell">
-    <StudioSidebar />
+  <div class="studio-shell" :class="{ 'is-immersive': immersive }">
+    <StudioSidebar :inert="immersive" />
     <button
       v-if="mobileNavOpen"
       type="button"
@@ -24,8 +27,8 @@ onMounted(() => {
       @click="mobileNavOpen = false"
     />
     <div class="studio-main">
-      <StudioPromoBanner />
-      <StudioHeader />
+      <StudioPromoBanner :inert="immersive" />
+      <StudioHeader :inert="immersive" />
       <main class="studio-content">
         <slot />
       </main>

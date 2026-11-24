@@ -3,6 +3,14 @@ import { computed, ref, type Ref } from 'vue'
 
 type PagedResult<T> = Pick<Paged<T>, 'items' | 'total'>
 
+/** 跨页（画布 layout:false 会拆掉 keepalive）把列表快照留下来，回来不先闪骨架 */
+export type PagedSnap<T> = {
+  items: T[]
+  page: number
+  total: number
+  loaded: boolean
+}
+
 /**
  * 本地删过行之后的续翻页码：服务端列表已经整体前移，再按「上一页 + 1」取会漏掉移进上一页的那几项。
  * 改取「第一个还没加载的偏移」所在的那一页，重叠的部分靠按 id 去重消掉。
@@ -17,19 +25,37 @@ export function pageForOffset(loadedCount: number, pageSize: number) {
  * 创作台列表分页：首屏重置、上拉追加、按 id 去重。
  * fetch 在调用时读取最新筛选条件（keyword / type 等）。
  * 首次完成前 busy 为真（骨架屏）；刷新失败保留上一份列表；空列表只在成功且总数为 0 时出现。
+ * cacheKey / cache：从画布返回时页面会重挂，用快照先画出上一份列表，后台再刷新。
  */
 export function useStudioPaged<T extends { id: number | string }>(options: {
   pageSize?: number
+  cacheKey?: string
+  cache?: { value: PagedSnap<T> | null }
   fetch: (page: number, pageSize: number) => Promise<PagedResult<T> | null | undefined>
 }) {
   const pageSize = options.pageSize ?? 24
-  const items = ref<T[]>([]) as Ref<T[]>
-  const page = ref(1)
-  const total = ref(0)
+  const cache = options.cache ?? (options.cacheKey
+    ? useState<PagedSnap<T> | null>(`studio-paged:${options.cacheKey}`, () => null)
+    : null)
+  const snap = cache?.value
+  const items = ref<T[]>(snap?.items?.slice() ?? []) as Ref<T[]>
+  const page = ref(snap?.page ?? 1)
+  const total = ref(snap?.total ?? 0)
   const loading = ref(false)
   const loadingMore = ref(false)
-  const loaded = ref(false)
+  const loaded = ref(Boolean(snap?.loaded && (snap.items?.length || snap.total === 0)))
   const failed = ref(false)
+
+  function persist() {
+    if (!cache)
+      return
+    cache.value = {
+      items: items.value.slice(),
+      page: page.value,
+      total: total.value,
+      loaded: loaded.value,
+    }
+  }
   let seq = 0
   /** 上次取数之后本地删过行（removeById），下一次续翻要按偏移重算页码 */
   let removals = 0
@@ -85,6 +111,7 @@ export function useStudioPaged<T extends { id: number | string }>(options: {
       total.value = !reset && !next.length ? items.value.length : data.total
       loaded.value = true
       failed.value = false
+      persist()
       return true
     }
     finally {
@@ -115,6 +142,7 @@ export function useStudioPaged<T extends { id: number | string }>(options: {
     if (items.value.length < before) {
       total.value = Math.max(0, total.value - 1)
       removals += 1
+      persist()
     }
   }
 
@@ -123,6 +151,7 @@ export function useStudioPaged<T extends { id: number | string }>(options: {
     items.value = [item, ...items.value.filter(row => row.id !== item.id)]
     if (!existed)
       total.value += 1
+    persist()
   }
 
   return {

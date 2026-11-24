@@ -71,8 +71,11 @@ function quotePreviewModel(model: string, durationSeconds: number) {
 }
 
 definePageMeta({
-  layout: false,
+  layout: 'studio',
   middleware: 'auth',
+  pageTransition: false,
+  immersive: true,
+  keepalive: false,
 })
 
 useHead({ title: t('3D 导演台') })

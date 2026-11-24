@@ -40,10 +40,18 @@ watch(() => route.fullPath, () => syncLoginModal())
 
 /** 创作台内部切页：内容区淡入，侧栏和顶栏不动。登录 / 画布等自己关过渡。 */
 const tabSwitch = useState('studio-tab-switch', () => false)
+/** 上一页 layout。无壳页（播放页）回来再套 studio-page 淡入会先露出骨架。 */
+const fromLayout = useState<unknown>('studio-from-layout', () => 'studio')
+const fromImmersive = useState('studio-from-immersive', () => false)
+const router = useRouter()
+router.beforeEach((_to, from) => {
+  fromLayout.value = from.matched.length ? (from.meta.layout ?? false) : 'studio'
+  fromImmersive.value = Boolean(from.meta.immersive)
+})
 const pageTransition = computed(() => {
-  if (tabSwitch.value || route.meta.pageTransition === false)
+  if (tabSwitch.value || route.meta.pageTransition === false || route.meta.immersive || fromImmersive.value)
     return false
-  if (route.meta.layout === 'studio')
+  if (route.meta.layout === 'studio' && fromLayout.value === 'studio')
     return { name: 'studio-page' }
   return false
 })

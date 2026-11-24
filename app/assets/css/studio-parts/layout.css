@@ -7,6 +7,22 @@
   color: var(--st-text);
 }
 
+/* 画布全屏时侧栏/顶栏仍留在 DOM，回首页不用重新挂。不要过渡宽度，否则菜单会滑出来像闪一下。 */
+.studio-shell.is-immersive .studio-sidebar,
+.studio-shell.is-immersive .studio-header,
+.studio-shell.is-immersive .studio-promo-banner,
+.studio-shell.is-immersive .studio-nav-mask,
+.studio-shell.is-immersive .growth-tasks {
+  display: none;
+}
+
+.studio-shell.is-immersive .studio-content {
+  --studio-content-pad-x: 0px;
+  padding: 0;
+  overflow: hidden;
+  scrollbar-gutter: auto;
+}
+
 html:has(.studio-shell),
 html:has(.studio-shell) body,
 html:has(.studio-shell) #__nuxt,

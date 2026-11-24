@@ -44,4 +44,31 @@ describe('useStudioPaged', () => {
     expect(pager.busy.value).toBe(false)
     expect(pager.items.value).toEqual([])
   })
+
+  it('有快照时重挂不进骨架，后台刷新也不先清空列表', async () => {
+    const cache = { value: null as { items: { id: number }[], page: number, total: number, loaded: boolean } | null }
+    const first = useStudioPaged<{ id: number }>({
+      cache,
+      fetch: async () => ({ items: [{ id: 1 }, { id: 2 }], total: 2 }),
+    })
+    expect(first.busy.value).toBe(true)
+    await first.reload()
+    expect(cache.value?.items).toEqual([{ id: 1 }, { id: 2 }])
+
+    let resolveFetch: (value: { items: { id: number }[], total: number }) => void = () => {}
+    const second = useStudioPaged<{ id: number }>({
+      cache,
+      fetch: () => new Promise((resolve) => {
+        resolveFetch = resolve
+      }),
+    })
+    expect(second.busy.value).toBe(false)
+    expect(second.items.value).toEqual([{ id: 1 }, { id: 2 }])
+    const pending = second.reload()
+    expect(second.busy.value).toBe(false)
+    expect(second.items.value).toEqual([{ id: 1 }, { id: 2 }])
+    resolveFetch({ items: [{ id: 3 }], total: 1 })
+    await pending
+    expect(second.items.value).toEqual([{ id: 3 }])
+  })
 })

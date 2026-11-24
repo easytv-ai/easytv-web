@@ -24,16 +24,23 @@ const { t } = useI18n()
 const localePath = useLocalePath()
 const toast = useToast()
 
-const keyword = ref('')
 const ALL_TAG = '全部'
-const activeTag = ref(ALL_TAG)
+const feedScope = props.featured ? 'featured' : 'all'
+const viewSnap = useState(`studio-work-feed-view:${feedScope}`, () => ({
+  keyword: '',
+  tag: ALL_TAG,
+  lang: '',
+  hot: [] as RankWorkItem[],
+}))
+const keyword = ref(viewSnap.value.keyword)
+const activeTag = ref(viewSnap.value.tag || ALL_TAG)
 const { names: baseTags, load: loadCategories } = useContentCategories('work')
 const PAGE_SIZE = 24
 let keywordTimer: number | undefined
 
 /** 作品语言过滤（GET /work?lang=，API.md 10.7）：'' = 全部 */
 const LANG_FILTERS = ['', 'zh', 'en']
-const activeLang = ref('')
+const activeLang = ref(viewSnap.value.lang)
 
 function langLabel(value: string) {
   if (!value)
@@ -51,6 +58,7 @@ const {
   loadMore,
 } = useStudioPaged<Work>({
   pageSize: PAGE_SIZE,
+  cacheKey: `work-feed:${feedScope}`,
   async fetch(page, pageSize) {
     const q = keyword.value.trim()
     const res = await workApi.feed({
@@ -71,7 +79,16 @@ const {
 
 // ---- 本周热门（GET /rank/works?period=week，API.md 9.2）：只取前 5，不足 3 条不展示 ----
 const HOT_LIMIT = 5
-const hotRows = ref<RankWorkItem[]>([])
+const hotRows = ref<RankWorkItem[]>(viewSnap.value.hot.slice())
+
+function persistView() {
+  viewSnap.value = {
+    keyword: keyword.value,
+    tag: activeTag.value,
+    lang: activeLang.value,
+    hot: hotRows.value.slice(),
+  }
+}
 const showHot = computed(() => props.hot && hotRows.value.length >= 3)
 const heading = computed(() => props.title || t('精选成片'))
 const emptyTitle = computed(() => props.featured ? t('暂无精选成片') : t('暂无成片'))
@@ -85,6 +102,7 @@ async function loadHot() {
     if (!res?.success || !res.data)
       return
     hotRows.value = (res.data.items ?? []).slice(0, HOT_LIMIT)
+    persistView()
   }
   catch {
     hotRows.value = []
@@ -137,10 +155,12 @@ function stopPreview(event: Event) {
 }
 
 watch([activeTag, activeLang], () => {
+  persistView()
   void reload()
 })
 
 watch(keyword, () => {
+  persistView()
   window.clearTimeout(keywordTimer)
   keywordTimer = window.setTimeout(() => {
     void reload()
