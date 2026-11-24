@@ -30,8 +30,6 @@ async function load() {
   try {
     const res = await projectApi.list({ page: 1, page_size: LIMIT })
     if (!res?.success || !res.data) {
-      if (res?.unauthorized)
-        return
       failed.value = projects.value.length === 0
       toast.add({ title: res?.message || t('加载失败，请稍后重试'), color: 'error', close: false, progress: false, orientation: 'horizontal' })
       return

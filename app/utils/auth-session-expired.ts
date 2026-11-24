@@ -1,5 +1,6 @@
 import { useAuth } from '~/composables/useAuth'
-import { AUTH_EXPIRED_STORAGE_KEY, getAccessToken } from '~/utils/auth-user'
+import { AUTH_EXPIRED_STORAGE_KEY, AUTH_USER_STORAGE_KEY, getAccessToken } from '~/utils/auth-user'
+import { writeAuthSessionCookie } from '~/utils/auth-session-cookie'
 import { pathWithoutLocale } from '~/utils/app-path'
 import { buildLoginPath } from '~/utils/auth-login-redirect'
 import { openLoginModalState } from '~/utils/login-modal'
@@ -20,8 +21,25 @@ export function resetSessionExpiryRedirectState() {
 function clearAuthSession() {
   if (!import.meta.client)
     return
-  const { setUser } = useAuth()
-  setUser(null)
+  // 请求回调里 Nuxt 上下文可能已经没了，先直接清掉本地会话，避免界面还停在已登录。
+  try {
+    localStorage.removeItem(AUTH_USER_STORAGE_KEY)
+  }
+  catch {
+    // 隐私模式写不了存储时，仍继续清内存里的登录态
+  }
+  writeAuthSessionCookie(false)
+  const apply = () => useAuth().setUser(null)
+  try {
+    const nuxtApp = tryUseNuxtApp()
+    if (nuxtApp)
+      nuxtApp.runWithContext(apply)
+    else
+      apply()
+  }
+  catch {
+    // 本地会话已经清掉；内存状态在下次进入页面时会按空存储再同步
+  }
 }
 
 export function normalizeSessionCheckPayload(
@@ -139,24 +157,24 @@ export function handleSessionExpiredIfNeeded(data: unknown, status?: number): bo
   const payload = normalizeSessionCheckPayload(data, status)
   if (!isSessionExpiredResponse(payload))
     return false
-  if (
-    import.meta.client
-    && !shouldSkipAuthRedirect(payload)
-    && !redirecting
-    && !window.location.pathname.includes('/login')
-  ) {
-    redirecting = true
-    clearAuthSession()
-    sessionStorage.setItem(AUTH_EXPIRED_STORAGE_KEY, '1')
-    const returnPath = `${window.location.pathname}${window.location.search}${window.location.hash}`
-    try {
-      openLoginModalState({ redirect: returnPath, tab: 'login' })
-    }
-    catch {
-      redirecting = false
-      const prefix = window.location.pathname.match(/^\/(zh-tw|zh|en|fr|ja|ru|vi)(?=\/|$)/i)?.[0] ?? ''
-      window.location.assign(buildLoginPath(returnPath, { localePrefix: prefix }))
-    }
+  if (!import.meta.client || shouldSkipAuthRedirect(payload))
+    return true
+
+  clearAuthSession()
+
+  if (redirecting || window.location.pathname.includes('/login'))
+    return true
+
+  redirecting = true
+  sessionStorage.setItem(AUTH_EXPIRED_STORAGE_KEY, '1')
+  const returnPath = `${window.location.pathname}${window.location.search}${window.location.hash}`
+  try {
+    openLoginModalState({ redirect: returnPath, tab: 'login' })
+  }
+  catch {
+    redirecting = false
+    const prefix = window.location.pathname.match(/^\/(zh-tw|zh|en|fr|ja|ru|vi)(?=\/|$)/i)?.[0] ?? ''
+    window.location.assign(buildLoginPath(returnPath, { localePrefix: prefix }))
   }
   return true
 }

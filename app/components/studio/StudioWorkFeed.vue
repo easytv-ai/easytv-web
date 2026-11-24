@@ -62,8 +62,7 @@ const {
       featured: props.featured ? 1 : undefined,
     })
     if (!res?.success || !res.data) {
-      if (!res?.unauthorized)
-        toast.add({ title: res?.message || t('成片加载失败'), color: 'error', close: false, progress: false, orientation: 'horizontal' })
+      toast.add({ title: res?.message || t('成片加载失败'), color: 'error', close: false, progress: false, orientation: 'horizontal' })
       return null
     }
     return res.data

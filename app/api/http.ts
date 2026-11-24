@@ -37,6 +37,12 @@ async function fetch(
   options?: Record<string, unknown>,
   headers?: Record<string, string>,
 ): Promise<any> {
+  // await 之后会丢掉 Nuxt 上下文，先记下，清登录态和打开登录框才能改到当前页面。
+  const nuxtApp = tryUseNuxtApp()
+  const finish = <T>(data: T): T => {
+    const apply = () => wrapIfUnauthorized(data as Record<string, unknown>) as T
+    return nuxtApp ? nuxtApp.runWithContext(apply) : apply()
+  }
   try {
     const data = await $fetch<any>(resolveUrl(url), {
       ...options,
@@ -45,7 +51,7 @@ async function fetch(
     })
     if (data && data.success === false)
       handleTeamForbidden(data)
-    return wrapIfUnauthorized(data)
+    return finish(data)
   }
   catch (error: unknown) {
     const err = error as { statusCode?: number, status?: number, data?: any, message?: string }
@@ -54,7 +60,7 @@ async function fetch(
       : null
     const normalized = normalizeFetchErrorBody(error, body)
     if (isSessionExpiredResponse(normalized))
-      return wrapIfUnauthorized(normalized)
+      return finish(normalized)
     return normalized
   }
 }
