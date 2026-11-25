@@ -6,11 +6,14 @@ import CanvasSubjectPicker from '~/components/canvas/CanvasSubjectPicker.vue'
 import CanvasNodeCandidates from '~/components/canvas/CanvasNodeCandidates.vue'
 import type { GenerationModel, GenerationModelDetail, GeneratePayload, NodeCandidate, Subject } from '~/types/creative'
 import { modelKeepInfo } from '~/utils/canvas-reroll'
-import { effectiveUnitPrice, estimateTaskPoints, modelPromoDisplay } from '~/utils/model-price'
+import { effectiveUnitPrice, estimateSecondDuration, estimateTaskPoints, modelPromoDisplay } from '~/utils/model-price'
+import { canvasImageSpec, canvasParamEnum } from '~/utils/canvas-image-spec'
+import { canvasVideoSpec } from '~/utils/canvas-video-spec'
 import { prettyModelSlug, shortModelName } from '~/utils/model-name'
 import { resolveCatalogModel } from '~/utils/canvas-catalog-model'
 import { hasVideoReference } from '~/utils/canvas-viral'
 import CanvasPromptInput from '~/components/canvas/CanvasPromptInput.vue'
+import StudioSelect from '~/components/studio/StudioSelect.vue'
 import type { RefCandidate } from '~/utils/canvas-autolink'
 import { clearSlashQuery, filterSlashItems, moveSlashIndex, slashQueryAt } from '~/utils/canvas-slash'
 import { resolveMediaUrl } from '~/utils/media'
@@ -140,9 +143,13 @@ const VIDEO_DURATION_ITEMS = ['5s', '10s', '15s'] as const
 const AUDIO_DURATION_ITEMS = ['5s', '10s', '15s', '30s'] as const
 
 function ratioBox(ratio: string) {
-  const [aw, ah] = ratio.split(':').map(Number)
-  const w = Math.max(1, aw || 1)
-  const h = Math.max(1, ah || 1)
+  const [rawW, rawH] = ratio.split(':')
+  const aw = Number(rawW)
+  const ah = Number(rawH)
+  if (!Number.isFinite(aw) || !Number.isFinite(ah) || aw <= 0 || ah <= 0)
+    return { width: '14px', height: '14px' }
+  const w = Math.max(1, aw)
+  const h = Math.max(1, ah)
   const scale = Math.min(22 / w, 14 / h)
   return {
     width: `${Math.max(6, Math.round(w * scale))}px`,
@@ -456,22 +463,32 @@ function paramText(key: string, fallback: string): string {
   const value = typeof raw === 'string' ? raw.trim() : ''
   return value || fallback
 }
-/** data.params.duration 是秒数（int），面板上按 `${n}s` 的档位存 */
+/** data.params.duration 是秒数（int）。-1 是模型的智能时长，面板上记成 auto */
 function paramSeconds(key: string, fallback: string): string {
   const raw = props.params?.[key]
   const n = typeof raw === 'number' ? raw : Number.parseInt(String(raw ?? ''))
+  if (n === -1)
+    return 'auto'
   return Number.isFinite(n) && n > 0 ? `${n}s` : fallback
 }
 const quality = ref<(typeof QUALITY_ITEMS)[number]['id']>(paramEnum('quality', QUALITY_ITEMS.map(item => item.id), 'std'))
 const clarity = ref<(typeof CLARITY_ITEMS)[number]>(paramEnum('clarity', CLARITY_ITEMS, '2K'))
-const ratio = ref<(typeof RATIO_ITEMS)[number]>(paramEnum('ratio', RATIO_ITEMS, '16:9'))
+const ratio = ref(props.kind === 'image' ? paramEnum('ratio', RATIO_ITEMS, '16:9') : paramText('ratio', '16:9'))
 const count = ref<(typeof COUNT_ITEMS)[number]>(1)
 const videoRes = ref<string>(paramText('resolution', '720P'))
 const videoDuration = ref<string>(paramSeconds('duration', '5s'))
 const audioDuration = ref<string>(paramSeconds('duration', '10s'))
 const audioLang = ref(paramText('lang', 'zh'))
 const audioVoice = ref(typeof props.params?.voice === 'string' ? props.params.voice : '')
-const audioOn = ref(true)
+const audioOn = ref(typeof props.params?.audio === 'boolean' ? props.params.audio : true)
+const promptExtend = ref(typeof props.params?.prompt_extend === 'boolean' ? props.params.prompt_extend : true)
+const watermarkOn = ref(typeof props.params?.watermark === 'boolean' ? props.params.watermark : false)
+const seedText = ref('')
+/** 用户点过的档位不再被模型默认值盖掉；节点上本来就有的值也算点过 */
+const ratioTouched = ref(typeof props.params?.ratio === 'string' && props.params.ratio.trim() !== '')
+const audioTouched = ref(typeof props.params?.audio === 'boolean')
+const promptExtendTouched = ref(typeof props.params?.prompt_extend === 'boolean')
+const watermarkTouched = ref(typeof props.params?.watermark === 'boolean')
 
 /** 主体引用（API.md 10.2）：图片 / 视频节点可引用最多 4 个主体，选择结果存回节点 data */
 const MAX_SUBJECTS = 4
@@ -561,9 +578,20 @@ const currentModel = computed<ModelOption>(() => {
 })
 const currentMode = computed(() => VIDEO_MODES.find(item => item.id === videoMode.value) ?? VIDEO_MODES[0])
 const qualityLabel = computed(() => QUALITY_ITEMS.find(item => item.id === quality.value)?.label ?? t('标准画质'))
+function ratioLabel(item: string) {
+  const key = item.trim().toLowerCase()
+  if (key === 'adaptive' || key === 'auto')
+    return t('自适应')
+  return item
+}
+function durationLabel(seconds: number) {
+  if (seconds < 0)
+    return t('智能')
+  return `${seconds}s`
+}
 const specSummary = computed(() => {
   if (isVideo.value || isDirector.value)
-    return `${ratio.value} · ${videoRes.value} · ${videoSeconds.value}s`
+    return `${ratioLabel(ratio.value)} · ${videoRes.value} · ${durationLabel(videoSeconds.value)}`
   if (isAudio.value) {
     if (audioUsesVoice(audioKind.value))
       return `${audioDuration.value} · ${langLabel(audioLang.value)}`
@@ -572,6 +600,11 @@ const specSummary = computed(() => {
   }
   if (isPanorama.value)
     return `2048×1024 · ${qualityLabel.value}`
+  if (imageSpec.value.declared) {
+    const size = imageValues.value.size
+    const head = typeof size === 'string' && size ? size.replace(/x/i, '×') : t('尺寸')
+    return `${head} · ${count.value}${t('张')}`
+  }
   return `${ratio.value} · ${qualityLabel.value} · ${clarity.value} · ${count.value}${t('张')}`
 })
 /** 当前模型的定价 / 能力信息：优先用模型详情（选中后才拉），没有再回落到列表项 */
@@ -582,6 +615,83 @@ const currentApiModel = computed(() => {
     return detail
   return generationModels.value.find(item => item.model === modelId.value) ?? null
 })
+/** 视频参数卡：详情 params.video.properties 声明了什么就显示什么 */
+const videoSpec = computed(() => {
+  void modelDetailTick.value
+  const detail = peekModelDetail(modelId.value)
+  return canvasVideoSpec(detail?.params ? detail : null)
+})
+/** 图片参数卡：详情 params.image.properties 声明了可用字段才换掉画质 / 清晰度 / 比例 */
+const imageSpec = computed(() => {
+  void modelDetailTick.value
+  const detail = peekModelDetail(modelId.value)
+  return canvasImageSpec(isImage.value && !isPanorama.value && detail?.params ? detail : null)
+})
+const imageValues = ref<Record<string, string | boolean | number>>({})
+const imageTouched = ref<Record<string, boolean>>({})
+function imageStored(name: string): unknown {
+  const value = props.params?.[name]
+  if (typeof value === 'string' || typeof value === 'boolean' || typeof value === 'number')
+    return value
+  return undefined
+}
+function coerceImageValue(field: { kind: string, options: string[], defaultValue: string | boolean | number }, raw: unknown): string | boolean | number {
+  if (field.kind === 'boolean')
+    return typeof raw === 'boolean' ? raw : Boolean(field.defaultValue)
+  if (field.kind === 'select') {
+    const text = String(raw ?? '').trim()
+    const hit = field.options.find(item => item.toLowerCase() === text.toLowerCase())
+    return hit || String(field.defaultValue ?? field.options[0] ?? '')
+  }
+  if (field.kind === 'number') {
+    const n = typeof raw === 'number' ? raw : Number(String(raw ?? '').trim())
+    return Number.isFinite(n) ? n : Number(field.defaultValue) || 0
+  }
+  const text = String(raw ?? '').trim()
+  return text || String(field.defaultValue ?? '')
+}
+function setImageField(name: string, value: string | boolean | number) {
+  imageTouched.value = { ...imageTouched.value, [name]: true }
+  imageValues.value = { ...imageValues.value, [name]: value }
+}
+watch(imageSpec, (spec) => {
+  if (!spec.declared) {
+    imageValues.value = {}
+    return
+  }
+  const next: Record<string, string | boolean | number> = {}
+  const touched = { ...imageTouched.value }
+  for (const field of spec.fields) {
+    const fromNode = imageStored(field.name)
+    if (fromNode !== undefined)
+      touched[field.name] = true
+    const raw = touched[field.name] ? (imageValues.value[field.name] ?? fromNode) : fromNode
+    next[field.name] = coerceImageValue(field, raw)
+  }
+  imageTouched.value = touched
+  imageValues.value = next
+}, { immediate: true })
+const audioVoiceEnum = computed(() => {
+  void modelDetailTick.value
+  if (!isAudio.value)
+    return null
+  const detail = peekModelDetail(modelId.value)
+  return canvasParamEnum(detail?.params ? detail : null, 'audio', 'voice')
+})
+const audioVoiceOptions = computed(() => {
+  const values = audioVoiceEnum.value?.values ?? []
+  const current = audioVoice.value.trim()
+  if (current && !values.some(item => item.toLowerCase() === current.toLowerCase()))
+    return [current, ...values]
+  return values
+})
+const audioVoiceSelectOptions = computed(() => audioVoiceOptions.value.map(item => ({ value: item, label: item })))
+const ratioItems = computed(() => {
+  if ((isVideo.value || isDirector.value) && videoSpec.value.ratiosDeclared)
+    return videoSpec.value.ratios
+  return [...RATIO_ITEMS]
+})
+const showVideoAudio = computed(() => videoSpec.value.audio !== 'hide')
 
 /**
  * 时长选项：模型声明了 durations 就只给这些秒数（API.md 6.1），否则用通用档位。
@@ -593,8 +703,10 @@ function durationItems(fallback: readonly string[]) {
     return [...fallback]
   return list.map(n => `${n}s`)
 }
-/** 分辨率同理：hailuo-02 只收 512P/768P/1080P，硬给 720P 网关同样回 400 */
+/** 分辨率：参数表有枚举就用枚举原文（1080P 与 1080p 不是同一个值），否则用列表档或通用档 */
 const videoResItems = computed(() => {
+  if ((isVideo.value || isDirector.value) && videoSpec.value.resolutionsDeclared)
+    return videoSpec.value.resolutions
   const list = currentApiModel.value?.resolutions
   if (!list?.length)
     return [...VIDEO_RES_ITEMS]
@@ -632,6 +744,43 @@ function pickVideoDuration(item: string) {
   videoDuration.value = item
   chooseSpec('duration')
 }
+function pickRatio(item: string) {
+  ratio.value = item
+  ratioTouched.value = true
+}
+function setAudio(on: boolean) {
+  audioOn.value = on
+  audioTouched.value = true
+}
+function setPromptExtend(on: boolean) {
+  promptExtend.value = on
+  promptExtendTouched.value = true
+}
+function setWatermark(on: boolean) {
+  watermarkOn.value = on
+  watermarkTouched.value = true
+}
+const ratioSelectOptions = computed(() => ratioItems.value.map(item => ({ value: item, label: ratioLabel(item) })))
+const videoResOptions = computed(() => videoResItems.value.map(item => ({ value: item, label: item })))
+const videoAdvanced = computed(() => isVideo.value && (
+  videoSpec.value.promptExtendDeclared || videoSpec.value.watermarkDeclared || videoSpec.value.seedDeclared
+))
+const videoDurationOptions = computed(() => {
+  const options = videoDurationItems.value.map(item => ({ value: item, label: item }))
+  if (videoSpec.value.smartDuration)
+    options.unshift({ value: 'auto', label: t('智能') })
+  return options
+})
+const talkingDurationOptions = computed(() => [
+  { value: 'auto', label: `${t('自动')} ${talkingAutoSeconds.value}s` },
+  ...videoDurationNumbers.value.map(n => ({ value: String(n), label: `${n}s` })),
+])
+function onTalkingDuration(value: string | number) {
+  if (value === 'auto')
+    patchTalking({ duration: undefined })
+  else
+    patchTalking({ duration: Number(value) })
+}
 /** 取出并清空改档记录：只在点生成时读一次，免得同一条提示每次生成都弹 */
 function takeSpecAdjusted(): NonNullable<GeneratePayload['spec_adjusted']> {
   const out: NonNullable<GeneratePayload['spec_adjusted']> = []
@@ -660,11 +809,17 @@ watch(videoResItems, (items) => {
   }
 }, { immediate: true })
 
-const videoDurationItems = computed(() => durationItems(VIDEO_DURATION_ITEMS))
+const videoDurationItems = computed(() => {
+  if ((isVideo.value || isDirector.value) && videoSpec.value.durationsDeclared && videoSpec.value.durations.length)
+    return videoSpec.value.durations.map(n => `${n}s`)
+  return durationItems(VIDEO_DURATION_ITEMS)
+})
 const audioDurationItems = computed(() => durationItems(AUDIO_DURATION_ITEMS))
 
 // 换模型后原来的秒数可能不在新列表里，回落到第一档，避免提交一个该模型不支持的时长
 watch(videoDurationItems, (items) => {
+  if (videoDuration.value === 'auto' && videoSpec.value.smartDuration)
+    return
   if (items.length && !items.includes(videoDuration.value)) {
     if (isVideo.value || isDirector.value)
       noteSpecAdjusted('duration', videoDuration.value, items[0]!)
@@ -677,6 +832,24 @@ watch(audioDurationItems, (items) => {
       noteSpecAdjusted('duration', audioDuration.value, items[0]!)
     audioDuration.value = items[0]!
   }
+}, { immediate: true })
+
+/** 详情到达后，用户没选过的档位改用模型自己的默认值（万相默认自适应 / 1080P，不是面板的 16:9 / 720P） */
+watch(videoSpec, (spec) => {
+  if (!isVideo.value && !isDirector.value)
+    return
+  if (spec.ratiosDeclared && (!ratioTouched.value || !spec.ratios.includes(ratio.value)))
+    ratio.value = spec.ratioDefault
+  if (spec.resolutionsDeclared && (!specChosen.resolution || !spec.resolutions.includes(videoRes.value)))
+    videoRes.value = spec.resolutionDefault
+  if (spec.durationsDeclared && !specChosen.duration)
+    videoDuration.value = spec.durationDefault === -1 ? 'auto' : `${spec.durationDefault}s`
+  if (spec.audio === 'show' && !audioTouched.value)
+    audioOn.value = spec.audioDefault
+  if (spec.promptExtendDeclared && !promptExtendTouched.value)
+    promptExtend.value = spec.promptExtendDefault
+  if (spec.watermarkDeclared && !watermarkTouched.value)
+    watermarkOn.value = spec.watermarkDefault
 }, { immediate: true })
 
 /** 口播配置：以节点 data.talking 为准，改动即时写回节点 */
@@ -700,10 +873,12 @@ const talkingManualSeconds = computed(() => {
   const n = talking.value.duration
   return n && videoDurationNumbers.value.includes(n) ? n : null
 })
-/** 实际提交的视频秒数：口播按台词档，其余按面板档 */
+/** 实际提交的视频秒数：口播按台词档，智能时长是 -1，其余按面板档 */
 const videoSeconds = computed(() => {
   if (isTalkingMode.value)
     return talkingManualSeconds.value ?? talkingAutoSeconds.value
+  if (videoDuration.value === 'auto')
+    return -1
   return Number.parseInt(videoDuration.value) || 0
 })
 const talkingNoModel = computed(() => isTalkingMode.value && !models.value.length)
@@ -766,7 +941,8 @@ const zapCost = computed<number | string>(() => {
     return t('未定价')
   // 与服务端 EstimateTaskPoints 一致：促销期内按 effective_* 单价（会员取会员实际价）
   const unitPrice = effectiveUnitPrice(m, isMember.value)
-  return estimateTaskPoints(unitPrice, m.unit, isImage.value ? count.value : 1, videoSeconds.value)
+  const seconds = videoSeconds.value < 1 ? estimateSecondDuration(videoSeconds.value) : videoSeconds.value
+  return estimateTaskPoints(unitPrice, m.unit, isImage.value ? count.value : 1, seconds)
 })
 /** 当前模型促销中（生成按钮旁的预估高亮） */
 const zapPromo = computed(() => {
@@ -788,11 +964,39 @@ watch(() => props.params, (params) => {
     return
   quality.value = paramEnum('quality', QUALITY_ITEMS.map(item => item.id), quality.value)
   clarity.value = paramEnum('clarity', CLARITY_ITEMS, clarity.value)
-  ratio.value = paramEnum('ratio', RATIO_ITEMS, ratio.value)
+  if (typeof params.ratio === 'string' && params.ratio.trim()) {
+    ratioTouched.value = true
+    ratio.value = isImage.value ? paramEnum('ratio', RATIO_ITEMS, ratio.value) : params.ratio.trim()
+  }
   if (params.duration !== undefined && params.duration !== null && params.duration !== '')
     specChosen.duration = true
   if (typeof params.resolution === 'string' && params.resolution.trim())
     specChosen.resolution = true
+  if (typeof params.audio === 'boolean') {
+    audioTouched.value = true
+    audioOn.value = params.audio
+  }
+  if (typeof params.prompt_extend === 'boolean') {
+    promptExtendTouched.value = true
+    promptExtend.value = params.prompt_extend
+  }
+  if (typeof params.watermark === 'boolean') {
+    watermarkTouched.value = true
+    watermarkOn.value = params.watermark
+  }
+  if (imageSpec.value.declared) {
+    const next = { ...imageValues.value }
+    const touched = { ...imageTouched.value }
+    for (const field of imageSpec.value.fields) {
+      const stored = params[field.name]
+      if (typeof stored !== 'string' && typeof stored !== 'boolean' && typeof stored !== 'number')
+        continue
+      touched[field.name] = true
+      next[field.name] = coerceImageValue(field, stored)
+    }
+    imageTouched.value = touched
+    imageValues.value = next
+  }
   videoRes.value = paramText('resolution', videoRes.value)
   videoDuration.value = paramSeconds('duration', videoDuration.value)
   audioDuration.value = paramSeconds('duration', audioDuration.value)
@@ -837,6 +1041,20 @@ function generatePayload(): GeneratePayload {
   const params: Record<string, unknown> = { count: isImage.value && !isPanorama.value ? count.value : 1 }
   if (isPanorama.value)
     Object.assign(params, { quality: quality.value })
+  else if (isImage.value && imageSpec.value.declared) {
+    for (const field of imageSpec.value.fields) {
+      const value = imageValues.value[field.name]
+      if (value === '' || value === undefined)
+        continue
+      if (field.kind === 'number') {
+        const n = Number(value)
+        if (Number.isFinite(n))
+          params[field.name] = n
+        continue
+      }
+      params[field.name] = value
+    }
+  }
   else if (isImage.value)
     Object.assign(params, { ratio: ratio.value, quality: quality.value, clarity: clarity.value })
   if (isTalkingMode.value) {
@@ -845,7 +1063,18 @@ function generatePayload(): GeneratePayload {
     Object.assign(params, { mode: hasFrame ? 'i2v' : 'reference', ratio: ratio.value, resolution: videoRes.value, duration: videoSeconds.value, audio: true, preset: TALKING_PRESET })
   }
   else if (isVideo.value || isDirector.value) {
-    Object.assign(params, { mode: videoMode.value, ratio: ratio.value, resolution: videoRes.value, duration: videoSeconds.value, audio: audioOn.value })
+    const spec = videoSpec.value
+    Object.assign(params, { mode: videoMode.value, ratio: ratio.value, resolution: videoRes.value, duration: videoSeconds.value })
+    if (spec.audio !== 'hide')
+      params.audio = audioOn.value
+    if (spec.promptExtendDeclared)
+      params.prompt_extend = promptExtend.value
+    if (spec.watermarkDeclared)
+      params.watermark = watermarkOn.value
+    const seedRaw = seedText.value.trim()
+    const seed = Number.parseInt(seedRaw)
+    if (spec.seedDeclared && seedRaw !== '' && Number.isFinite(seed))
+      params.seed = seed
   }
   if (isAudio.value) {
     Object.assign(params, { duration: Number.parseInt(audioDuration.value), audioKind: audioKind.value })
@@ -1080,6 +1309,10 @@ function pickMode(id: VideoModeId) {
 }
 
 /** 音频语种 / 音色 / 时长随画布保存：改完立刻写回 data.params，不只在点生成时才记 */
+function onAudioVoice(value: string | number) {
+  audioVoice.value = String(value)
+  persistAudioParams()
+}
 function persistAudioParams() {
   if (writeBlocked.value || !isAudio.value)
     return
@@ -1672,14 +1905,52 @@ const placeholder = computed(() => {
           <i v-if="isVideo || isDirector" class="canvas-inspector__ratio-mini" :style="ratioBox(ratio)" />
           {{ specSummary }}
           <UIcon
-            v-if="isVideo"
+            v-if="isVideo && showVideoAudio"
             :name="audioOn || isTalkingMode ? 'i-lucide-volume-2' : 'i-lucide-volume-x'"
             class="size-3.5"
           />
           <UIcon :name="specMenu ? 'i-lucide-chevron-up' : 'i-lucide-chevron-down'" class="size-3.5" />
         </button>
         <div v-if="specMenu" class="canvas-inspector__specs" @pointerdown.stop>
-          <template v-if="isImage">
+          <template v-if="isImage && !isPanorama && imageSpec.declared">
+            <div class="canvas-inspector__rows">
+              <div v-for="field in imageSpec.fields" :key="field.name" class="canvas-inspector__row">
+                <span>{{ t(field.label) }}</span>
+                <StudioSelect
+                  v-if="field.kind === 'select'"
+                  :model-value="String(imageValues[field.name] ?? field.defaultValue)"
+                  :options="field.options.map(item => ({ value: item, label: item }))"
+                  :sr-label="t(field.label)"
+                  size="compact"
+                  placement="up"
+                  @update:model-value="setImageField(field.name, String($event))"
+                />
+                <button
+                  v-else-if="field.kind === 'boolean'"
+                  type="button"
+                  class="canvas-inspector__switch"
+                  role="switch"
+                  :aria-label="t(field.label)"
+                  :aria-checked="imageValues[field.name] === true"
+                  :class="{ 'is-on': imageValues[field.name] === true }"
+                  @click="setImageField(field.name, imageValues[field.name] !== true)"
+                >
+                  <i />
+                </button>
+                <input
+                  v-else
+                  class="canvas-inspector__text"
+                  :type="field.kind === 'number' ? 'number' : 'text'"
+                  :min="field.min"
+                  :max="field.max"
+                  :placeholder="field.kind === 'text' ? String(field.defaultValue || '') : undefined"
+                  :value="imageValues[field.name] ?? ''"
+                  @input="setImageField(field.name, field.kind === 'number' ? Number(($event.target as HTMLInputElement).value) : ($event.target as HTMLInputElement).value)"
+                >
+              </div>
+            </div>
+          </template>
+          <template v-else-if="isImage">
             <section>
               <h4>{{ t('画质') }}</h4>
               <div class="canvas-inspector__picks">
@@ -1708,80 +1979,133 @@ const placeholder = computed(() => {
                 </button>
               </div>
             </section>
+            <section v-if="!isPanorama">
+              <h4>{{ t('比例') }}</h4>
+              <div class="canvas-inspector__ratios">
+                <button
+                  v-for="item in ratioItems"
+                  :key="item"
+                  type="button"
+                  :class="{ 'is-on': ratio === item }"
+                  @click="pickRatio(item)"
+                >
+                  <i :style="ratioBox(item)" />
+                  {{ ratioLabel(item) }}
+                </button>
+              </div>
+            </section>
           </template>
-          <section v-if="!isAudio && !isPanorama">
-            <h4>{{ t('比例') }}</h4>
-            <div class="canvas-inspector__ratios">
-              <button
-                v-for="item in RATIO_ITEMS"
-                :key="item"
-                type="button"
-                :class="{ 'is-on': ratio === item }"
-                @click="ratio = item"
-              >
-                <i :style="ratioBox(item)" />
-                {{ item }}
-              </button>
-            </div>
-          </section>
           <template v-if="isVideo || isDirector">
-            <section>
-              <h4>{{ t('分辨率') }}</h4>
-              <div class="canvas-inspector__picks">
+            <div class="canvas-inspector__rows">
+              <div class="canvas-inspector__row">
+                <span>{{ t('比例') }}</span>
+                <StudioSelect
+                  :model-value="ratio"
+                  :options="ratioSelectOptions"
+                  :sr-label="t('比例')"
+                  size="compact"
+                  placement="up"
+                  @update:model-value="pickRatio(String($event))"
+                />
+              </div>
+              <div class="canvas-inspector__row">
+                <span>{{ t('分辨率') }}</span>
+                <StudioSelect
+                  :model-value="videoRes"
+                  :options="videoResOptions"
+                  :sr-label="t('分辨率')"
+                  size="compact"
+                  placement="up"
+                  @update:model-value="pickVideoRes(String($event))"
+                />
+              </div>
+              <div v-if="isTalkingMode" class="canvas-inspector__row">
+                <span>{{ t('时长') }}</span>
+                <StudioSelect
+                  :model-value="talkingManualSeconds == null ? 'auto' : String(talkingManualSeconds)"
+                  :options="talkingDurationOptions"
+                  :sr-label="t('时长')"
+                  size="compact"
+                  placement="up"
+                  @update:model-value="onTalkingDuration"
+                />
+              </div>
+              <div v-else class="canvas-inspector__row">
+                <span>{{ t('时长') }}</span>
+                <StudioSelect
+                  :model-value="videoDuration"
+                  :options="videoDurationOptions"
+                  :sr-label="t('时长')"
+                  size="compact"
+                  placement="up"
+                  @update:model-value="pickVideoDuration(String($event))"
+                />
+              </div>
+              <div v-if="isVideo && !isTalkingMode && showVideoAudio" class="canvas-inspector__row">
+                <span>{{ t('生成音频') }}</span>
                 <button
-                  v-for="item in videoResItems"
-                  :key="item"
                   type="button"
-                  :class="{ 'is-on': videoRes === item }"
-                  @click="pickVideoRes(item)"
+                  class="canvas-inspector__switch"
+                  role="switch"
+                  :aria-label="t('生成音频')"
+                  :aria-checked="audioOn"
+                  :class="{ 'is-on': audioOn }"
+                  @click="setAudio(!audioOn)"
                 >
-                  {{ item }}
+                  <i />
                 </button>
               </div>
-            </section>
-            <section v-if="isTalkingMode">
-              <h4>{{ t('时长') }}</h4>
-              <div class="canvas-inspector__picks">
-                <button type="button" :class="{ 'is-on': !talkingManualSeconds }" @click="patchTalking({ duration: undefined })">
-                  {{ t('自动') }} {{ talkingAutoSeconds }}s
-                </button>
-                <button
-                  v-for="n in videoDurationNumbers"
-                  :key="n"
-                  type="button"
-                  :class="{ 'is-on': talkingManualSeconds === n }"
-                  @click="patchTalking({ duration: n })"
-                >
-                  {{ n }}s
-                </button>
+            </div>
+            <p v-if="isTalkingMode" class="canvas-inspector__note">{{ t('按台词长度自动算档，口播固定带声') }}</p>
+            <details v-if="videoAdvanced" class="canvas-inspector__advanced">
+              <summary>
+                <UIcon name="i-lucide-sliders-horizontal" class="size-4" />
+                {{ t('高级参数') }}
+                <UIcon name="i-lucide-chevron-down" class="size-4 canvas-inspector__chevron" />
+              </summary>
+              <div class="canvas-inspector__rows">
+                <div v-if="videoSpec.promptExtendDeclared" class="canvas-inspector__row">
+                  <span>{{ t('智能改写') }}</span>
+                  <button
+                    type="button"
+                    class="canvas-inspector__switch"
+                    role="switch"
+                    :aria-label="t('智能改写')"
+                    :aria-checked="promptExtend"
+                    :class="{ 'is-on': promptExtend }"
+                    @click="setPromptExtend(!promptExtend)"
+                  >
+                    <i />
+                  </button>
+                </div>
+                <div v-if="videoSpec.watermarkDeclared" class="canvas-inspector__row">
+                  <span>{{ t('水印') }}</span>
+                  <button
+                    type="button"
+                    class="canvas-inspector__switch"
+                    role="switch"
+                    :aria-label="t('水印')"
+                    :aria-checked="watermarkOn"
+                    :class="{ 'is-on': watermarkOn }"
+                    @click="setWatermark(!watermarkOn)"
+                  >
+                    <i />
+                  </button>
+                </div>
+                <label v-if="videoSpec.seedDeclared" class="canvas-inspector__row">
+                  <span>{{ t('种子') }}</span>
+                  <input
+                    v-model="seedText"
+                    class="canvas-inspector__text"
+                    type="number"
+                    :min="videoSpec.seedMin"
+                    :max="videoSpec.seedMax"
+                    step="1"
+                    :placeholder="t('留空自动')"
+                  >
+                </label>
               </div>
-              <p class="canvas-inspector__note">{{ t('按台词长度自动算档，口播固定带声') }}</p>
-            </section>
-            <section v-else>
-              <h4>{{ t('时长') }}</h4>
-              <div class="canvas-inspector__picks">
-                <button
-                  v-for="item in videoDurationItems"
-                  :key="item"
-                  type="button"
-                  :class="{ 'is-on': videoDuration === item }"
-                  @click="pickVideoDuration(item)"
-                >
-                  {{ item }}
-                </button>
-              </div>
-            </section>
-            <section v-if="isVideo && !isTalkingMode">
-              <h4>{{ t('音频') }}</h4>
-              <div class="canvas-inspector__picks is-duo">
-                <button type="button" :class="{ 'is-on': audioOn }" @click="audioOn = true">
-                  {{ t('有声') }}
-                </button>
-                <button type="button" :class="{ 'is-on': !audioOn }" @click="audioOn = false">
-                  {{ t('无声') }}
-                </button>
-              </div>
-            </section>
+            </details>
           </template>
           <template v-else-if="isAudio">
             <section>
@@ -1830,7 +2154,17 @@ const placeholder = computed(() => {
             </section>
             <section v-if="audioUsesVoice(audioKind)">
               <h4>{{ t('音色') }}</h4>
+              <StudioSelect
+                v-if="audioVoiceOptions.length"
+                :model-value="audioVoice || audioVoiceEnum?.defaultValue || ''"
+                :options="audioVoiceSelectOptions"
+                :sr-label="t('音色')"
+                size="compact"
+                placement="up"
+                @update:model-value="onAudioVoice"
+              />
               <input
+                v-else
                 v-model="audioVoice"
                 class="canvas-inspector__text"
                 maxlength="60"

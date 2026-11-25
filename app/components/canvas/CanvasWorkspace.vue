@@ -266,7 +266,9 @@ function estimateSpend(model: string, params?: Record<string, unknown>, count = 
   const found = generationModels.value.find(item => item.model === id)
   if (!found?.priced)
     return 0
-  return estimateTaskPoints(effectiveUnitPrice(found, isMember.value), found.unit, count, Number(params?.duration) || 0)
+  const raw = Number(params?.duration)
+  const seconds = raw < 0 ? estimateSecondDuration(raw) : (Number.isFinite(raw) ? raw : 0)
+  return estimateTaskPoints(effectiveUnitPrice(found, isMember.value), found.unit, count, seconds)
 }
 
 async function gateSpend(points: number) {

@@ -1,10 +1,10 @@
 /**
  * 生成时把模型与参数记回节点（批量生成落到画布的是带参生成器组，不是空节点）。
- * 只留 Inspector 初始化会读的那几个键（API.md 32.7 的 data.params 消费链），
- * count / camera / seed 这类一次性的不记——记了反而让下一次点「生成」带上旧值。
+ * 只留 Inspector 初始化会读的那几个键（API.md 32.7 的 data.params 消费链）。
+ * 有声、智能改写、水印，以及图片参数表里的尺寸和输出格式会跟着节点走；种子是一次性的，记了会让下一次生成带上旧值。
  */
 
-export const NODE_PARAM_KEYS = ['ratio', 'clarity', 'quality', 'size', 'resolution', 'duration', 'mode', 'lang', 'voice', 'audioKind', 'mood'] as const
+export const NODE_PARAM_KEYS = ['ratio', 'clarity', 'quality', 'size', 'resolution', 'duration', 'mode', 'lang', 'voice', 'audioKind', 'mood', 'audio', 'prompt_extend', 'watermark', 'output_format', 'sequential_image_generation', 'background', 'moderation', 'output_compression', 'aspect_ratio'] as const
 
 export function pickNodeParams(params: Record<string, unknown> | null | undefined): Record<string, unknown> | undefined {
   if (!params)

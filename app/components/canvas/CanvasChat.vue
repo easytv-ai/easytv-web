@@ -84,7 +84,7 @@ import {
 } from '~/utils/canvas-chat-brief'
 import { fillI18n } from '~/utils/i18n-fill'
 import StudioSelect from '~/components/studio/StudioSelect.vue'
-const { load: loadAppConfig } = useStudioAppConfig()
+const { growth: growthConfig, load: loadAppConfig } = useStudioAppConfig()
 const { isMember } = useWallet()
 const { gotoPricing } = usePricingModal()
 const { settings, save: saveSettings, setPointsRemind, setPointsThreshold, confirmSpend } = useCanvasAgentSettings()
@@ -362,7 +362,7 @@ async function loadModels() {
 const modelTab = ref<GenerationModel['type']>('text')
 /**
  * Agent 自动选模型：开着时对话任务不固定用 chatModel——
- * 带图片附件的消息自动挑能看图的文本模型（pickVisionTextModel 同一套偏好），
+ * 带图片附件的消息优先用后台看图文本模型（growth.vision_text_model），没配再按 pickVisionTextModel 的偏好挑；
  * 纯文字用第一个已定价文本模型；结合画布（askAgent）则不传 model，
  * 由服务端按 AgentModel → 第一个已定价文本模型兜底。
  */
@@ -374,6 +374,12 @@ const activeModelGroup = computed(() => modelGroups.value.find(group => group.ty
 const displayModel = computed(() => {
   const id = pickedModelId.value || chatModel.value
   return models.value.find(item => item.model === id) || null
+})
+/** 脚注始终占一行：自动时说明由平台配置，自由创作时改成当前模型名，避免整行抽掉把免责声明顶上去 */
+const modelNote = computed(() => {
+  if (!agentAutoModel.value && displayModel.value)
+    return t('canvas.chat.settings.modelInUse', { name: shortModelName(displayModel.value) })
+  return t('canvas.chat.settings.modelManaged')
 })
 /**
  * 关掉 Agent、选了具体模型之后，工具栏出现参数按钮。
@@ -549,11 +555,11 @@ function toggleAgentAutoModel() {
   writeStorage(AGENT_AUTO_MODEL_KEY, agentAutoModel.value)
 }
 
-/** Agent 开关下的实际对话模型：带图挑看图模型，纯文字挑第一个已定价的 */
+/** Auto 开关下的实际对话模型：带图优先用后台看图文本模型，纯文字挑第一个已定价的 */
 function autoChatModel(attachments: ChatAttachment[] = []) {
   const hasImage = attachments.some(item => item.kind === 'image')
   if (hasImage) {
-    const vision = pickVisionTextModel(models.value)
+    const vision = pickVisionTextModel(models.value, growthConfig.value?.vision_text_model)
     if (vision)
       return vision
   }
@@ -1668,6 +1674,10 @@ function failReply(reply: ChatMsg, message: string, data?: { reason?: string } |
 /** 真实对话：创建文本任务并轮询。媒体附件已在上传时拿到 asset_id，直接引用（TaskInput.inputs） */
 async function ask(value: string, reply: ChatMsg, attachments: ChatAttachment[] = [], id = runId) {
   runTaskId = 0
+  if (attachments.some(item => item.kind === 'image'))
+    await loadAppConfig()
+  if (!runAlive(id))
+    return
   const inputs = attachments
     .filter(item => item.assetId)
     .map(item => ({ asset_id: item.assetId!, role: item.kind }))
@@ -4370,14 +4380,14 @@ function promoOf(item: GenerationModel) {
             </button>
             <button v-else-if="agentAutoModel && !activeSkill" type="button" class="canvas-chat__pop-trigger canvas-chat__tool" :class="{ 'is-on': popover === 'model' }" :aria-label="t('canvas.chat.skill.agentModel')" @click="togglePopover('model')">
               <UIcon name="i-lucide-bot" class="size-5" />
-              <span>Agent</span>
+              <span>Auto</span>
               <UIcon name="i-lucide-chevron-down" class="size-4 canvas-chat__tool-caret" />
             </button>
             <div v-if="popover === 'model'" class="canvas-chat__pop canvas-chat__pop--bottom canvas-chat__pop--wide">
               <div class="canvas-chat__pop-head">
                 <strong>{{ t('模型') }}</strong>
                 <span class="canvas-chat__switch">
-                  <span>Agent</span>
+                  <span>Auto</span>
                   <button
                     type="button"
                     role="switch"
@@ -4554,7 +4564,7 @@ function promoOf(item: GenerationModel) {
 
 
       </div>
-      <p v-if="agentAutoModel" class="canvas-chat__note">{{ t('canvas.chat.settings.modelManaged') }}</p>
+      <p class="canvas-chat__note">{{ modelNote }}</p>
       <p class="canvas-chat__note">{{ t('canvas.chat.msg.disclaimer') }}</p>
     </div>
   </aside>

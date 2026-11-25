@@ -84,6 +84,9 @@ export function normalizeGrowth(raw: unknown): GrowthConfig | null {
   }
 }
 
+/** 同一时刻只打一次 /app/config。后到的 load() 等这一次，避免对话发送时配置还是空的 */
+let configInflight: Promise<void> | null = null
+
 /**
  * GET /app/config：功能入口开关。
  * director_3d_enabled 缺省为 true，与后台 Director3DEnabled 未配置时默认显示一致。
@@ -105,26 +108,34 @@ export function useStudioAppConfig() {
   )
 
   async function load(force = false) {
-    if (!import.meta.client || loading.value || (loaded.value && !force))
+    if (!import.meta.client)
       return
-    loading.value = true
-    const startedAt = Date.now()
-    try {
-      const raw = await appApi.config()
-      const data = raw?.data ?? raw ?? {}
-      director3dEnabled.value = data?.director_3d_enabled !== false
-      invoiceEnabled.value = data?.invoice_enabled === true
-      growth.value = normalizeGrowth(data?.growth)
-      // 服务器时间校准本机时钟偏差，倒计时条 / 促销到期判断都用 useServerClock().now()
-      useServerClock().calibrateFromUnix(data?.server_time, startedAt)
-      loaded.value = true
-    }
-    catch {
-      director3dEnabled.value = true
-    }
-    finally {
-      loading.value = false
-    }
+    if (loaded.value && !force)
+      return
+    if (configInflight)
+      return configInflight
+    configInflight = (async () => {
+      loading.value = true
+      const startedAt = Date.now()
+      try {
+        const raw = await appApi.config()
+        const data = raw?.data ?? raw ?? {}
+        director3dEnabled.value = data?.director_3d_enabled !== false
+        invoiceEnabled.value = data?.invoice_enabled === true
+        growth.value = normalizeGrowth(data?.growth)
+        // 服务器时间校准本机时钟偏差，倒计时条 / 促销到期判断都用 useServerClock().now()
+        useServerClock().calibrateFromUnix(data?.server_time, startedAt)
+        loaded.value = true
+      }
+      catch {
+        director3dEnabled.value = true
+      }
+      finally {
+        loading.value = false
+        configInflight = null
+      }
+    })()
+    return configInflight
   }
 
   return { director3dEnabled, invoiceEnabled, growth, canvasNodeItems, loaded, loading, load }

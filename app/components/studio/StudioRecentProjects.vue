@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import projectApi from '~/api/project'
 import type { Project } from '~/types/creative'
+import { AUTH_SESSION_COOKIE, hasAuthSessionMarker } from '~/utils/auth-session-cookie'
 import { resolveMediaUrl } from '~/utils/media'
 
 /** 首页「最近项目」：新建入口 + 最近更新的几个项目，入口到项目页。未登录不请求、不展示，避免 401 弹出登录框。 */
@@ -215,9 +216,18 @@ async function removeProject(item: Project) {
   notify(t('已移到回收站'))
 }
 
-// 登录态只有客户端知道（服务端渲染恒为未登录），首帧与服务端保持一致，挂载后再显示，避免 hydration 不一致
+const sessionCookie = useCookie(AUTH_SESSION_COOKIE)
+// 登录标记 cookie 服务端就能读到，首屏直接画出骨架，占住精选成片上面的位置。
+// 只有 localStorage、还没写上标记的老会话，仍等挂载后再显示，避免 hydration 把整块插进已输出的 HTML。
 const mounted = ref(false)
-const shown = computed(() => mounted.value && isLoggedIn.value)
+const dropped = ref(false)
+const shown = computed(() => {
+  if (dropped.value)
+    return false
+  if (hasAuthSessionMarker(sessionCookie.value))
+    return true
+  return mounted.value && isLoggedIn.value
+})
 
 onMounted(() => {
   mounted.value = true
@@ -226,6 +236,8 @@ onMounted(() => {
   void loadTeams()
   if (isLoggedIn.value)
     void load()
+  else if (hasAuthSessionMarker(sessionCookie.value))
+    dropped.value = true
 })
 
 onBeforeUnmount(() => {
@@ -234,10 +246,14 @@ onBeforeUnmount(() => {
 })
 
 watch(isLoggedIn, (on) => {
-  if (on)
+  if (on) {
+    dropped.value = false
     void load()
-  else
+  }
+  else {
+    dropped.value = true
     reset()
+  }
 })
 
 // 首页 keepalive：从画布回来时刷新最近项目

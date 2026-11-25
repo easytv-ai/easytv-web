@@ -3733,8 +3733,10 @@ html.dark .canvas-inspector__meta.is-on {
   z-index: 6;
   display: grid;
   width: 392px;
+  max-height: min(70vh, 560px);
   gap: 16px;
   padding: 16px;
+  overflow: auto;
   border-radius: 18px;
   background: var(--st-pop);
   border: 1px solid var(--st-border);
@@ -3761,6 +3763,119 @@ html.dark .canvas-inspector__meta.is-on {
 
 .canvas-inspector__picks.is-duo {
   grid-template-columns: repeat(2, 1fr);
+}
+
+.canvas-inspector__row .studio-select.is-compact {
+  width: auto;
+  flex: 1 1 160px;
+  min-width: 160px;
+  max-width: 220px;
+  margin-left: auto;
+}
+
+.canvas-inspector__specs section > .studio-select.is-compact {
+  width: 100%;
+  max-width: none;
+}
+
+.canvas-inspector__rows {
+  display: grid;
+  gap: 10px;
+}
+
+.canvas-inspector__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 36px;
+}
+
+.canvas-inspector__row > span {
+  flex: 0 0 auto;
+  color: var(--st-text-soft);
+  font-size: 13px;
+}
+
+.canvas-inspector__row .canvas-inspector__text {
+  width: auto;
+  flex: 1 1 160px;
+  min-width: 160px;
+  max-width: 220px;
+  height: 36px;
+  margin-left: auto;
+  border-radius: 12px;
+}
+
+.canvas-inspector__switch {
+  position: relative;
+  width: 36px;
+  height: 22px;
+  flex: 0 0 36px;
+  margin-left: auto;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: var(--st-switch);
+  box-shadow: inset 0 0 0 1px var(--st-border);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.canvas-inspector__switch i {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: var(--st-pop);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25), inset 0 0 0 1px var(--st-border);
+  transition: transform 0.15s ease;
+}
+
+.canvas-inspector__switch.is-on {
+  background: #14b8a6;
+  box-shadow: none;
+}
+
+.canvas-inspector__switch.is-on i {
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+  transform: translateX(14px);
+}
+
+.canvas-inspector__advanced {
+  display: grid;
+  gap: 10px;
+}
+
+.canvas-inspector__advanced summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 0 12px;
+  border: 1px solid var(--st-border);
+  border-radius: 12px;
+  background: var(--st-elevated);
+  color: var(--st-text);
+  font-size: 13px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.canvas-inspector__advanced summary::-webkit-details-marker {
+  display: none;
+}
+
+.canvas-inspector__chevron {
+  margin-left: auto;
+  transition: transform 0.16s ease;
+}
+
+.canvas-inspector__advanced[open] .canvas-inspector__chevron {
+  transform: rotate(180deg);
 }
 
 .canvas-inspector__picks button,
