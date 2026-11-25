@@ -183,7 +183,7 @@ onUnmounted(() => {
           </div>
           <label class="projects-search asset-picker__search">
             <UIcon name="i-lucide-search" class="size-4" />
-            <input v-model="keyword" type="search" :placeholder="t('搜索主体')">
+            <input v-model="keyword" type="search" autocomplete="off" :placeholder="t('搜索主体')">
           </label>
           <NuxtLink :to="localePath('/subjects')" class="subject-picker__manage" target="_blank">
             <UIcon name="i-lucide-library" class="size-4" />
@@ -201,8 +201,10 @@ onUnmounted(() => {
             :loading-more="loadingMore"
             :has-more="hasMore"
             :count="subjects.length"
-            :empty-title="t('还没有主体')"
-            :empty-description="t('把常用的角色、场景与道具存成主体，之后生成时一键引用，人物和场景更稳定。')"
+            :empty-title="keyword.trim() ? t('没有匹配的结果') : t('还没有主体')"
+            :empty-description="keyword.trim()
+              ? t('换个关键词试试')
+              : t('把常用的角色、场景与道具存成主体，之后生成时一键引用，人物和场景更稳定。')"
             :load-more="loadMore"
           >
             <template #skeleton>
@@ -216,9 +218,11 @@ onUnmounted(() => {
                 <span class="subject-picker__empty-mark">
                   <UIcon name="i-lucide-users-round" class="size-7" />
                 </span>
-                <strong>{{ t('还没有主体') }}</strong>
-                <p>{{ t('把常用的角色、场景与道具存成主体，之后生成时一键引用，人物和场景更稳定。') }}</p>
-                <NuxtLink :to="localePath('/subjects')" class="subject-picker__empty-btn" target="_blank">
+                <strong>{{ keyword.trim() ? t('没有匹配的结果') : t('还没有主体') }}</strong>
+                <p>{{ keyword.trim()
+                  ? t('换个关键词试试')
+                  : t('把常用的角色、场景与道具存成主体，之后生成时一键引用，人物和场景更稳定。') }}</p>
+                <NuxtLink v-if="!keyword.trim()" :to="localePath('/subjects')" class="subject-picker__empty-btn" target="_blank">
                   <UIcon name="i-lucide-plus" class="size-4" />
                   {{ t('去主体库新建') }}
                 </NuxtLink>

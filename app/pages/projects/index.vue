@@ -384,6 +384,7 @@ watch(keyword, () => {
           <input
             v-model="keyword"
             type="search"
+            autocomplete="off"
             :placeholder="t('搜索项目')"
           >
         </label>

@@ -2456,6 +2456,11 @@ html.dark .studio-chip--gold.is-on {
   color: var(--st-muted);
 }
 
+.projects-search:focus-within {
+  color: var(--st-text);
+  border-color: var(--st-border);
+}
+
 .show-page .projects-search {
   width: 200px;
   height: 34px;
@@ -2468,17 +2473,32 @@ html.dark .show-page .projects-search {
   background: var(--st-hover);
 }
 
+.show-page .projects-search:focus-within {
+  background: var(--st-elevated);
+  box-shadow: inset 0 0 0 1px var(--st-chip-border);
+}
+
 .projects-search input {
   width: 100%;
+  min-width: 0;
   border: 0;
   background: transparent;
   color: var(--st-text);
   font-size: 13px;
   outline: none;
+  appearance: none;
+  -webkit-appearance: none;
 }
 
 .projects-search input::placeholder {
   color: #9ca3af;
+}
+
+.projects-search input::-webkit-search-decoration,
+.projects-search input::-webkit-search-cancel-button,
+.projects-search input::-webkit-search-results-button,
+.projects-search input::-webkit-search-results-decoration {
+  -webkit-appearance: none;
 }
 
 .projects-tool-btn {
@@ -2497,6 +2517,32 @@ html.dark .show-page .projects-search {
 
 .projects-tool-btn:hover {
   background: var(--st-hover);
+}
+
+.projects-tool-btn.is-on {
+  background: var(--st-hover);
+  color: var(--st-text);
+  font-weight: 600;
+}
+
+.projects-toolbar--filters {
+  padding-top: 0;
+}
+
+.projects-toolbar--filters .projects-toolbar__left {
+  gap: 6px;
+}
+
+/* 数字框上下小箭头点不中、占位挤，调值用键盘 */
+.studio-shell input[type='number'] {
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+
+.studio-shell input[type='number']::-webkit-outer-spin-button,
+.studio-shell input[type='number']::-webkit-inner-spin-button {
+  appearance: none;
+  margin: 0;
 }
 
 .projects-grid {

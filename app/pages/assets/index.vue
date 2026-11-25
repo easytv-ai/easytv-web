@@ -541,6 +541,7 @@ onBeforeUnmount(() => {
             <input
               v-model="keyword"
               type="search"
+              autocomplete="off"
               :placeholder="t('搜索资产')"
             >
           </label>
@@ -563,14 +564,14 @@ onBeforeUnmount(() => {
         </div>
       </header>
 
-      <div class="projects-toolbar" style="padding-top: 0;">
-        <div class="projects-toolbar__left" style="gap: 6px;">
+      <div class="projects-toolbar projects-toolbar--filters">
+        <div class="projects-toolbar__left">
           <button
             v-for="tab in TYPE_TABS"
             :key="tab.value"
             type="button"
             class="projects-tool-btn"
-            :style="typeFilter === tab.value ? 'font-weight:600;' : 'opacity:.7;'"
+            :class="{ 'is-on': typeFilter === tab.value }"
             @click="typeFilter = tab.value"
           >
             {{ tab.label }}

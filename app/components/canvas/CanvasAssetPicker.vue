@@ -392,7 +392,7 @@ onUnmounted(() => {
           </div>
           <label class="projects-search asset-picker__search">
             <UIcon name="i-lucide-search" class="size-4" />
-            <input v-model="keyword" type="search" :placeholder="t('搜索资产')">
+            <input v-model="keyword" type="search" autocomplete="off" :placeholder="t('搜索资产')">
           </label>
           <NuxtLink :to="localePath('/assets')" target="_blank" class="asset-picker__manage">
             <UIcon name="i-lucide-library" class="size-4" />
@@ -422,9 +422,9 @@ onUnmounted(() => {
             <span class="asset-picker__empty-mark">
               <UIcon name="i-lucide-images" class="size-8" />
             </span>
-            <strong>{{ t('还没有可用资产') }}</strong>
-            <p>{{ t('从资产库选择，或上传新的资产') }}</p>
-            <button type="button" class="asset-picker__cta" :disabled="uploading" @click="pickFiles">
+            <strong>{{ keyword.trim() ? t('没有匹配的结果') : t('还没有可用资产') }}</strong>
+            <p>{{ keyword.trim() ? t('换个关键词试试') : t('从资产库选择，或上传新的资产') }}</p>
+            <button v-if="!keyword.trim()" type="button" class="asset-picker__cta" :disabled="uploading" @click="pickFiles">
               <UIcon name="i-lucide-upload" class="size-4" />
               {{ uploading ? t('上传中…') : t('上传资产') }}
             </button>

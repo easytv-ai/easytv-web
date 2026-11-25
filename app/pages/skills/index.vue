@@ -122,8 +122,24 @@ const sectionTitle = computed(() => {
   return t(TABS.find(tab => tab.id === activeTab.value)?.label ?? '')
 })
 
-const emptyTitle = computed(() => activeTab.value === 'fav' ? t('还没有收藏的 Skill') : activeTab.value === 'mine' ? t('你还没有自己的 Skill') : t('暂无 Skill'))
-const emptyDescription = computed(() => activeTab.value === 'fav' ? t('浏览推荐 Skill，收藏后会显示在这里。') : activeTab.value === 'mine' ? t('把常用的提示词保存成 Skill，下次一键带进画布。') : t('换个分类或关键词试试。'))
+const emptyTitle = computed(() => {
+  if (keyword.value.trim())
+    return t('没有匹配的结果')
+  if (activeTab.value === 'fav')
+    return t('还没有收藏的 Skill')
+  if (activeTab.value === 'mine')
+    return t('你还没有自己的 Skill')
+  return t('暂无 Skill')
+})
+const emptyDescription = computed(() => {
+  if (keyword.value.trim())
+    return t('换个关键词试试')
+  if (activeTab.value === 'fav')
+    return t('浏览推荐 Skill，收藏后会显示在这里。')
+  if (activeTab.value === 'mine')
+    return t('把常用的提示词保存成 Skill，下次一键带进画布。')
+  return t('换个分类或关键词试试。')
+})
 
 function notify(title: string, color: 'neutral' | 'error' | 'success' = 'neutral') {
   toast.add({ title, color, close: false, progress: false, orientation: 'horizontal' })
@@ -485,7 +501,7 @@ onBeforeUnmount(() => {
       </div>
       <label class="projects-search">
         <UIcon name="i-lucide-search" class="size-4" />
-        <input v-model="keyword" type="search" :placeholder="t('搜索 Skill')">
+        <input v-model="keyword" type="search" autocomplete="off" :placeholder="t('搜索 Skill')">
       </label>
     </div>
 

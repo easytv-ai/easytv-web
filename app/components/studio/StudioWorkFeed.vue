@@ -247,6 +247,7 @@ onBeforeUnmount(() => {
           <input
             v-model="keyword"
             type="search"
+            autocomplete="off"
             :placeholder="t('搜索成片')"
           >
         </label>

@@ -29,6 +29,7 @@ const renaming = ref(0)
 const renameText = ref('')
 const renamingBusy = ref(false)
 const removingId = ref(0)
+let keywordTimer: number | undefined
 
 function notify(title: string, color: 'neutral' | 'error' | 'success' = 'neutral') {
   toast.add({ title, color, close: false, progress: false, orientation: 'horizontal' })
@@ -72,6 +73,11 @@ function presetPoints(preset: WorkflowPreset) {
 /** 卡片第三行：规格 · 预计点数（两个都缺就返回空串，卡片只剩两行） */
 function presetLine(preset: WorkflowPreset) {
   return [presetSpec(preset), presetPoints(preset)].filter(Boolean).join(' · ')
+}
+
+function flushKeyword() {
+  window.clearTimeout(keywordTimer)
+  void load()
 }
 
 async function load() {
@@ -175,8 +181,18 @@ watch(() => [props.open, props.refreshAt], ([open]) => {
   }
 }, { immediate: true })
 
+watch(keyword, () => {
+  if (!props.open)
+    return
+  window.clearTimeout(keywordTimer)
+  keywordTimer = window.setTimeout(() => void load(), 320)
+})
+
 onMounted(() => window.addEventListener('keydown', onKeydown, true))
-onUnmounted(() => window.removeEventListener('keydown', onKeydown, true))
+onUnmounted(() => {
+  window.clearTimeout(keywordTimer)
+  window.removeEventListener('keydown', onKeydown, true)
+})
 </script>
 
 <template>
@@ -263,7 +279,7 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown, true))
           <section v-else class="canvas-wf__section">
             <label class="projects-search canvas-wf__search">
               <UIcon name="i-lucide-search" class="size-4" />
-              <input v-model="keyword" type="search" :placeholder="t('搜索工作流')" @keyup.enter="load()">
+              <input v-model="keyword" type="search" autocomplete="off" :placeholder="t('搜索工作流')" @keyup.enter="flushKeyword">
             </label>
             <p v-if="loading && !list.length" class="canvas-wf__empty">{{ t('加载中…') }}</p>
             <div v-else-if="loadError" class="canvas-wf__empty">
@@ -271,7 +287,9 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown, true))
               <button type="button" class="canvas-wf__retry" @click="load()">{{ t('重试') }}</button>
             </div>
             <p v-else-if="!list.length" class="canvas-wf__empty">
-              {{ t('还没有工作流。在画布上选中一串连好线的节点，点工具条「存为工作流」即可。') }}
+              {{ keyword.trim()
+                ? t('没有匹配的结果')
+                : t('还没有工作流。在画布上选中一串连好线的节点，点工具条「存为工作流」即可。') }}
             </p>
             <ul v-else>
               <li v-for="item in list" :key="item.id">

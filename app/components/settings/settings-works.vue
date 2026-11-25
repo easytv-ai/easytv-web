@@ -179,7 +179,7 @@ onUnmounted(() => {
     <h3>{{ t('我的作品') }}</h3>
     <label class="projects-search work-list__search">
       <UIcon name="i-lucide-search" class="size-4" />
-      <input v-model="keyword" type="search" :placeholder="t('account.work.searchTitle')">
+      <input v-model="keyword" type="search" autocomplete="off" :placeholder="t('account.work.searchTitle')">
     </label>
     <div class="work-list__tabs" role="tablist" :aria-label="t('我的作品')">
       <button

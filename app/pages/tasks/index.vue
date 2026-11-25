@@ -38,6 +38,7 @@ const typeFilter = ref<TaskType | ''>('')
 const statusFilter = ref<TaskStatus | 'active' | ''>('')
 const busy = ref<number | null>(null)
 const expandedText = ref<number | null>(null)
+let keywordTimer: number | undefined
 let stopTaskPoll = () => {}
 
 const TYPE_ITEMS: { value: TaskType | '', label: string, icon: string }[] = [
@@ -292,8 +293,14 @@ watch(() => route.query.keyword, (v) => {
 })
 
 function applyFilters() {
+  window.clearTimeout(keywordTimer)
   void load()
 }
+
+watch(keyword, () => {
+  window.clearTimeout(keywordTimer)
+  keywordTimer = window.setTimeout(() => applyFilters(), 320)
+})
 
 watch([typeFilter, statusFilter], () => applyFilters())
 
@@ -304,6 +311,7 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  window.clearTimeout(keywordTimer)
   stopTaskPoll()
 })
 </script>
@@ -317,7 +325,7 @@ onBeforeUnmount(() => {
       <div class="projects-toolbar__right">
         <label class="projects-search">
           <UIcon name="i-lucide-search" class="size-4" />
-          <input v-model="keyword" type="search" :placeholder="t('搜索提示词 / 模型 / 单号')" @keydown.enter="applyFilters">
+          <input v-model="keyword" type="search" autocomplete="off" :placeholder="t('搜索提示词 / 模型 / 单号')" @keydown.enter="applyFilters">
         </label>
         <button type="button" class="projects-tool-btn" :disabled="loading" @click="load(); loadSummary()">
           <UIcon name="i-lucide-refresh-cw" class="size-4" :class="{ 'animate-spin': loading }" />

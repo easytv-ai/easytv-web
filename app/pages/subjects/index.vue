@@ -330,7 +330,7 @@ onBeforeUnmount(() => {
         <div class="projects-toolbar__right">
           <label class="projects-search">
             <UIcon name="i-lucide-search" class="size-4" />
-            <input v-model="keyword" type="search" :placeholder="t('搜索主体')">
+            <input v-model="keyword" type="search" autocomplete="off" :placeholder="t('搜索主体')">
           </label>
           <button type="button" class="projects-tool-btn" @click="openCreate">
             <UIcon name="i-lucide-plus" class="size-4" />
@@ -339,14 +339,14 @@ onBeforeUnmount(() => {
         </div>
       </header>
 
-      <div class="projects-toolbar" style="padding-top: 0;">
-        <div class="projects-toolbar__left" style="gap: 6px;">
+      <div class="projects-toolbar projects-toolbar--filters">
+        <div class="projects-toolbar__left">
           <button
             v-for="tab in KIND_TABS"
             :key="tab.value"
             type="button"
             class="projects-tool-btn"
-            :style="kind === tab.value ? 'font-weight:600;' : 'opacity:.7;'"
+            :class="{ 'is-on': kind === tab.value }"
             @click="kind = tab.value"
           >
             {{ tab.label }}

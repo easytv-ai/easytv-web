@@ -184,17 +184,17 @@ onUnmounted(() => {
         <div class="projects-toolbar__right">
           <label class="projects-search">
             <UIcon name="i-lucide-search" class="size-4" />
-            <input v-model="keyword" type="search" :placeholder="t('搜索提示词')">
+            <input v-model="keyword" type="search" autocomplete="off" :placeholder="t('搜索提示词')">
           </label>
         </div>
       </header>
 
-      <div v-if="tags.length" class="projects-toolbar" style="padding-top: 0;">
-        <div class="projects-toolbar__left" style="gap: 6px;">
+      <div v-if="tags.length" class="projects-toolbar projects-toolbar--filters">
+        <div class="projects-toolbar__left">
           <button
             type="button"
             class="projects-tool-btn"
-            :style="!activeTag ? 'font-weight:600;' : 'opacity:.7;'"
+            :class="{ 'is-on': !activeTag }"
             @click="activeTag = ''"
           >
             {{ t('全部') }}
@@ -204,19 +204,19 @@ onUnmounted(() => {
             :key="tag"
             type="button"
             class="projects-tool-btn"
-            :style="activeTag === tag ? 'font-weight:600;' : 'opacity:.7;'"
+            :class="{ 'is-on': activeTag === tag }"
             @click="activeTag = activeTag === tag ? '' : tag"
           >
             {{ tag }}
           </button>
         </div>
       </div>
-      <div v-if="sources.length" class="projects-toolbar" style="padding-top: 0;">
-        <div class="projects-toolbar__left" style="gap: 6px;">
+      <div v-if="sources.length" class="projects-toolbar projects-toolbar--filters">
+        <div class="projects-toolbar__left">
           <button
             type="button"
             class="projects-tool-btn"
-            :style="!activeSource ? 'font-weight:600;' : 'opacity:.7;'"
+            :class="{ 'is-on': !activeSource }"
             @click="activeSource = 0"
           >
             {{ t('全部') }}
@@ -226,7 +226,7 @@ onUnmounted(() => {
             :key="src.id"
             type="button"
             class="projects-tool-btn"
-            :style="activeSource === src.id ? 'font-weight:600;' : 'opacity:.7;'"
+            :class="{ 'is-on': activeSource === src.id }"
             @click="activeSource = activeSource === src.id ? 0 : src.id"
           >
             {{ src.name }}
