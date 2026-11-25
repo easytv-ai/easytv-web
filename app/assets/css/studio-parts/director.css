@@ -4480,7 +4480,32 @@ html.dark .canvas-wf__tabs button.is-on {
   height: 40px;
 }
 
-.canvas-wf input[type='search'],
+.canvas-wf__search {
+  width: 100%;
+  max-width: none;
+  height: 40px;
+  margin: 0 0 10px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--st-hover);
+}
+
+.canvas-wf__search:focus-within {
+  background: var(--st-elevated);
+  box-shadow: inset 0 0 0 1px var(--st-chip-border);
+}
+
+.canvas-wf__search input {
+  font-size: 13px;
+}
+
+.canvas-wf__search input::-webkit-search-decoration,
+.canvas-wf__search input::-webkit-search-cancel-button,
+.canvas-wf__search input::-webkit-search-results-button,
+.canvas-wf__search input::-webkit-search-results-decoration {
+  -webkit-appearance: none;
+}
+
 .canvas-wf__meta input {
   width: 100%;
   height: 36px;

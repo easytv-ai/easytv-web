@@ -200,6 +200,7 @@ onUnmounted(() => window.removeEventListener('keydown', onKey, true))
                   step="0.1"
                   :max="item.duration || undefined"
                   :value="item.trimIn || ''"
+                  @wheel="holdNumberWheel"
                   @change="setTrim(item.id, 'in', $event)"
                 >
               </label>
@@ -211,6 +212,7 @@ onUnmounted(() => window.removeEventListener('keydown', onKey, true))
                   step="0.1"
                   :max="item.duration || undefined"
                   :value="item.trimOut || ''"
+                  @wheel="holdNumberWheel"
                   @change="setTrim(item.id, 'out', $event)"
                 >
               </label>

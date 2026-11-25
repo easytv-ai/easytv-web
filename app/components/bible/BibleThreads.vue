@@ -59,10 +59,6 @@ function episodeNoOf(event: Event) {
   return Number.isFinite(n) ? Math.max(0, Math.min(999, n)) : 0
 }
 
-function holdNumberWheel(event: WheelEvent) {
-  if (event.currentTarget === document.activeElement)
-    event.preventDefault()
-}
 </script>
 
 <template>

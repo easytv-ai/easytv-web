@@ -368,7 +368,7 @@ onMounted(() => {
         <div class="settings-row">
           <span class="settings-row__label">{{ t('提现金额') }} <i>*</i></span>
           <div class="settings-row__field">
-            <input v-model="withdrawForm.amount" type="number" min="0.01" step="0.01" class="settings-input settings-input--short" :placeholder="t('提现金额')">
+            <input v-model="withdrawForm.amount" type="number" min="0.01" step="0.01" class="settings-input settings-input--short" :placeholder="t('提现金额')" @wheel="holdNumberWheel">
             <button type="button" class="settings-link" :disabled="withdrawing" @click="withdrawForm.amount = withdrawable.toFixed(2)">{{ t('全部') }}</button>
           </div>
         </div>

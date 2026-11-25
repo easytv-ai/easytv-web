@@ -382,8 +382,10 @@ onBeforeUnmount(() => {
       :loading-more="loadingMore"
       :has-more="hasMore"
       :count="tasks.length"
-      :empty-title="t('还没有生成任务')"
-      :empty-description="t('在画布里选择模型点击生成，任务会出现在这里。')"
+      :empty-title="keyword.trim() ? t('没有匹配的结果') : t('还没有生成任务')"
+      :empty-description="keyword.trim()
+        ? t('换个关键词试试')
+        : t('在画布里选择模型点击生成，任务会出现在这里。')"
       :load-more="loadMore"
     >
       <template #skeleton>

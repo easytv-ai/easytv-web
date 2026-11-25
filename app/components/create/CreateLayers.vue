@@ -1225,7 +1225,7 @@ defineExpose({ reload: load, anyRunning })
           </button>
           <label class="create-batch__budget">
             <span>{{ t('create.layers.batch.budget') }}</span>
-            <input v-model="budgetInput" type="number" min="0" step="10" :placeholder="t('不限')" :disabled="batchBusy || batchActive(batch)">
+            <input v-model="budgetInput" type="number" min="0" step="10" :placeholder="t('不限')" :disabled="batchBusy || batchActive(batch)" @wheel="holdNumberWheel">
             <small>{{ t('积分') }}</small>
           </label>
           <p class="create-batch__tip">{{ t('create.layers.batch.serverOrder') }}</p>

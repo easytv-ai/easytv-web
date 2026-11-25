@@ -924,11 +924,11 @@ onBeforeUnmount(() => {
               <div class="ctl-row">
                 <label class="ctl-field ctl-field--num">
                   <span>{{ t('create.timeline.clip.in') }}</span>
-                  <input type="number" min="0" step="0.1" :max="sourceDuration(clip)" :value="clip.in || ''" :placeholder="t('create.timeline.clip.inPh')" :disabled="readOnly" @change="onNumber(index, 'in', $event)">
+                  <input type="number" min="0" step="0.1" :max="sourceDuration(clip)" :value="clip.in || ''" :placeholder="t('create.timeline.clip.inPh')" :disabled="readOnly" @wheel="holdNumberWheel" @change="onNumber(index, 'in', $event)">
                 </label>
                 <label class="ctl-field ctl-field--num">
                   <span>{{ t('create.timeline.clip.out') }}</span>
-                  <input type="number" min="0" step="0.1" :max="sourceDuration(clip)" :value="clip.out || ''" :placeholder="t('create.timeline.clip.outPh')" :disabled="readOnly" @change="onNumber(index, 'out', $event)">
+                  <input type="number" min="0" step="0.1" :max="sourceDuration(clip)" :value="clip.out || ''" :placeholder="t('create.timeline.clip.outPh')" :disabled="readOnly" @wheel="holdNumberWheel" @change="onNumber(index, 'out', $event)">
                 </label>
                 <small class="create-compose__hint">{{ t('create.timeline.clip.sourceSeconds', { s: sourceDuration(clip) || '?' }) }}</small>
               </div>

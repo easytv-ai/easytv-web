@@ -296,12 +296,22 @@ watch(keyword, () => {
   keywordTimer = window.setTimeout(() => void reload(), 320)
 })
 
+function onModalKeydown(event: KeyboardEvent) {
+  if (event.key !== 'Escape' || !modalOpen.value)
+    return
+  event.preventDefault()
+  event.stopPropagation()
+  closeModal()
+}
+
 onMounted(() => {
+  window.addEventListener('keydown', onModalKeydown, true)
   void loadTeam()
   void reload()
 })
 
 onBeforeUnmount(() => {
+  window.removeEventListener('keydown', onModalKeydown, true)
   window.clearTimeout(keywordTimer)
   for (const id of [...timers.keys()])
     stopPoll(id)

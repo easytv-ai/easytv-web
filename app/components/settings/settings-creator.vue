@@ -316,6 +316,7 @@ onMounted(() => {
             step="1"
             class="settings-input settings-input--short"
             :placeholder="t('积分数')"
+            @wheel="holdNumberWheel"
           >
           <button type="button" class="settings-link" :disabled="exchanging" @click="exchangePoints = creator.withdrawable">{{ t('全部') }}</button>
           <button type="submit" class="plan-btn plan-btn--solid" :disabled="exchanging">{{ exchanging ? t('兑换中…') : t('确认兑换') }}</button>
@@ -329,7 +330,7 @@ onMounted(() => {
           <div class="settings-row">
             <span class="settings-row__label">{{ t('提现金额') }} <i>*</i></span>
             <div class="settings-row__field">
-              <input v-model="withdrawForm.amount" type="number" min="0.01" step="0.01" class="settings-input settings-input--short" :placeholder="t('提现金额')">
+              <input v-model="withdrawForm.amount" type="number" min="0.01" step="0.01" class="settings-input settings-input--short" :placeholder="t('提现金额')" @wheel="holdNumberWheel">
               <button type="button" class="settings-link" :disabled="withdrawing" @click="withdrawForm.amount = cashAvailable.toFixed(2)">{{ t('全部') }}</button>
             </div>
           </div>

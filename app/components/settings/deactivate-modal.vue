@@ -28,6 +28,17 @@ watch(open, (v) => {
   error.value = ''
 })
 
+function onKeydown(event: KeyboardEvent) {
+  if (event.key !== 'Escape' || !open.value || submitting.value)
+    return
+  event.preventDefault()
+  event.stopPropagation()
+  open.value = false
+}
+
+onMounted(() => window.addEventListener('keydown', onKeydown, true))
+onUnmounted(() => window.removeEventListener('keydown', onKeydown, true))
+
 async function submit() {
   if (submitting.value || !agree.value)
     return

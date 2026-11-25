@@ -36,6 +36,11 @@ watch(activeIndex, () => {
   })
 })
 
+function clearQuery() {
+  emit('update:query', '')
+  nextTick(() => inputRef.value?.focus())
+}
+
 function pickAt(index: number) {
   const hit = hits.value[index] ?? hits.value[0]
   if (!hit)
@@ -43,20 +48,29 @@ function pickAt(index: number) {
   emit('pick', hit.id)
 }
 
+function onWindowKey(event: KeyboardEvent) {
+  if (!props.open || event.key !== 'Escape')
+    return
+  event.preventDefault()
+  event.stopPropagation()
+  emit('close')
+}
+
+onMounted(() => window.addEventListener('keydown', onWindowKey, true))
+onUnmounted(() => window.removeEventListener('keydown', onWindowKey, true))
+
 function onKeydown(event: KeyboardEvent) {
   if (event.key === 'Escape') {
+    event.preventDefault()
     event.stopPropagation()
     emit('close')
     return
   }
-  if (event.key === 'ArrowDown' || event.key === 'F3' && !event.shiftKey) {
+  if (event.key === 'ArrowDown' || (event.key === 'F3' && !event.shiftKey)) {
     event.preventDefault()
     event.stopPropagation()
     const next = hits.value.length ? (activeIndex.value + 1) % hits.value.length : 0
-    if (event.key === 'F3')
-      pickAt(next)
-    else
-      pickAt(next)
+    pickAt(next)
     return
   }
   if (event.key === 'ArrowUp' || (event.key === 'F3' && event.shiftKey)) {
@@ -87,15 +101,27 @@ function onKeydown(event: KeyboardEvent) {
             <UIcon name="i-lucide-x" class="size-4" />
           </button>
         </header>
-        <input
-          ref="inputRef"
-          class="canvas-find__input"
-          type="search"
-          :value="query"
-          :placeholder="t('canvas.find.placeholder')"
-          @input="emit('update:query', ($event.target as HTMLInputElement).value)"
-          @keydown="onKeydown"
-        >
+        <label class="canvas-find__search">
+          <UIcon name="i-lucide-search" class="size-4" />
+          <input
+            ref="inputRef"
+            type="search"
+            :value="query"
+            :placeholder="t('canvas.find.placeholder')"
+            :aria-label="t('canvas.find.placeholder')"
+            @input="emit('update:query', ($event.target as HTMLInputElement).value)"
+            @keydown="onKeydown"
+          >
+          <button
+            v-if="query"
+            type="button"
+            class="canvas-find__clear"
+            :aria-label="t('清除')"
+            @click="clearQuery"
+          >
+            <UIcon name="i-lucide-x" class="size-3.5" />
+          </button>
+        </label>
         <p v-if="!hits.length" class="canvas-find__empty">{{ t('canvas.find.empty') }}</p>
         <ul v-else ref="listRef" class="canvas-find__list">
           <li v-for="(item, index) in hits" :key="item.id">

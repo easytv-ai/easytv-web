@@ -359,8 +359,8 @@ onUnmounted(() => window.removeEventListener('keydown', onKey, true))
             </button>
           </div>
           <label class="projects-search camera-lib__search">
-            <input v-model="keyword" type="search" :placeholder="t('搜索风格')">
             <UIcon name="i-lucide-search" class="size-3.5" />
+            <input v-model="keyword" type="search" :placeholder="t('搜索风格')">
           </label>
           <button type="button" class="trash-modal__close" :aria-label="t('关闭')" @click="emit('close')">
             <UIcon name="i-lucide-x" class="size-5" />

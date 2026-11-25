@@ -91,10 +91,16 @@ function persistView() {
 }
 const showHot = computed(() => props.hot && hotRows.value.length >= 3)
 const heading = computed(() => props.title || t('精选成片'))
-const emptyTitle = computed(() => props.featured ? t('暂无精选成片') : t('暂无成片'))
-const emptyDescription = computed(() => props.featured
-  ? t('去探索页看看全部作品。')
-  : t('换个分类或关键词试试，也可以去创作台生成新的作品。'))
+const emptyTitle = computed(() => keyword.value.trim()
+  ? t('没有匹配的结果')
+  : (props.featured ? t('暂无精选成片') : t('暂无成片')))
+const emptyDescription = computed(() => {
+  if (keyword.value.trim())
+    return t('换个关键词试试')
+  return props.featured
+    ? t('去探索页看看全部作品。')
+    : t('换个分类或关键词试试，也可以去创作台生成新的作品。')
+})
 
 async function loadHot() {
   try {

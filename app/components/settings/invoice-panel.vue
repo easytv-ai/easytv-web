@@ -321,6 +321,7 @@ onMounted(() => {
               :placeholder="t('最多 ¥{n}', { n: roundCents(available).toFixed(2) })"
               :disabled="!!invoiceError || available < 0.01"
               :aria-label="t('开票金额')"
+              @wheel="holdNumberWheel"
               @blur="amountTouched = true"
               @keydown.enter="openApply"
             >

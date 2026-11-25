@@ -129,6 +129,7 @@ function deleteNode() {
           :disabled="writeBlocked"
           :min="MIN_SEGMENT_DURATION"
           step="0.1"
+          @wheel="holdNumberWheel"
           @change="onDuration"
         >
         <span>{{ t('秒') }}</span>
@@ -156,6 +157,7 @@ function deleteNode() {
           :disabled="writeBlocked"
           min="0"
           step="0.1"
+          @wheel="holdNumberWheel"
           @change="onHold"
         >
         <span>{{ t('秒') }}</span>

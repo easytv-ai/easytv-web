@@ -20,6 +20,17 @@ const emit = defineEmits<{
 const { t } = useI18n()
 
 const problems = computed(() => (props.preview?.models ?? []).filter(m => !m.available || !m.priced).length)
+
+function onKeydown(event: KeyboardEvent) {
+  if (event.key !== 'Escape' || !props.open || props.cloning)
+    return
+  event.preventDefault()
+  event.stopPropagation()
+  emit('close')
+}
+
+onMounted(() => window.addEventListener('keydown', onKeydown, true))
+onUnmounted(() => window.removeEventListener('keydown', onKeydown, true))
 </script>
 
 <template>

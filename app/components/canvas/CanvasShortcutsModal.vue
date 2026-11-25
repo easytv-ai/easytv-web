@@ -1,7 +1,7 @@
 <script setup lang="ts">
 const { t } = useI18n()
 
-defineProps<{
+const props = defineProps<{
   open: boolean
 }>()
 
@@ -98,11 +98,15 @@ const groups = computed<Group[]>(() => [
 const current = computed(() => groups.value.find(g => g.id === active.value) || groups.value[0])
 
 function onKeydown(event: KeyboardEvent) {
-  if (event.key === 'Escape') {
-    event.stopPropagation()
-    emit('close')
-  }
+  if (event.key !== 'Escape' || !props.open)
+    return
+  event.preventDefault()
+  event.stopPropagation()
+  emit('close')
 }
+
+onMounted(() => window.addEventListener('keydown', onKeydown, true))
+onUnmounted(() => window.removeEventListener('keydown', onKeydown, true))
 </script>
 
 <template>
@@ -112,7 +116,6 @@ function onKeydown(event: KeyboardEvent) {
       class="studio-modal-mask"
       @click.self="emit('close')"
       @pointerdown.stop
-      @keydown.stop="onKeydown"
     >
       <div class="canvas-shortcuts" role="dialog" aria-modal="true" aria-labelledby="canvas-shortcuts-title">
         <header class="canvas-shortcuts__head">

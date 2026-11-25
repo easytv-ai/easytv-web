@@ -663,6 +663,7 @@ watch(pricingOpen, (open, wasOpen) => {
                   step="100"
                   class="settings-input settings-input--short"
                   :aria-label="t('本月额度')"
+                  @wheel="holdNumberWheel"
                 >
                 <button type="submit" class="plan-btn plan-btn--ghost" :disabled="limitSaving">{{ limitSaving ? t('保存中…') : t('保存') }}</button>
                 <button type="button" class="plan-btn plan-btn--ghost" @click="closeLimitEditor">{{ t('取消') }}</button>

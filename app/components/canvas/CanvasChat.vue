@@ -4102,6 +4102,7 @@ function promoOf(item: GenerationModel) {
                     max="15"
                     :value="item.card.seconds || 5"
                     :disabled="busy"
+                    @wheel="holdNumberWheel"
                     @change="onChatMediaField(item.card, 'seconds', $event)"
                   >
                 </label>
@@ -4628,6 +4629,7 @@ function promoOf(item: GenerationModel) {
                   min="1"
                   step="10"
                   :value="settings.pointsThreshold"
+                  @wheel="holdNumberWheel"
                   @change="setPointsThreshold(($event.target as HTMLInputElement).value)"
                 >
                 <em>{{ t('积分') }}</em>

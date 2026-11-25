@@ -1222,10 +1222,19 @@ html.dark .camera-lib__search {
 .camera-lib__search input {
   min-width: 0;
   font-size: 12px;
+  appearance: none;
+  -webkit-appearance: none;
 }
 
 .camera-lib__search input::placeholder {
   color: var(--st-muted);
+}
+
+.camera-lib__search input::-webkit-search-decoration,
+.camera-lib__search input::-webkit-search-cancel-button,
+.camera-lib__search input::-webkit-search-results-button,
+.camera-lib__search input::-webkit-search-results-decoration {
+  -webkit-appearance: none;
 }
 
 .camera-lib__tabs {
@@ -2617,6 +2626,15 @@ html.dark .camera-lib__search {
   font: inherit;
   font-size: 13px;
   outline: none;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+.canvas-text-pick__search input::-webkit-search-decoration,
+.canvas-text-pick__search input::-webkit-search-cancel-button,
+.canvas-text-pick__search input::-webkit-search-results-button,
+.canvas-text-pick__search input::-webkit-search-results-decoration {
+  -webkit-appearance: none;
 }
 
 .canvas-text-pick:not(:has(.canvas-text-pick__nav)) .canvas-text-pick__search {

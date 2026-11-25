@@ -243,8 +243,8 @@ onUnmounted(() => window.removeEventListener('keydown', onKey, true))
             {{ t('运镜库') }}
           </h2>
           <label class="projects-search camera-lib__search">
-            <input v-model="keyword" type="search" :placeholder="t('搜索运镜')">
             <UIcon name="i-lucide-search" class="size-3.5" />
+            <input v-model="keyword" type="search" :placeholder="t('搜索运镜')">
           </label>
         </header>
 

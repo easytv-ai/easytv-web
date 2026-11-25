@@ -261,7 +261,10 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown, true))
             </div>
           </section>
           <section v-else class="canvas-wf__section">
-            <input v-model="keyword" type="search" :placeholder="t('搜索工作流')" @keyup.enter="load()">
+            <label class="projects-search canvas-wf__search">
+              <UIcon name="i-lucide-search" class="size-4" />
+              <input v-model="keyword" type="search" :placeholder="t('搜索工作流')" @keyup.enter="load()">
+            </label>
             <p v-if="loading && !list.length" class="canvas-wf__empty">{{ t('加载中…') }}</p>
             <div v-else-if="loadError" class="canvas-wf__empty">
               <p>{{ t('account.workflow.loadFailed') }}</p>

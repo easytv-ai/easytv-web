@@ -175,7 +175,7 @@ function submit() {
             </label>
             <label class="publish-field">
               <span>{{ t('每镜秒数') }}</span>
-              <input type="number" :min="MIN_SECONDS" :max="MAX_SECONDS" :value="form.seconds" :disabled="submitting" @change="onSeconds">
+              <input type="number" :min="MIN_SECONDS" :max="MAX_SECONDS" :value="form.seconds" :disabled="submitting" @wheel="holdNumberWheel" @change="onSeconds">
             </label>
             <label class="publish-field">
               <span>{{ t('插入位置') }}</span>

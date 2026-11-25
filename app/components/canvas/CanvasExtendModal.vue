@@ -37,6 +37,17 @@ function onSubmit() {
     return
   emit('submit', { prompt: draft.value.trim(), seconds: seconds.value })
 }
+
+function onKeydown(event: KeyboardEvent) {
+  if (event.key !== 'Escape' || !props.open || props.submitting)
+    return
+  event.preventDefault()
+  event.stopPropagation()
+  emit('close')
+}
+
+onMounted(() => window.addEventListener('keydown', onKeydown, true))
+onUnmounted(() => window.removeEventListener('keydown', onKeydown, true))
 </script>
 
 <template>

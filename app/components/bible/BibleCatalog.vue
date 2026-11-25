@@ -32,10 +32,6 @@ function openEpisode(event: MouseEvent, id: number) {
   void navigateTo(episodeHref(id))
 }
 
-function holdNumberWheel(event: WheelEvent) {
-  if (event.currentTarget === document.activeElement)
-    event.preventDefault()
-}
 </script>
 
 <template>

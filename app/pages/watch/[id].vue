@@ -544,8 +544,6 @@ function playerOverlayOpen() {
 function onGlobalKeydown(event: KeyboardEvent) {
   if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey)
     return
-  if (isTypingTarget(event.target))
-    return
 
   if (event.key === 'Escape') {
     if (reportOpen.value) {
@@ -553,11 +551,21 @@ function onGlobalKeydown(event: KeyboardEvent) {
         reportOpen.value = false
       return
     }
-    if (clonePreviewOpen.value || shareOpen.value)
+    if (clonePreviewOpen.value) {
+      if (!cloning.value)
+        clonePreviewOpen.value = false
+      return
+    }
+    if (shareOpen.value)
+      return
+    if (isTypingTarget(event.target))
       return
     goBack()
     return
   }
+
+  if (isTypingTarget(event.target))
+    return
 
   if (playerOverlayOpen() || !current.value)
     return
