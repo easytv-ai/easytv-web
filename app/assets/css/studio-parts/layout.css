@@ -24,7 +24,9 @@
 }
 
 .studio-shell.is-immersive .canvas-editor,
-.studio-shell.is-immersive .director-page {
+.studio-shell.is-immersive .director-page,
+.studio-shell.is-immersive .watch-page,
+.studio-shell.is-immersive .share-page {
   height: 100%;
 }
 

@@ -47,6 +47,7 @@ const {
   loadMore,
 } = useStudioPaged<Project>({
   pageSize: PAGE_SIZE,
+  cacheKey: 'projects',
   async fetch(page, pageSize) {
     const q = keyword.value.trim()
     const res = await projectApi.list({
@@ -306,12 +307,18 @@ function onDocumentClick(event: MouseEvent) {
 }
 
 function onRenameKeydown(event: KeyboardEvent) {
-  if (!renameOpen.value)
+  if (event.key !== 'Escape')
     return
-  if (event.key === 'Escape') {
+  if (renameOpen.value) {
     event.preventDefault()
     event.stopPropagation()
     closeRename()
+    return
+  }
+  if (trashOpen.value) {
+    event.preventDefault()
+    event.stopPropagation()
+    closeTrash()
   }
 }
 
@@ -395,10 +402,12 @@ watch(keyword, () => {
       :loading-more="loadingMore"
       :has-more="hasMore"
       :count="projects.length"
-      :empty-title="isTeam ? t('团队里还没有项目') : t('暂无项目')"
-      :empty-description="isTeam
-        ? t('新建项目，或在个人空间的项目菜单里「移到团队」。')
-        : t('还没有项目。点击「新建」开始第一个创作。')"
+      :empty-title="keyword.trim() ? t('没有匹配的结果') : (isTeam ? t('团队里还没有项目') : t('暂无项目'))"
+      :empty-description="keyword.trim()
+        ? t('换个关键词试试')
+        : (isTeam
+          ? t('新建项目，或在个人空间的项目菜单里「移到团队」。')
+          : t('还没有项目。点击「新建」开始第一个创作。'))"
       :load-more="loadMore"
     >
       <template #skeleton>
@@ -413,7 +422,7 @@ watch(keyword, () => {
         </article>
       </template>
       <template #empty>
-        <div v-if="canCreate" class="projects-grid">
+        <div v-if="canCreate && !keyword.trim()" class="projects-grid">
           <button type="button" class="projects-card projects-card--create" @click="openNewProject">
             <span class="projects-card__thumb">
               <span class="projects-card__plus">
@@ -426,11 +435,14 @@ watch(keyword, () => {
           </button>
         </div>
         <StudioEmpty
+          v-else
           compact
-          :title="isTeam ? t('团队里还没有项目') : t('暂无项目')"
-          :description="isTeam
-            ? t('新建项目，或在个人空间的项目菜单里「移到团队」。')
-            : t('还没有项目。点击「新建」开始第一个创作。')"
+          :title="keyword.trim() ? t('没有匹配的结果') : (isTeam ? t('团队里还没有项目') : t('暂无项目'))"
+          :description="keyword.trim()
+            ? t('换个关键词试试')
+            : (isTeam
+              ? t('新建项目，或在个人空间的项目菜单里「移到团队」。')
+              : t('还没有项目。点击「新建」开始第一个创作。'))"
         />
       </template>
       <div class="projects-grid">
@@ -579,7 +591,7 @@ watch(keyword, () => {
       </div>
     </Teleport>
 
-    <div v-if="trashOpen" class="studio-modal-mask" @click.self="closeTrash">
+    <div v-if="trashOpen" class="studio-modal-mask studio-confirm-mask" @click.self="closeTrash">
       <div class="trash-modal" role="dialog" aria-modal="true" aria-labelledby="trash-title">
         <header class="trash-modal__head">
           <div>

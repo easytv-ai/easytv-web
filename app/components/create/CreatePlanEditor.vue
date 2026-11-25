@@ -608,7 +608,7 @@ function selectShot(index: number) {
               @update:model-value="setShotScene(openShot, $event)"
             />
             <label class="plan-shot__seconds">
-              <input type="number" :min="MIN_SHOT_SECONDS" :max="MAX_SHOT_SECONDS" :value="openShot.seconds" :disabled="disabled" :title="t('每镜 {min}–{max} 秒', { min: MIN_SHOT_SECONDS, max: MAX_SHOT_SECONDS })" @change="onSeconds(openShot, $event)">
+              <input type="number" :min="MIN_SHOT_SECONDS" :max="MAX_SHOT_SECONDS" :value="openShot.seconds" :disabled="disabled" :title="t('每镜 {min}–{max} 秒', { min: MIN_SHOT_SECONDS, max: MAX_SHOT_SECONDS })" @wheel="holdNumberWheel" @change="onSeconds(openShot, $event)">
               <span>{{ t('秒') }}</span>
             </label>
             <span class="plan-shot__spacer" />

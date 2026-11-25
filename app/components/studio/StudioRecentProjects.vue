@@ -13,14 +13,16 @@ const { openNewProject, openProject } = useStudioNav()
 const { isTeam, teams, loadTeams } = useWorkspace()
 
 const LIMIT = 4
-const projects = ref<Project[]>([])
-const loaded = ref(false)
+const snap = useState<{ items: Project[] } | null>('studio-recent-projects', () => null)
+const projects = ref<Project[]>(snap.value?.items.slice() ?? [])
+const loaded = ref(Boolean(snap.value))
 const failed = ref(false)
 
 function reset() {
   projects.value = []
   loaded.value = false
   failed.value = false
+  snap.value = null
 }
 
 async function load() {
@@ -35,6 +37,7 @@ async function load() {
       return
     }
     projects.value = res.data.items
+    snap.value = { items: res.data.items.slice() }
     failed.value = false
   }
   catch {
@@ -126,6 +129,14 @@ function closeRename() {
   renameTarget.value = null
 }
 
+function onRenameKeydown(event: KeyboardEvent) {
+  if (event.key !== 'Escape' || !renameOpen.value)
+    return
+  event.preventDefault()
+  event.stopPropagation()
+  closeRename()
+}
+
 async function submitRename() {
   const item = renameTarget.value
   if (!item || renaming.value)
@@ -211,6 +222,7 @@ const shown = computed(() => mounted.value && isLoggedIn.value)
 onMounted(() => {
   mounted.value = true
   document.addEventListener('click', onDocumentClick)
+  window.addEventListener('keydown', onRenameKeydown, true)
   void loadTeams()
   if (isLoggedIn.value)
     void load()
@@ -218,6 +230,7 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   document.removeEventListener('click', onDocumentClick)
+  window.removeEventListener('keydown', onRenameKeydown, true)
 })
 
 watch(isLoggedIn, (on) => {

@@ -56,7 +56,7 @@ export function buildSpine(sources: SpineSource[], threads: BibleThread[] = []):
     id: row.id,
     canvasId: row.canvas_id || 0,
     status: row.status,
-    title: row.plan?.title?.trim() || '未命名',
+    title: row.plan?.title?.trim() || '',
     shots: row.plan?.shots?.length ?? 0,
   }))
 

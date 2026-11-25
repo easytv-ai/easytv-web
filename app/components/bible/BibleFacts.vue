@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { Bible } from '~/types/creative'
-import { BIBLE_LIMITS, bibleName, dropFactRefs, knows, newFact, setKnowledge } from '~/utils/bible'
+import { BIBLE_LIMITS, bibleName, dropFactRefs, factLabel, knows, newFact, setKnowledge } from '~/utils/bible'
 
 const { t } = useI18n()
 const { confirm } = useConfirm()

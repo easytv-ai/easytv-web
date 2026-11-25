@@ -74,6 +74,7 @@ function onBlur() {
     :step="step"
     :min="min"
     :max="max"
+    @wheel="holdNumberWheel"
     @input="onInput"
     @focus="onFocus"
     @blur="onBlur"

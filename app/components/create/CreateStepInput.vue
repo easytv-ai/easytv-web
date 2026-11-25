@@ -153,7 +153,7 @@ async function useIdea(idea: Idea) {
         </label>
         <label class="bible-no">
           <span>{{ t('集号') }}</span>
-          <input v-model="episodeNo" type="number" min="1" max="999" :placeholder="t('自动')">
+          <input v-model="episodeNo" type="number" min="1" max="999" :placeholder="t('自动')" @wheel="holdNumberWheel">
           <span>{{ t('留空 = 自动排到下一集') }}</span>
         </label>
         <NuxtLink :to="localePath(`/bible?project=${projectId}`)" class="studio-chip">

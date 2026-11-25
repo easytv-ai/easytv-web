@@ -854,6 +854,7 @@ onMounted(() => {
               :disabled="writeFrozen"
               :aria-label="t('秒数')"
               @pointerdown.stop
+              @wheel="holdNumberWheel"
               @change="onStoryboardSeconds(index, $event)"
             >
             <button

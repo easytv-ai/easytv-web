@@ -146,6 +146,14 @@ function skip() {
   emit('close')
 }
 
+function onKeydown(event: KeyboardEvent) {
+  if (!props.open || event.key !== 'Escape')
+    return
+  event.preventDefault()
+  event.stopPropagation()
+  skip()
+}
+
 let measureTimer = 0
 
 watch(() => [props.open, index.value, currentStep().anchor] as const, () => {
@@ -169,11 +177,13 @@ watch(() => [props.open, index.value, currentStep().anchor] as const, () => {
 onMounted(() => {
   window.addEventListener('resize', measure)
   window.addEventListener('scroll', measure, true)
+  window.addEventListener('keydown', onKeydown, true)
 })
 
 onUnmounted(() => {
   window.removeEventListener('resize', measure)
   window.removeEventListener('scroll', measure, true)
+  window.removeEventListener('keydown', onKeydown, true)
   if (measureTimer)
     window.clearInterval(measureTimer)
 })

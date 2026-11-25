@@ -66,6 +66,7 @@ const {
   prepend,
 } = useStudioPaged<Subject>({
   pageSize: PAGE_SIZE,
+  cacheKey: 'subjects',
   async fetch(page, pageSize) {
     const q = keyword.value.trim()
     const res = await subjectApi.list({ page, page_size: pageSize, kind: kind.value, keyword: q || undefined })
@@ -353,8 +354,10 @@ onBeforeUnmount(() => {
         :loading-more="loadingMore"
         :has-more="hasMore"
         :count="subjects.length"
-        :empty-title="t('还没有主体')"
-        :empty-description="t('把常用的角色、场景与道具存成主体，之后生成时一键引用，人物和场景更稳定。')"
+        :empty-title="keyword.trim() ? t('没有匹配的结果') : t('还没有主体')"
+        :empty-description="keyword.trim()
+          ? t('换个关键词试试')
+          : t('把常用的角色、场景与道具存成主体，之后生成时一键引用，人物和场景更稳定。')"
         :load-more="loadMore"
       >
         <template #skeleton>
@@ -376,8 +379,10 @@ onBeforeUnmount(() => {
         <template #empty>
           <StudioEmpty
             compact
-            :title="t('还没有主体')"
-            :description="t('把常用的角色、场景与道具存成主体，之后生成时一键引用，人物和场景更稳定。')"
+            :title="keyword.trim() ? t('没有匹配的结果') : t('还没有主体')"
+            :description="keyword.trim()
+              ? t('换个关键词试试')
+              : t('把常用的角色、场景与道具存成主体，之后生成时一键引用，人物和场景更稳定。')"
           />
         </template>
 

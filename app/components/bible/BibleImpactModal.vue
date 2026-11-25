@@ -59,10 +59,22 @@ function episodeHref(id: number) {
 
 function onKeydown(event: KeyboardEvent) {
   if (event.key === 'Escape' && open.value) {
+    event.preventDefault()
     event.stopPropagation()
     open.value = false
   }
 }
+
+const dialog = ref<HTMLElement | null>(null)
+
+watch(open, async (isOpen) => {
+  if (!isOpen)
+    return
+  await nextTick()
+  const field = dialog.value?.querySelector<HTMLElement>('.bible-impact__text')
+    || dialog.value?.querySelector<HTMLElement>('.bible-impact__run')
+  field?.focus()
+})
 
 onMounted(() => window.addEventListener('keydown', onKeydown, true))
 onUnmounted(() => window.removeEventListener('keydown', onKeydown, true))
@@ -71,7 +83,7 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown, true))
 <template>
   <Teleport to="body">
     <div v-if="open" class="studio-modal-mask" @click.self="open = false">
-      <div class="bible-impact" role="dialog" aria-modal="true" aria-labelledby="bible-impact-title">
+      <div ref="dialog" class="bible-impact" role="dialog" aria-modal="true" aria-labelledby="bible-impact-title">
         <header class="trash-modal__head">
           <div>
             <h2 id="bible-impact-title">{{ t('查影响') }}</h2>

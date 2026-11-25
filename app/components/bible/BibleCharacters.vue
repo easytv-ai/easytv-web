@@ -58,11 +58,14 @@ function setVoice(c: BibleCharacter, value: string | number) {
   emit('change')
 }
 
-async function addRelationship(c: BibleCharacter) {
+async function addRelationship(c: BibleCharacter, event: MouseEvent) {
+  if (props.bible.characters.length < 2)
+    return
   c.relationships.push({ to: '', relation: '' })
   emit('change')
   await nextTick()
-  const rows = root.value?.querySelectorAll('.bible-rel')
+  const article = (event.currentTarget as HTMLElement | null)?.closest('.bible-item')
+  const rows = article?.querySelectorAll('.bible-rel')
   const last = rows?.[rows.length - 1]
   const fields = last?.querySelectorAll<HTMLInputElement>('input')
   fields?.[fields.length - 1]?.focus()
@@ -142,7 +145,7 @@ function toggleKnowledge(charKey: string, factKey: string) {
       <div class="bible-sub">
         <div class="bible-sub__head">
           <span>{{ t('关系') }}</span>
-          <button type="button" class="studio-chip" @click="addRelationship(c)">
+          <button type="button" class="studio-chip" :disabled="bible.characters.length < 2" @click="addRelationship(c, $event)">
             <UIcon name="i-lucide-plus" class="size-4" />
             {{ t('添加关系') }}
           </button>
@@ -171,6 +174,7 @@ function toggleKnowledge(charKey: string, factKey: string) {
             :key="f.key"
             type="button"
             :class="{ 'is-on': knows(bible, c.key, f.key) }"
+            :aria-pressed="knows(bible, c.key, f.key)"
             :title="f.text"
             @click="toggleKnowledge(c.key, f.key)"
           >

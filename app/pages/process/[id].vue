@@ -9,7 +9,9 @@ const { t } = useI18n()
  * 按作者画布原样只读展示节点与连线，不能编辑、保存或生成。
  */
 definePageMeta({
-  layout: false,
+  layout: 'studio',
+  immersive: true,
+  pageTransition: false,
 })
 
 const route = useRoute()

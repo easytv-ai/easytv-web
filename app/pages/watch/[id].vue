@@ -11,7 +11,9 @@ const { t, locale } = useI18n()
 
 /** 播放页匿名可看（GET /work/:id 走 TryUserAuth）；点赞 / 评论 / 举报等动作前用 requireLogin 拦截 */
 definePageMeta({
-  layout: false,
+  layout: 'studio',
+  immersive: true,
+  pageTransition: false,
   // 同一播放页换 id 不重建组件，底部推荐条才不会先空掉、把上面的画面撑高
   key: 'watch-player',
 })

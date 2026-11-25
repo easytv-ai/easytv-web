@@ -51,6 +51,7 @@ const {
   removeById,
 } = useStudioPaged<Asset>({
   pageSize: PAGE_SIZE,
+  cacheKey: 'assets',
   async fetch(page, pageSize) {
     const q = keyword.value.trim()
     const res = await assetApi.list({
@@ -490,13 +491,37 @@ function onDocumentClick(event: MouseEvent) {
     menuFor.value = null
 }
 
+function onModalKeydown(event: KeyboardEvent) {
+  if (event.key !== 'Escape')
+    return
+  if (trashOpen.value) {
+    event.preventDefault()
+    event.stopPropagation()
+    closeTrash()
+    return
+  }
+  if (refsAsset.value) {
+    event.preventDefault()
+    event.stopPropagation()
+    closeRefs()
+    return
+  }
+  if (subjectAsset.value) {
+    event.preventDefault()
+    event.stopPropagation()
+    closeSubject()
+  }
+}
+
 onMounted(() => {
   document.addEventListener('click', onDocumentClick)
+  window.addEventListener('keydown', onModalKeydown, true)
   void reload()
 })
 
 onBeforeUnmount(() => {
   document.removeEventListener('click', onDocumentClick)
+  window.removeEventListener('keydown', onModalKeydown, true)
   window.clearTimeout(keywordTimer)
 })
 </script>
@@ -581,8 +606,10 @@ onBeforeUnmount(() => {
         :loading-more="loadingMore"
         :has-more="hasMore"
         :count="assets.length"
-        :empty-title="t('暂无资产')"
-        :empty-description="t('上传图片、视频或音频素材，生成的作品也会集中出现在这里。')"
+        :empty-title="keyword.trim() ? t('没有匹配的结果') : t('暂无资产')"
+        :empty-description="keyword.trim()
+          ? t('换个关键词试试')
+          : t('上传图片、视频或音频素材，生成的作品也会集中出现在这里。')"
         :load-more="loadMore"
       >
         <template #skeleton>
@@ -597,7 +624,7 @@ onBeforeUnmount(() => {
           </article>
         </template>
         <template #empty>
-          <div class="projects-grid">
+          <div v-if="!keyword.trim()" class="projects-grid">
             <button type="button" class="projects-card projects-card--create" :disabled="uploading" @click="pickFiles">
               <span class="projects-card__thumb">
                 <span class="projects-card__plus">
@@ -610,9 +637,10 @@ onBeforeUnmount(() => {
             </button>
           </div>
           <StudioEmpty
+            v-else
             compact
-            :title="t('暂无资产')"
-            :description="t('上传图片、视频或音频素材，生成的作品也会集中出现在这里。')"
+            :title="t('没有匹配的结果')"
+            :description="t('换个关键词试试')"
           />
         </template>
         <div class="projects-grid">
@@ -678,7 +706,7 @@ onBeforeUnmount(() => {
         </div>
       </StudioPaging>
 
-      <div v-if="trashOpen" class="studio-modal-mask" @click.self="closeTrash">
+      <div v-if="trashOpen" class="studio-modal-mask studio-confirm-mask" @click.self="closeTrash">
         <div class="trash-modal" role="dialog" aria-modal="true" aria-labelledby="asset-trash-title">
           <header class="trash-modal__head">
             <div>

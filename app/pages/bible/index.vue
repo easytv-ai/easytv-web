@@ -343,8 +343,6 @@ function onKeydown(event: KeyboardEvent) {
   if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== 's')
     return
   event.preventDefault()
-  if (impactOpen.value)
-    return
   if (dirty.value && !saving.value && projectId.value)
     void save()
 }
@@ -386,7 +384,9 @@ watch(projectId, () => void load())
       :description="t('从项目列表的「更多」菜单进入「剧集设定」。')"
     />
     <StudioLoading v-else-if="loading" />
-    <StudioEmpty v-else-if="loadError" :title="loadError" />
+    <StudioEmpty v-else-if="loadError" :title="loadError">
+      <button type="button" class="plan-btn plan-btn--solid" @click="load">{{ t('刷新') }}</button>
+    </StudioEmpty>
 
     <template v-else>
       <div class="bible-scroll">

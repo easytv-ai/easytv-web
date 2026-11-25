@@ -53,6 +53,20 @@ function shown(name: string) {
 function episodeHref(id: number) {
   return localePath({ path: '/create', query: { screenplay: String(id) } })
 }
+
+/** 左键走路由，好弹出未保存确认；Ctrl/中键仍用原生链接开新标签。 */
+function openEpisode(event: MouseEvent, id: number) {
+  if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey)
+    return
+  event.preventDefault()
+  void navigateTo(episodeHref(id))
+}
+
+function filmTitle(title: string, cellW: number) {
+  const label = title.trim() || t('未命名')
+  const max = Math.max(2, Math.floor((cellW - 20) / 14))
+  return label.length > max ? `${label.slice(0, max)}…` : label
+}
 </script>
 
 <template>
@@ -73,7 +87,8 @@ function episodeHref(id: number) {
         :aria-label="t('季轴')"
       >
         <g v-for="(episode, index) in spine.episodes" :key="episode.id">
-          <a :href="episodeHref(episode.id)">
+          <a :href="episodeHref(episode.id)" @click="openEpisode($event, episode.id)">
+            <title>{{ episode.title.trim() || t('未命名') }}</title>
             <rect
               :x="layout.x(index) - layout.cellW / 2 + 6"
               :y="filmTop"
@@ -83,7 +98,7 @@ function episodeHref(id: number) {
               :fill="FILM_COLORS[index % FILM_COLORS.length]"
             />
             <text :x="layout.x(index)" :y="filmTop + 22" text-anchor="middle" fill="#dbeafe" font-size="11">{{ String(episode.no).padStart(2, '0') }}</text>
-            <text :x="layout.x(index)" :y="filmTop + 46" text-anchor="middle" fill="#fff" font-size="14">{{ episode.title }}</text>
+            <text :x="layout.x(index)" :y="filmTop + 46" text-anchor="middle" fill="#fff" font-size="14">{{ filmTitle(episode.title, layout.cellW) }}</text>
           </a>
           <text :x="layout.x(index)" :y="filmTop + cellH + 18" text-anchor="middle" fill="#93a3b8" font-size="11">{{ t('第 {n} 集', { n: episode.no }) }}</text>
         </g>

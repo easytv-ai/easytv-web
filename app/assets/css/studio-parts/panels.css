@@ -67,6 +67,10 @@
 }
 
 /* ===== 项目/资产卡片操作菜单 ===== */
+.projects-card:has(.projects-card__menu) {
+  z-index: 6;
+}
+
 .projects-card__menu {
   position: absolute;
   right: 0;

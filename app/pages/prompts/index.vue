@@ -244,8 +244,10 @@ onUnmounted(() => {
         :loading-more="loadingMore"
         :has-more="hasMore"
         :count="items.length"
-        :empty-title="t('还没有提示词')"
-        :empty-description="t('运营录入或配置远程源同步后，提示词会出现在这里。')"
+        :empty-title="keyword.trim() ? t('没有匹配的结果') : t('还没有提示词')"
+        :empty-description="keyword.trim()
+          ? t('换个关键词试试')
+          : t('运营录入或配置远程源同步后，提示词会出现在这里。')"
         :load-more="loadMore"
       >
         <template #skeleton>
