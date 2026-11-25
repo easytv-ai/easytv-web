@@ -3,6 +3,7 @@ import type { Bible, BibleThread } from '~/types/creative'
 import { BIBLE_LIMITS, newThread } from '~/utils/bible'
 
 const { t } = useI18n()
+const { confirm } = useConfirm()
 const root = ref<HTMLElement | null>(null)
 
 const props = defineProps<{
@@ -29,7 +30,17 @@ async function addThread() {
   fields?.[fields.length - 1]?.focus()
 }
 
-function removeThread(index: number) {
+async function removeThread(index: number) {
+  const removed = props.bible.threads[index]
+  if (!removed)
+    return
+  if (!(await confirm({
+    title: t('删除'),
+    message: t('bible.thread.remove', { name: removed.title || removed.key }),
+    confirmText: t('删除'),
+    danger: true,
+  })))
+    return
   props.bible.threads.splice(index, 1)
   emit('change')
 }
@@ -46,6 +57,11 @@ function setThreadStatus(th: BibleThread, value: string | number) {
 function episodeNoOf(event: Event) {
   const n = Math.round(Number((event.target as HTMLInputElement).value))
   return Number.isFinite(n) ? Math.max(0, Math.min(999, n)) : 0
+}
+
+function holdNumberWheel(event: WheelEvent) {
+  if (event.currentTarget === document.activeElement)
+    event.preventDefault()
 }
 </script>
 
@@ -80,11 +96,11 @@ function episodeNoOf(event: Event) {
         />
         <label class="bible-no">
           <span>{{ t('开于第几集') }}</span>
-          <input type="number" min="0" max="999" :value="th.opened_in || ''" @input="th.opened_in = episodeNoOf($event); emit('change')">
+          <input type="number" min="0" max="999" :value="th.opened_in || ''" @wheel="holdNumberWheel" @input="th.opened_in = episodeNoOf($event); emit('change')">
         </label>
         <label v-if="th.status === 'resolved'" class="bible-no">
           <span>{{ t('解于第几集') }}</span>
-          <input type="number" min="0" max="999" :value="th.resolved_in || ''" @input="th.resolved_in = episodeNoOf($event); emit('change')">
+          <input type="number" min="0" max="999" :value="th.resolved_in || ''" @wheel="holdNumberWheel" @input="th.resolved_in = episodeNoOf($event); emit('change')">
         </label>
       </div>
     </article>

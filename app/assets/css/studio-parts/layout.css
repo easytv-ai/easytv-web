@@ -23,6 +23,11 @@
   scrollbar-gutter: auto;
 }
 
+.studio-shell.is-immersive .canvas-editor,
+.studio-shell.is-immersive .director-page {
+  height: 100%;
+}
+
 html:has(.studio-shell),
 html:has(.studio-shell) body,
 html:has(.studio-shell) #__nuxt,

@@ -3650,6 +3650,15 @@
     "character": {
       "remove": "Supprimer « {name} » ? Les mentions de ce personnage dans les accessoires, les connaissances et les relations seront aussi effacées."
     },
+    "prop": {
+      "remove": "Supprimer « {name} » ?"
+    },
+    "thread": {
+      "remove": "Supprimer l'intrigue « {name} » ?"
+    },
+    "fact": {
+      "remove": "Supprimer « {name} » ? Les mentions de ce fait dans les connaissances des personnages seront aussi effacées."
+    },
     "board": {
       "shots": "{n} plans",
       "cast": "Distribution",

@@ -8,6 +8,11 @@ const route = useRoute()
 /** 画布等全屏页：侧栏还在 DOM 里，只是藏起来，回首页不用重新挂菜单 */
 const immersive = computed(() => Boolean(route.meta.immersive))
 
+watch(immersive, (on) => {
+  if (on)
+    mobileNavOpen.value = false
+}, { immediate: true })
+
 onMounted(() => {
   hydrate()
   void loadAppConfig()

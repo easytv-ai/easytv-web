@@ -1320,6 +1320,15 @@
     "character": {
       "remove": "删除「{name}」？道具持有、知情和关系里对这个人的引用会一并清掉。"
     },
+    "prop": {
+      "remove": "删除「{name}」？"
+    },
+    "thread": {
+      "remove": "删除线索「{name}」？"
+    },
+    "fact": {
+      "remove": "删除「{name}」？角色知情里对这条事实的引用会一并清掉。"
+    },
     "board": {
       "shots": "{n} 镜",
       "cast": "人物",

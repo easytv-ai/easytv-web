@@ -3650,6 +3650,15 @@
     "character": {
       "remove": "Xóa «{name}»? Các tham chiếu tới người này trong đạo cụ, tri thức và quan hệ cũng sẽ bị gỡ."
     },
+    "prop": {
+      "remove": "Xóa «{name}»?"
+    },
+    "thread": {
+      "remove": "Xóa tuyến «{name}»?"
+    },
+    "fact": {
+      "remove": "Xóa «{name}»? Các tham chiếu tới sự kiện này trong tri thức nhân vật cũng sẽ bị gỡ."
+    },
     "board": {
       "shots": "{n} cảnh",
       "cast": "Nhân vật",

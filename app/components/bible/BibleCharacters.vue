@@ -58,9 +58,14 @@ function setVoice(c: BibleCharacter, value: string | number) {
   emit('change')
 }
 
-function addRelationship(c: BibleCharacter) {
+async function addRelationship(c: BibleCharacter) {
   c.relationships.push({ to: '', relation: '' })
   emit('change')
+  await nextTick()
+  const rows = root.value?.querySelectorAll('.bible-rel')
+  const last = rows?.[rows.length - 1]
+  const fields = last?.querySelectorAll<HTMLInputElement>('input')
+  fields?.[fields.length - 1]?.focus()
 }
 
 function removeRelationship(c: BibleCharacter, index: number) {

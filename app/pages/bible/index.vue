@@ -343,6 +343,8 @@ function onKeydown(event: KeyboardEvent) {
   if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== 's')
     return
   event.preventDefault()
+  if (impactOpen.value)
+    return
   if (dirty.value && !saving.value && projectId.value)
     void save()
 }

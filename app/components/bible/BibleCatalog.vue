@@ -31,6 +31,11 @@ function openEpisode(event: MouseEvent, id: number) {
     return
   void navigateTo(episodeHref(id))
 }
+
+function holdNumberWheel(event: WheelEvent) {
+  if (event.currentTarget === document.activeElement)
+    event.preventDefault()
+}
 </script>
 
 <template>
@@ -68,6 +73,7 @@ function openEpisode(event: MouseEvent, id: number) {
                 min="0"
                 max="999"
                 @input="emit('update:noDraft', ($event.target as HTMLInputElement).value)"
+                @wheel="holdNumberWheel"
                 @blur="emit('commit', row)"
                 @keydown.enter.prevent="emit('commit', row)"
                 @keydown.esc.prevent="emit('cancel')"

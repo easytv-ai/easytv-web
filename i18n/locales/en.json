@@ -3675,6 +3675,15 @@
     "character": {
       "remove": "Delete “{name}”? Mentions of this character in props, knowledge and relationships will be cleared too."
     },
+    "prop": {
+      "remove": "Delete “{name}”?"
+    },
+    "thread": {
+      "remove": "Delete thread “{name}”?"
+    },
+    "fact": {
+      "remove": "Delete “{name}”? Mentions of this fact in character knowledge will be cleared too."
+    },
     "board": {
       "shots": "{n} shots",
       "cast": "Cast",

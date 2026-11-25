@@ -3,6 +3,7 @@ import type { Bible } from '~/types/creative'
 import { BIBLE_LIMITS, bibleName, newProp } from '~/utils/bible'
 
 const { t } = useI18n()
+const { confirm } = useConfirm()
 const root = ref<HTMLElement | null>(null)
 
 const props = defineProps<{
@@ -28,7 +29,17 @@ async function addProp() {
   fields?.[fields.length - 1]?.focus()
 }
 
-function removeProp(index: number) {
+async function removeProp(index: number) {
+  const removed = props.bible.props[index]
+  if (!removed)
+    return
+  if (!(await confirm({
+    title: t('删除'),
+    message: t('bible.prop.remove', { name: removed.name || removed.key }),
+    confirmText: t('删除'),
+    danger: true,
+  })))
+    return
   props.bible.props.splice(index, 1)
   emit('change')
 }

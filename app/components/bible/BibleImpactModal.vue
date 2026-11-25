@@ -56,6 +56,16 @@ const emit = defineEmits<{
 function episodeHref(id: number) {
   return localePath(`/create?screenplay=${id}`)
 }
+
+function onKeydown(event: KeyboardEvent) {
+  if (event.key === 'Escape' && open.value) {
+    event.stopPropagation()
+    open.value = false
+  }
+}
+
+onMounted(() => window.addEventListener('keydown', onKeydown, true))
+onUnmounted(() => window.removeEventListener('keydown', onKeydown, true))
 </script>
 
 <template>

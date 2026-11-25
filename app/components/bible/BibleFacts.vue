@@ -3,6 +3,7 @@ import type { Bible } from '~/types/creative'
 import { BIBLE_LIMITS, bibleName, dropFactRefs, knows, newFact, setKnowledge } from '~/utils/bible'
 
 const { t } = useI18n()
+const { confirm } = useConfirm()
 const root = ref<HTMLElement | null>(null)
 
 const props = defineProps<{
@@ -24,16 +25,30 @@ async function addFact() {
   fields?.[fields.length - 1]?.focus()
 }
 
-function removeFact(index: number) {
-  const removed = props.bible.facts.splice(index, 1)[0]
-  if (removed)
-    dropFactRefs(props.bible, removed.key)
+async function removeFact(index: number) {
+  const removed = props.bible.facts[index]
+  if (!removed)
+    return
+  if (!(await confirm({
+    title: t('删除'),
+    message: t('bible.fact.remove', { name: factLabel(removed, 30) }),
+    confirmText: t('删除'),
+    danger: true,
+  })))
+    return
+  props.bible.facts.splice(index, 1)
+  dropFactRefs(props.bible, removed.key)
   emit('change')
 }
 
 function episodeNoOf(event: Event) {
   const n = Math.round(Number((event.target as HTMLInputElement).value))
   return Number.isFinite(n) ? Math.max(0, Math.min(999, n)) : 0
+}
+
+function holdNumberWheel(event: WheelEvent) {
+  if (event.currentTarget === document.activeElement)
+    event.preventDefault()
 }
 
 function toggleKnowledge(charKey: string, factKey: string) {
@@ -66,7 +81,7 @@ function toggleKnowledge(charKey: string, factKey: string) {
       <div class="bible-fact__meta">
         <label class="bible-no">
           <span>{{ t('揭示于第几集') }}</span>
-          <input type="number" min="0" max="999" :value="f.revealed_in || ''" @input="f.revealed_in = episodeNoOf($event); emit('change')">
+          <input type="number" min="0" max="999" :value="f.revealed_in || ''" @wheel="holdNumberWheel" @input="f.revealed_in = episodeNoOf($event); emit('change')">
         </label>
         <button
           type="button"

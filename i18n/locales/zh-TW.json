@@ -3652,6 +3652,15 @@
     "character": {
       "remove": "刪除「{name}」？道具持有、知情和關係裡對這個人的引用會一併清掉。"
     },
+    "prop": {
+      "remove": "刪除「{name}」？"
+    },
+    "thread": {
+      "remove": "刪除線索「{name}」？"
+    },
+    "fact": {
+      "remove": "刪除「{name}」？角色知情裡對這條事實的引用會一併清掉。"
+    },
     "board": {
       "shots": "{n} 鏡",
       "cast": "人物",
