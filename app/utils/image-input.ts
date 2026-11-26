@@ -58,8 +58,12 @@ function isSeedreamModel(model: string) {
  * 不用 gpt-image（封顶 1536），也不用 qwen-image-edit（网关鉴权失败）。
  * 有 Seedream 就用它，否则用当前默认模型，再否则用清单里第一个能带原图的。
  */
+export function listImageUpscaleModels(list: GenerationModel[]) {
+  return listImageEditModels(list, false).filter(item => !isGptImageModel(item.model) && !isBlockedUpscaleModel(item.model))
+}
+
 export function pickImageUpscaleModel(list: GenerationModel[], preferred: string) {
-  const capable = listImageEditModels(list, false).filter(item => !isGptImageModel(item.model) && !isBlockedUpscaleModel(item.model))
+  const capable = listImageUpscaleModels(list)
   const seedream = capable.find(item => isSeedreamModel(item.model))
   if (seedream)
     return seedream.model

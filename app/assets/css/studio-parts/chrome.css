@@ -39,6 +39,14 @@
   transform: translateX(-50%);
 }
 
+.canvas-tip--wrap {
+  white-space: normal;
+  width: max-content;
+  max-width: 220px;
+  line-height: 1.45;
+  text-align: center;
+}
+
 .canvas-tip--up::after {
   top: 100%;
   right: auto;

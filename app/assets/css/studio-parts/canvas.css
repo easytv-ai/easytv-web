@@ -3798,6 +3798,74 @@ html.dark .canvas-inspector__meta.is-on {
   font-weight: 500;
 }
 
+.canvas-inspector__preset {
+  display: grid;
+  gap: 8px;
+  padding-top: 4px;
+  border-top: 1px solid var(--st-border);
+}
+
+.canvas-inspector__preset-list {
+  display: grid;
+  gap: 6px;
+}
+
+.canvas-inspector__preset-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: 10px;
+  background: var(--st-hover);
+}
+
+.canvas-inspector__preset-item button {
+  border: 0;
+  background: transparent;
+  color: var(--st-text);
+  cursor: pointer;
+}
+
+.canvas-inspector__preset-item button:first-child {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 10px;
+  text-align: left;
+}
+
+.canvas-inspector__preset-item strong,
+.canvas-inspector__preset-item small {
+  display: block;
+}
+
+.canvas-inspector__preset-item strong {
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.canvas-inspector__preset-item small {
+  margin-top: 2px;
+  color: var(--st-muted);
+  font-size: 11px;
+}
+
+.canvas-inspector__preset-item button:last-child {
+  padding: 0 10px;
+  color: var(--st-muted);
+  font-size: 16px;
+  line-height: 1;
+}
+
+.canvas-inspector__preset-save {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.canvas-inspector__preset-save .canvas-inspector__text {
+  flex: 1;
+  min-width: 0;
+}
+
 .canvas-inspector__picks {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -4728,6 +4796,14 @@ html.dark .canvas-ctx button.is-danger:hover:not(:disabled) {
   border-color: var(--st-text);
 }
 
+.cnode.is-image.is-on .cnode__stage {
+  border-color: rgba(24, 24, 27, 0.16);
+}
+
+html.dark .cnode.is-image.is-on .cnode__stage {
+  border-color: rgba(255, 255, 255, 0.22);
+}
+
 .cnode__glyph {
   display: inline-flex;
   color: var(--st-muted);
@@ -5067,7 +5143,8 @@ html:not(.dark) .cnode__generating-cancel:hover {
   overflow: visible;
 }
 
-.cnode.is-image.has-prompt .cnode__media {
+.cnode.is-image.has-prompt .cnode__media,
+.cnode.is-image.has-prompt .cnode__mark-ink {
   position: absolute;
   inset: 0;
   width: 100%;
@@ -5076,12 +5153,36 @@ html:not(.dark) .cnode__generating-cancel:hover {
   object-position: center;
 }
 
+.cnode.is-image.has-prompt .cnode__mark-ink {
+  z-index: 2;
+  border-radius: 15px;
+  pointer-events: none;
+}
+
+.cnode__mark-paint {
+  position: absolute;
+  z-index: 6;
+  display: block;
+  cursor: crosshair;
+  touch-action: none;
+  pointer-events: auto;
+}
+
+.cnode__mark-paint.is-text {
+  cursor: text;
+}
+
+.cnode__mark-paint.is-erase {
+  cursor: cell;
+}
+
 .cnode.is-video.has-prompt .cnode-player__video {
   object-fit: contain;
   object-position: center;
 }
 
-.cnode.is-panorama.has-prompt .cnode__media {
+.cnode.is-panorama.has-prompt .cnode__media,
+.cnode.is-panorama.has-prompt .cnode__mark-ink {
   object-fit: cover;
 }
 
@@ -8896,8 +8997,8 @@ html.dark .watch-comments-inline .watch-comments__list::-webkit-scrollbar-thumb 
 /* 窄屏：顶栏改成上下两排，对话栏盖在画布上，底栏可以横滑。桌面宽度不受影响。 */
 @media (max-width: 860px) {
   .canvas-editor__bar {
-    right: 12px;
-    overflow-x: auto;
+    max-width: calc(100% - 24px);
+    overflow: hidden;
   }
 
   .canvas-editor__end {
@@ -8908,7 +9009,12 @@ html.dark .watch-comments-inline .watch-comments__list::-webkit-scrollbar-thumb 
   }
 
   .canvas-editor__title {
-    width: 7em;
+    width: auto;
+    min-width: 0;
+    max-width: 7em;
+    flex: 0 1 auto;
+    field-sizing: fixed;
+    text-overflow: ellipsis;
   }
 
   .canvas-splitter {

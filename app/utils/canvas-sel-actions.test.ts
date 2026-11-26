@@ -32,6 +32,7 @@ function api(overrides: Partial<CanvasSelActionApi> = {}): CanvasSelActionApi {
     outpaint: noop,
     flip: noop,
     runUpscale: noop,
+    openUpscale: noop,
     runRemoveBg: noop,
     runThreeView: noop,
     hd: noop,
@@ -62,12 +63,14 @@ describe('dispatchCanvasSelAction', () => {
     expect(group).toHaveBeenCalledOnce()
   })
 
-  it('超分带倍数走 runUpscale，光 upscale 不做事', () => {
+  it('超分带倍数走 runUpscale，光 upscale 打开图片上的倍数条', () => {
     const runUpscale = vi.fn()
+    const openUpscale = vi.fn()
     const fallback = vi.fn()
-    dispatchCanvasSelAction('upscale-2x', api({ runUpscale, fallback }))
+    dispatchCanvasSelAction('upscale-2x', api({ runUpscale, openUpscale, fallback }))
     expect(runUpscale).toHaveBeenCalledWith(2)
-    dispatchCanvasSelAction('upscale', api({ runUpscale, fallback }))
+    dispatchCanvasSelAction('upscale', api({ runUpscale, openUpscale, fallback }))
+    expect(openUpscale).toHaveBeenCalledOnce()
     expect(runUpscale).toHaveBeenCalledOnce()
     expect(fallback).not.toHaveBeenCalled()
   })

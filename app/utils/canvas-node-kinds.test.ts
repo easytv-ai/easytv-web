@@ -10,6 +10,8 @@ import {
   canvasMediaSizeClose,
   cloneContentNodeData,
   videoPlayerCrop,
+  isCanvasSourceAsset,
+  isQuietImageResult,
   isRetakeInProgress,
   settledRetakePatch,
   CAMERA_MOVE_VIDEO,
@@ -253,6 +255,50 @@ describe('settledRetakePatch', () => {
       retakeParams: undefined,
       retakeStitch: undefined,
     })
+  })
+})
+
+describe('上传素材', () => {
+  it('有文件、没生成过、也没提示词，当成素材', () => {
+    expect(isCanvasSourceAsset({
+      kind: 'image',
+      content: 'https://cdn.example/up.png',
+      prompt: '',
+      assetId: 12,
+    })).toBe(true)
+  })
+
+  it('空节点、生成结果、写了提示词的副本都不是素材', () => {
+    expect(isCanvasSourceAsset({ kind: 'image', content: '', prompt: '' })).toBe(false)
+    expect(isCanvasSourceAsset({
+      kind: 'image',
+      content: 'https://cdn.example/out.png',
+      prompt: '一个人',
+      taskId: 9,
+      taskStatus: 'succeeded',
+    })).toBe(false)
+    expect(isCanvasSourceAsset({
+      kind: 'video',
+      content: 'https://cdn.example/out.mp4',
+      prompt: '一个人走路',
+    })).toBe(false)
+    expect(isCanvasSourceAsset({
+      kind: 'image',
+      content: 'https://cdn.example/out.png',
+      prompt: '',
+      taskStatus: 'failed',
+    })).toBe(false)
+  })
+
+  it('智能编辑的成片不带底部生成框', () => {
+    expect(isQuietImageResult({
+      kind: 'image',
+      tag: '智能编辑',
+      content: 'https://cdn.example/out.png',
+      prompt: '换个发型',
+      taskStatus: 'succeeded',
+    })).toBe(true)
+    expect(isQuietImageResult({ kind: 'image', tag: '高清', content: 'https://cdn.example/hd.png' })).toBe(false)
   })
 })
 

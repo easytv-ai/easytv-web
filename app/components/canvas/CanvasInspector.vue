@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useVueFlow } from '@vue-flow/core'
+import preferenceApi from '~/api/preference'
 import subjectApi from '~/api/subject'
 import taskApi from '~/api/task'
 import CanvasSubjectPicker from '~/components/canvas/CanvasSubjectPicker.vue'
@@ -10,6 +11,7 @@ import { effectiveUnitPrice, estimateSecondDuration, estimateTaskPoints, modelPr
 import { canvasImageSpec, canvasParamEnum } from '~/utils/canvas-image-spec'
 import { canvasVideoExtraFields, canvasVideoSpec } from '~/utils/canvas-video-spec'
 import { canvasActiveVideoMode, canvasModeLimitText, canvasRefSupport, canvasThumbIssue, canvasVideoModes, type CanvasRefRole } from '~/utils/canvas-reference-support'
+import { capturePresetParams, deleteModelPreset, normalizePresetName, parseModelPresets, presetsForModel, upsertModelPreset, type CanvasModelPreset } from '~/utils/canvas-model-presets'
 import { prettyModelSlug, shortModelName } from '~/utils/model-name'
 import { resolveCatalogModel } from '~/utils/canvas-catalog-model'
 import { hasVideoReference } from '~/utils/canvas-viral'
@@ -106,7 +108,6 @@ const VIDEO_CHIPS = [
   { key: 'stylelib', label: t('风格库'), icon: 'i-lucide-palette' },
   { key: 'cam', label: t('运镜'), icon: 'i-lucide-video' },
   { key: 'lens', label: t('镜头'), icon: 'i-lucide-aperture' },
-  { key: 'optimize', label: t('优化'), icon: 'i-lucide-sparkles' },
 ] as const
 
 const AUDIO_CHIPS = [
@@ -767,14 +768,19 @@ const modeHint = computed(() => {
     return { warn: true, text: t('全能参考不能只有音频，再接一张图或一段视频') }
   if (imageRefMissing.value)
     return { warn: true, text: t('图片参考至少接一张图') }
+  return null
+})
+/** 数量和接法说明不占底栏。悬停模式按钮能看到，参数面板里也写着。 */
+const modeAside = computed(() => {
+  if (!isVideo.value || modeHint.value)
+    return ''
   if (useImageAsFirst.value)
-    return { warn: false, text: t('以当前图为首帧') }
+    return t('以当前图为首帧')
   if (activeMode.value === 'i2v')
-    return { warn: false, text: t('图生视频只吃一张图') }
+    return t('图生视频只吃一张图')
   if (activeMode.value === 'fl2v')
-    return { warn: false, text: t('需要连接 1～2 张图，尾帧可以不接') }
-  const limit = canvasModeLimitText(activeMode.value, refSupport.value)
-  return limit ? { warn: false, text: limit } : null
+    return t('需要连接 1～2 张图，尾帧可以不接')
+  return canvasModeLimitText(activeMode.value, refSupport.value)
 })
 const imageValues = ref<Record<string, string | boolean | number>>({})
 const imageTouched = ref<Record<string, boolean>>({})
@@ -1472,6 +1478,173 @@ function toggleSpec() {
   modeMenu.value = false
   kindMenu.value = false
   specMenu.value = !specMenu.value
+  if (specMenu.value)
+    void pullModelPresets()
+}
+
+const PRESET_LOCAL = 'easytv-canvas-model-presets'
+const PRESET_PREF = 'canvas.modelPresets'
+const { isLoggedIn } = useAuth()
+const modelPresetsAll = ref<CanvasModelPreset[]>([])
+const presetName = ref('')
+const presetNote = ref('')
+const modelPresets = computed(() => presetsForModel(modelPresetsAll.value, modelId.value))
+
+function readLocalPresets() {
+  if (typeof localStorage === 'undefined')
+    return []
+  try {
+    return parseModelPresets(localStorage.getItem(PRESET_LOCAL) || '') || []
+  }
+  catch {
+    return []
+  }
+}
+
+function writeLocalPresets(list: CanvasModelPreset[]) {
+  try {
+    localStorage.setItem(PRESET_LOCAL, JSON.stringify(list))
+  }
+  catch {
+    // 忽略写不进的情况
+  }
+}
+
+function persistModelPresets(list: CanvasModelPreset[]) {
+  modelPresetsAll.value = list
+  writeLocalPresets(list)
+  if (!isLoggedIn.value)
+    return
+  preferenceApi.set(PRESET_PREF, list.length ? JSON.stringify(list) : '').catch(() => {})
+}
+
+async function pullModelPresets() {
+  modelPresetsAll.value = readLocalPresets()
+  if (!isLoggedIn.value)
+    return
+  try {
+    const res = await preferenceApi.all()
+    if (!res?.success || !res.data)
+      return
+    const cloud = parseModelPresets(res.data[PRESET_PREF])
+    if (cloud) {
+      modelPresetsAll.value = cloud
+      writeLocalPresets(cloud)
+      return
+    }
+    if (modelPresetsAll.value.length)
+      preferenceApi.set(PRESET_PREF, JSON.stringify(modelPresetsAll.value)).catch(() => {})
+  }
+  catch {
+    // 拉不到就用本机的
+  }
+}
+
+function presetMeta(item: CanvasModelPreset) {
+  const parts: string[] = []
+  const ratio = item.params.ratio
+  const resolution = item.params.resolution
+  const duration = item.params.duration
+  const quality = item.params.quality
+  if (typeof ratio === 'string')
+    parts.push(ratio)
+  if (typeof resolution === 'string')
+    parts.push(resolution)
+  if (duration === -1)
+    parts.push(t('智能'))
+  else if (typeof duration === 'number' && duration > 0)
+    parts.push(`${duration}s`)
+  if (typeof quality === 'string')
+    parts.push(quality)
+  return parts.join(' · ')
+}
+
+function saveModelPreset() {
+  const name = normalizePresetName(presetName.value)
+  const model = modelId.value.trim()
+  if (!name || !model) {
+    presetNote.value = t('先写一个预设名称')
+    return
+  }
+  const params = capturePresetParams(generatePayload().params)
+  if (!Object.keys(params).length) {
+    presetNote.value = t('当前没有可保存的参数')
+    return
+  }
+  const saved = upsertModelPreset(modelPresetsAll.value, {
+    name,
+    model,
+    params,
+    ...(isVideo.value ? { videoMode: activeMode.value } : {}),
+  })
+  persistModelPresets(saved.list)
+  presetName.value = ''
+  presetNote.value = saved.replaced ? t('已更新「{name}」', { name }) : t('已保存「{name}」', { name })
+}
+
+function applyModelPreset(item: CanvasModelPreset) {
+  if (writeBlocked.value)
+    return
+  const next: Record<string, unknown> = { ...(props.params || {}), ...item.params }
+  if (typeof item.params.ratio === 'string') {
+    const ratios = ratioItems.value
+    const ratioNext = ratios.includes(item.params.ratio) ? item.params.ratio : (ratios[0] || item.params.ratio)
+    ratio.value = ratioNext
+    ratioTouched.value = true
+    next.ratio = ratioNext
+  }
+  if (typeof item.params.resolution === 'string') {
+    const items = videoResItems.value
+    const resolution = items.includes(item.params.resolution) ? item.params.resolution : (items[0] || item.params.resolution)
+    videoRes.value = resolution
+    specChosen.resolution = true
+    next.resolution = resolution
+  }
+  if (typeof item.params.duration === 'number') {
+    const label = item.params.duration === -1 ? 'auto' : `${item.params.duration}s`
+    const items = isAudio.value ? audioDurationItems.value : videoDurationItems.value
+    const duration = (label === 'auto' && videoSpec.value.smartDuration) || items.includes(label)
+      ? label
+      : (items[0] || label)
+    if (isAudio.value)
+      audioDuration.value = duration
+    else
+      videoDuration.value = duration
+    specChosen.duration = true
+    next.duration = duration === 'auto' ? -1 : Number.parseInt(duration) || item.params.duration
+  }
+  if (typeof next.audio === 'boolean') {
+    audioTouched.value = true
+    audioOn.value = next.audio
+  }
+  if (typeof next.prompt_extend === 'boolean') {
+    promptExtendTouched.value = true
+    promptExtend.value = next.prompt_extend
+  }
+  if (typeof next.watermark === 'boolean') {
+    watermarkTouched.value = true
+    watermarkOn.value = next.watermark
+  }
+  if (typeof item.params.audioKind === 'string')
+    audioKind.value = parseAudioKind(item.params.audioKind)
+  if (typeof item.params.mood === 'string')
+    audioMood.value = parseAudioMood(item.params.mood) || audioMood.value
+  if (typeof item.params.lang === 'string')
+    audioLang.value = item.params.lang
+  if (typeof item.params.voice === 'string')
+    audioVoice.value = item.params.voice
+  const sheets = Number(next.count)
+  if (sheets === 1 || sheets === 2 || sheets === 4)
+    count.value = sheets
+  emit('update:params', next)
+  if (item.videoMode && isVideo.value && modeSupported(item.videoMode))
+    pickMode(item.videoMode as VideoModeId)
+  presetNote.value = t('已套用「{name}」', { name: item.name })
+}
+
+function removeModelPreset(id: string) {
+  persistModelPresets(deleteModelPreset(modelPresetsAll.value, id))
+  presetNote.value = ''
 }
 
 /** 把面板选中的模型写回节点；生成和估价都以节点上这一份为准 */
@@ -2080,6 +2253,7 @@ const placeholder = computed(() => {
           <UIcon :name="currentMode.icon" class="size-3.5" />
           {{ currentMode.label }}
           <UIcon :name="modeMenu ? 'i-lucide-chevron-up' : 'i-lucide-chevron-down'" class="size-3.5" />
+          <span v-if="!modeMenu && modeAside" class="canvas-tip canvas-tip--up canvas-tip--wrap">{{ modeAside }}</span>
         </button>
         <div v-if="modeMenu" class="canvas-inspector__models is-menu nowheel" @pointerdown.stop @wheel.stop>
           <p class="canvas-inspector__mode-title">{{ t('视频生成模式') }}</p>
@@ -2095,8 +2269,6 @@ const placeholder = computed(() => {
           </button>
         </div>
       </div>
-      <p v-if="modeHint" class="canvas-inspector__note" :class="{ 'is-warn': modeHint.warn }">{{ modeHint.text }}</p>
-
       <i v-if="isAudio && !noModels" class="canvas-inspector__split" />
       <div v-if="isAudio" class="canvas-inspector__mode">
         <button type="button" class="canvas-inspector__meta" data-guide="inspector-audio-kind" :disabled="writeBlocked" :title="writeBlockedTitle" @click="toggleKind">
@@ -2273,6 +2445,7 @@ const placeholder = computed(() => {
                 </button>
               </div>
             </div>
+            <p v-if="modeAside" class="canvas-inspector__note">{{ modeAside }}</p>
             <p v-if="isTalkingMode" class="canvas-inspector__note">{{ t('按台词长度自动算档，口播固定带声') }}</p>
             <details v-if="videoAdvanced" class="canvas-inspector__advanced">
               <summary>
@@ -2439,6 +2612,30 @@ const placeholder = computed(() => {
               </button>
             </div>
           </section>
+          <section class="canvas-inspector__preset">
+            <h4>{{ t('创作预设') }}</h4>
+            <p class="canvas-inspector__note">{{ t('记在当前模型上。换回来后点一下就套上比例、时长和分辨率。') }}</p>
+            <div v-if="modelPresets.length" class="canvas-inspector__preset-list">
+              <div v-for="item in modelPresets" :key="item.id" class="canvas-inspector__preset-item">
+                <button type="button" :disabled="writeBlocked" @click="applyModelPreset(item)">
+                  <strong>{{ item.name }}</strong>
+                  <small v-if="presetMeta(item)">{{ presetMeta(item) }}</small>
+                </button>
+                <button type="button" :aria-label="t('删除')" :disabled="writeBlocked" @click="removeModelPreset(item.id)">×</button>
+              </div>
+            </div>
+            <form class="canvas-inspector__preset-save" @submit.prevent="saveModelPreset">
+              <input
+                v-model="presetName"
+                class="canvas-inspector__text"
+                maxlength="20"
+                :placeholder="t('预设名称')"
+                :disabled="writeBlocked"
+              >
+              <button type="submit" class="canvas-inspector__meta" :disabled="writeBlocked || !presetName.trim()">{{ t('保存') }}</button>
+            </form>
+            <p v-if="presetNote" class="canvas-inspector__note">{{ presetNote }}</p>
+          </section>
         </div>
       </div>
 
@@ -2454,6 +2651,17 @@ const placeholder = computed(() => {
       <button v-if="isText" type="button" class="canvas-inspector__icon" :disabled="writeBlocked" :title="writeBlockedTitle" @click="emit('chip', 'prompt')">
         <UIcon name="i-lucide-quote" class="size-3.5" />
         {{ t('提示词库') }}
+      </button>
+      <button
+        v-if="(isVideo || isDirector) && !noModels"
+        type="button"
+        class="canvas-inspector__meta"
+        :disabled="writeBlocked"
+        :title="writeBlockedTitle || t('按当前模型和素材调优提示词')"
+        @click="emit('chip', 'optimize')"
+      >
+        <UIcon name="i-lucide-sparkles" class="size-3.5" />
+        {{ t('调优') }}
       </button>
       <span class="canvas-inspector__grow" />
       <button v-if="!isText && !noModels && !readonly" type="button" class="canvas-inspector__icon canvas-inspector__cost" :class="{ 'is-promo': zapPromo }" :aria-label="t('额度')" @click="emit('quota')">
@@ -2474,6 +2682,7 @@ const placeholder = computed(() => {
         <span class="canvas-tip canvas-tip--up">{{ submitting ? t('生成中…') : t('生成') }}</span>
       </button>
     </div>
+    <p v-if="modeHint" class="canvas-inspector__note is-warn">{{ modeHint.text }}</p>
   </div>
   <CanvasSubjectPicker
     :open="subjectPickerOpen"

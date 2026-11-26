@@ -15,6 +15,7 @@ export type CanvasOverlayKey =
   | 'extendStrip'
   | 'clipStrip'
   | 'splitStrip'
+  | 'imageHd'
 
 /**
  * 工具面板开关。选中节点变了就关掉不属于该节点的面板。
@@ -27,6 +28,8 @@ export function useCanvasToolOverlays(opts: {
   const markMode = ref<'mark' | 'erase'>('mark')
   const markSrc = ref('')
   const markExisting = ref('')
+  /** 打开时带回来的是彩色笔迹，不要再染成单色 */
+  const markInk = ref(false)
   const markNodeId = ref('')
   const inpaintBusy = ref(false)
 
@@ -66,6 +69,9 @@ export function useCanvasToolOverlays(opts: {
   const mattingNodeId = ref('')
   const mattingBusy = ref(false)
 
+  const imageHdOpen = ref(false)
+  const imageHdNodeId = ref('')
+
   const viralOpen = ref(false)
   const viralNodeId = ref('')
   const viralBusy = ref(false)
@@ -103,6 +109,7 @@ export function useCanvasToolOverlays(opts: {
     crop: { open: cropOpen, nodeId: cropNodeId },
     erase: { open: eraseOpen, nodeId: eraseNodeId },
     matting: { open: mattingOpen, nodeId: mattingNodeId },
+    imageHd: { open: imageHdOpen, nodeId: imageHdNodeId },
     viral: { open: viralOpen, nodeId: viralNodeId },
     outpaint: { open: outpaintOpen, nodeId: outpaintNodeId },
     flip: { open: flipOpen, nodeId: flipNodeId },
@@ -115,6 +122,9 @@ export function useCanvasToolOverlays(opts: {
   function closeOverlays(keys: CanvasOverlayKey[]) {
     for (const key of keys)
       opens[key].open.value = false
+    // 图片高清条和其他工具互斥。打开别的工具时顺手收起，免得叠在图上。
+    if (!keys.includes('imageHd'))
+      imageHdOpen.value = false
   }
 
   /** 锁定节点（及子节点）后：关掉挂在这些 id 上的工具层，免得还能交作业 */
@@ -150,6 +160,8 @@ export function useCanvasToolOverlays(opts: {
       eraseOpen.value = false
     if (id && mattingOpen.value && id !== mattingNodeId.value)
       mattingOpen.value = false
+    if (id && imageHdOpen.value && id !== imageHdNodeId.value)
+      imageHdOpen.value = false
     if (id && viralOpen.value && id !== viralNodeId.value)
       viralOpen.value = false
     if (outpaintOpen.value && id !== outpaintNodeId.value)
@@ -171,6 +183,7 @@ export function useCanvasToolOverlays(opts: {
     markMode,
     markSrc,
     markExisting,
+    markInk,
     markNodeId,
     inpaintBusy,
     smartEditOpen,
@@ -202,6 +215,8 @@ export function useCanvasToolOverlays(opts: {
     mattingOpen,
     mattingNodeId,
     mattingBusy,
+    imageHdOpen,
+    imageHdNodeId,
     viralOpen,
     viralNodeId,
     viralBusy,

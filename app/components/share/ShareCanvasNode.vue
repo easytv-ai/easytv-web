@@ -28,6 +28,13 @@ const imageSrc = computed(() => {
   return resolveMediaUrl(raw)
 })
 
+const markInkSrc = computed(() => {
+  const url = node.value?.markInkUrl?.trim() || ''
+  if ((kind.value !== 'image' && kind.value !== 'panorama') || !imageSrc.value || !url || !isMediaUrl(url))
+    return ''
+  return resolveMediaUrl(url)
+})
+
 const videoSrc = computed(() => {
   const d = node.value
   if (!d || d.kind !== 'video')
@@ -178,6 +185,13 @@ onUnmounted(() => window.removeEventListener('keydown', onTextPreviewKeydown, tr
           :src="imageSrc"
           :alt="tagText"
           loading="lazy"
+          draggable="false"
+        >
+        <img
+          v-if="markInkSrc"
+          class="cnode__mark-ink"
+          :src="markInkSrc"
+          alt=""
           draggable="false"
         >
         <button

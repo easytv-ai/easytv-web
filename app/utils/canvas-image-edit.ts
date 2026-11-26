@@ -37,7 +37,7 @@ export function isImageEditAction(name: string): name is ImageEditAction {
   return name in IMAGE_EDIT_PROMPTS
 }
 
-export const UPSCALE_SCALES = [2, 4] as const
+export const UPSCALE_SCALES = [2, 4, 6] as const
 export type UpscaleScale = (typeof UPSCALE_SCALES)[number]
 
 export function parseUpscaleAction(name: string): UpscaleScale | 0 {
@@ -49,15 +49,15 @@ export function parseUpscaleAction(name: string): UpscaleScale | 0 {
 }
 
 export function upscalePrompt(scale: UpscaleScale) {
-  const tier = scale === 4 ? '4K' : '2K'
+  const tier = scale === 6 ? '6 倍' : scale === 4 ? '4K' : '2K'
   return `这是同一张照片的高清版本，输出 ${tier}。只提高清晰度和分辨率。人物、五官、服装、姿态、背景、文字、颜色和构图必须与原图一致，禁止换人，禁止重新创作。`
 }
 
-/** 2x 出 2K，4x 出 4K。方图 2x 为 2048×2048，横竖跟原图走。 */
+/** 2x 出 2K，4x / 6x 出 4K。方图 2x 为 2048×2048，横竖跟原图走。6 倍停在当前图片模型的 4K 上限。 */
 export function upscaleTierSize(width: number, height: number, scale: UpscaleScale) {
   const square = width <= 0 || height <= 0 || Math.abs(width - height) / Math.max(width, height) <= 0.08
   const landscape = width >= height
-  if (scale === 4) {
+  if (scale === 4 || scale === 6) {
     if (square)
       return '4096x4096'
     return landscape ? '3840x2160' : '2160x3840'
@@ -68,7 +68,7 @@ export function upscaleTierSize(width: number, height: number, scale: UpscaleSca
 }
 
 export function upscaleClarity(scale: UpscaleScale) {
-  return scale === 4 ? '4K' : '2K'
+  return scale === 2 ? '2K' : '4K'
 }
 
 export function upscaleRatio(width: number, height: number) {
@@ -320,6 +320,31 @@ function cropBitmap(
     throw new Error('ctx')
   ctx.drawImage(img, x, y, w, h, 0, 0, w, h)
   return canvasToJpeg(canvas)
+}
+
+/** 原图盖上笔迹，导出一张不透明的标注图（笔迹按原图尺寸铺满） */
+export async function compositeMarkImage(src: string, ink: Blob): Promise<Blob> {
+  const base = await loadEditBitmap(src)
+  try {
+    const marks = await createImageBitmap(ink)
+    try {
+      const canvas = document.createElement('canvas')
+      canvas.width = base.width
+      canvas.height = base.height
+      const ctx = canvas.getContext('2d')
+      if (!ctx)
+        throw new Error('ctx')
+      ctx.drawImage(base, 0, 0)
+      ctx.drawImage(marks, 0, 0, canvas.width, canvas.height)
+      return await canvasToJpeg(canvas)
+    }
+    finally {
+      marks.close()
+    }
+  }
+  finally {
+    base.close()
+  }
 }
 
 export async function cropImage(

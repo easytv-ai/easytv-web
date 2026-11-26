@@ -30,7 +30,7 @@ import {
   promptReverseFrameRanges,
   samplePromptReverseTimes,
 } from '~/utils/canvas-video-frame'
-import { isGptImageModel, pickCanvasImageEditModel, pickImageEditModel, pickImageUpscaleModel, pickVisionTextModel, preferredImageModel } from '~/utils/image-input'
+import { isGptImageModel, isImageEditModel, listImageUpscaleModels, pickCanvasImageEditModel, pickImageEditModel, pickImageUpscaleModel, pickVisionTextModel, preferredImageModel } from '~/utils/image-input'
 import { cellNodeLayout, fitCellBox, type GridCell } from '~/utils/canvas-grid-split'
 import { MONTAGE_CELL, montageCellAspect, montageNodeSize, type MontageOptions, type MontageSource } from '~/utils/canvas-montage'
 import { applyOptimizedPrompt, canOptimizePrompt, cleanOptimizedPrompt, promptOptimizeInstruction } from '~/utils/canvas-prompt-optimize'
@@ -45,6 +45,7 @@ import {
   canvasNodeTitle,
   isDepthMotionNode,
   isFramePullNode,
+  isImageHdNode,
 } from '~/utils/canvas-node-kinds'
 import {
   defaultGroupColor,
@@ -126,6 +127,8 @@ export function useCanvasImageEdits(opts: { blocked?: () => boolean } & Record<s
     mattingBusy,
     mattingNodeId,
     mattingOpen,
+    imageHdOpen,
+    imageHdNodeId,
     optimizeBusy,
     optimizeError,
     optimizeModel,
@@ -410,8 +413,8 @@ async function onLightSubmit(payload: { prompt: string }) {
   }
 }
 
-async function runUpscale(scale: import('~/utils/canvas-image-edit').UpscaleScale) {
-  const from = selected.value
+async function runUpscale(scale: import('~/utils/canvas-image-edit').UpscaleScale, fromNode?: CanvasFlowNode) {
+  const from = fromNode || selected.value
   if (!from || !isContentNode(from))
     return
   if (!currentImageSrc(from)) {
@@ -471,6 +474,151 @@ function imagePixelSize(src: string) {
     img.onerror = () => resolve({ width: 0, height: 0 })
     img.src = src
   })
+}
+
+/** 图片高清：在原图下方挂一个空的「高清」节点。倍数和模型在节点底下的面板里，点发送再提交。 */
+function openImageHd() {
+  const from = selected.value
+  if (!from || !isContentNode(from) || from.data.kind !== 'image' || !currentImageSrc(from)) {
+    notify(t('请先生成或添加一张图片'), 'error')
+    return
+  }
+  if (nodeFrozen(from))
+    return
+  if (from.data.taskStatus === 'pending' || from.data.taskStatus === 'running') {
+    notify(t('该节点正在生成中'))
+    return
+  }
+  closeOverlays(['smartEdit', 'depth', 'light', 'angle', 'crop', 'erase', 'outpaint', 'flip', 'mark', 'extendStrip', 'clipStrip', 'splitStrip', 'matting', 'viral'])
+  const list = useState<import('~/types/creative').GenerationModel[]>('generation-models', () => []).value
+  const model = pickImageUpscaleModel(list, defaultImageModel())
+  const size = nodeSize(from)
+  counts.image += 1
+  const id = `image-${counts.image}`
+  const sibling: CanvasFlowNode = {
+    id,
+    type: 'easytv',
+    position: { x: from.position.x, y: from.position.y + size.h + 80 },
+    width: size.w,
+    height: size.h,
+    style: {
+      ...(typeof from.style === 'object' && from.style ? from.style : {}),
+      width: `${size.w}px`,
+      height: `${size.h}px`,
+    },
+    selected: true,
+    data: {
+      kind: 'image',
+      label: t('高清'),
+      tag: '高清',
+      content: '',
+      prompt: '',
+      mode: 'idle',
+      imageHdParams: { model, scale: 2 },
+    },
+  }
+  if (from.parentNode) {
+    sibling.parentNode = from.parentNode
+    sibling.extent = 'parent'
+    sibling.expandParent = true
+  }
+  for (const node of nodes.value)
+    node.selected = false
+  addNodes(sibling)
+  addEdges({
+    id: `e-${from.id}-${id}-${Date.now()}`,
+    source: from.id,
+    target: id,
+    sourceHandle: 'out',
+    targetHandle: 'in',
+    ...defaultEdgeOptions,
+  })
+  pushHistory()
+  nextTick(() => {
+    const created = findNode(id)
+    if (created)
+      addSelectedNodes([created])
+  })
+}
+
+function onImageHdParamsUpdate(params: NonNullable<import('~/utils/canvas-node-kinds').CanvasNodeData['imageHdParams']>) {
+  const node = selected.value
+  if (!node || !isContentNode(node) || !isImageHdNode(node.data) || nodeFrozen(node))
+    return
+  updateNodeData(node.id, { imageHdParams: params })
+}
+
+async function onImageHdSubmit() {
+  const node = selected.value
+  if (!node || !isContentNode(node) || !isImageHdNode(node.data) || nodeFrozen(node))
+    return
+  if (node.data.taskStatus === 'pending' || node.data.taskStatus === 'running') {
+    notify(t('该节点正在生成中'))
+    return
+  }
+  const from = mediaSourceNode(node)
+  if (!from || from.id === node.id || !currentImageSrc(from)) {
+    notify(t('请先把高清节点连到一张图片上'), 'error')
+    return
+  }
+  const list = useState<import('~/types/creative').GenerationModel[]>('generation-models', () => []).value
+  const picked = String(node.data.imageHdParams?.model || '')
+  const model = listImageUpscaleModels(list).some(item => item.model === picked)
+    ? picked
+    : pickImageUpscaleModel(list, defaultImageModel())
+  if (!model) {
+    notify(t('暂无支持图片编辑的模型，请联系运营开通'), 'error')
+    return
+  }
+  if (isGptImageModel(model)) {
+    notify(t('当前图片模型无法输出 2K / 4K，图片高清需要支持更大尺寸的图片模型'), 'error')
+    return
+  }
+  const scale = node.data.imageHdParams?.scale === 4 || node.data.imageHdParams?.scale === 6
+    ? node.data.imageHdParams.scale
+    : 2
+  const assetId = await ensureNodeImageAsset(from)
+  if (!assetId) {
+    notify(t('原图无法读取，请先把图片上传到资产库再编辑'), 'error')
+    return
+  }
+  const px = await imagePixelSize(currentImageSrc(from))
+  const size = upscaleTierSize(px.width, px.height, scale)
+  const clarity = upscaleClarity(scale)
+  const ratio = upscaleRatio(px.width, px.height)
+  const prompt = upscalePrompt(scale)
+  const params = { edit: 'upscale', mode: 'i2i', scale, size, clarity, ratio }
+  if (!await gateSpend(estimateSpend(model, params)))
+    return
+  updateNodeData(node.id, {
+    prompt,
+    model,
+    params: { ratio, clarity, size },
+    imageHdParams: { model, scale },
+  })
+  const res = await taskApi.create({
+    type: 'image',
+    model,
+    prompt,
+    params,
+    inputs: [{ asset_id: assetId, role: 'image' }],
+    canvas_id: canvasId() || undefined,
+    node_id: node.id,
+  })
+  if (!res?.success || !res.data) {
+    notify(res?.message || t('提交失败'), 'error')
+    return
+  }
+  applyTaskToNode(node.id, res.data)
+  pushHistory()
+  void refreshWallet()
+  if (res.data.status === 'pending' || res.data.status === 'running') {
+    notify(t('已提交编辑任务'))
+    pollTask(node.id, res.data.id)
+  }
+  else if (res.data.status === 'failed') {
+    notify(res.data.error_msg || t('生成失败'), 'error')
+  }
 }
 
 async function runRemoveBg(action: 'bg-object' | 'bg-person') {
@@ -654,7 +802,10 @@ async function onSmartEditSubmit(payload: { prompt: string, mask: Blob | null, m
   smartEditBusy.value = true
   try {
     let maskAssetId: number | null = null
-    if (payload.mask) {
+    const models = useState<import('~/types/creative').GenerationModel[]>('generation-models', () => []).value
+    const picked = models.find(item => item.model === payload.model)
+    // 蒙版只有 edits 会收。Seedream / Qwen 的选区已经写在提示词的 <bbox> 里，再传蒙版任务会直接失败。
+    if (payload.mask && picked?.image_input === 'edits') {
       const file = new File([payload.mask], 'smart-edit-mask.png', { type: 'image/png' })
       const res = await assetApi.upload(file)
       if (!res?.success || !res.data) {
@@ -1576,10 +1727,22 @@ async function applyLocalImage(blob: Blob, name: string) {
     notify(res?.message || t('处理失败'), 'error')
     return
   }
-  applyMediaNodeSize(node.id, res.data.width, res.data.height)
-  updateNodeData(node.id, { content: res.data.url, assetId: res.data.id })
+  const sourceLabel = node.data.label || t('图片')
+  const sibling = spawnMediaNode(node, 'image', '旋转与镜像', `${sourceLabel}_${t('旋转与镜像')}`, {
+    place: 'right',
+    select: true,
+    data: {
+      content: res.data.url,
+      assetId: res.data.id,
+      prompt: String(node.data.prompt || ''),
+      taskStatus: 'succeeded',
+      taskProgress: 100,
+      taskError: '',
+    },
+  })
+  applyMediaNodeSize(sibling.id, res.data.width, res.data.height)
   pushHistory()
-  notify(t('已更新图片'))
+  notify(t('已生成新图片'))
 }
 
 /**
@@ -2240,7 +2403,7 @@ async function runImageEdit(
   promptOverride?: string,
   preferredModel?: string,
   target?: CanvasFlowNode,
-  extra?: { maskAssetId?: number | null, extraImageIds?: number[], scale?: number },
+  extra?: { maskAssetId?: number | null, extraImageIds?: number[], scale?: number, count?: number },
 ) {
   // 跟练期间画布只读：这条是真提交（taskApi.create），回放拦不到它，先退出跟练
   if (opts.blocked?.()) {
@@ -2258,11 +2421,13 @@ async function runImageEdit(
     notify(t('该节点正在生成中'))
     return false
   }
-  // 编辑要把原图（和蒙版）真正交给模型：只有支持参考图的模型能做，带蒙版只有 edits 方式的模型能做
+  // 原图交给能吃参考图的模型。蒙版只挂给 edits；url 模型的选区在提示词 <bbox> 里。
   const maskId = extra && 'maskAssetId' in extra ? extra.maskAssetId : node.data.markAssetId
-  const needMask = Boolean(maskId)
   const models = useState<import('~/types/creative').GenerationModel[]>('generation-models', () => []).value
-  const editModel = pickImageEditModel(models, preferredModel || defaultImageModel(), needMask)
+  const picked = models.find(item => item.model === preferredModel)
+  const pickedOk = Boolean(picked && isImageEditModel(picked, false))
+  const needMask = Boolean(maskId) && !pickedOk
+  const editModel = pickedOk ? picked!.model : pickImageEditModel(models, preferredModel || defaultImageModel(), needMask)
   if (!editModel) {
     notify(needMask ? t('暂无支持局部修改的图片模型，请联系运营开通 gpt-image 系模型') : t('暂无支持图片编辑的模型，请联系运营开通'), 'error')
     return false
@@ -2274,7 +2439,8 @@ async function runImageEdit(
   }
   const inputs: TaskInput[] = [{ asset_id: assetId, role: 'image' }]
   const seen = new Set<number>([assetId])
-  if (maskId)
+  const editRow = models.find(item => item.model === editModel)
+  if (maskId && editRow?.image_input === 'edits')
     inputs.push({ asset_id: maskId, role: 'mask' })
   for (const id of extra?.extraImageIds || []) {
     if (!id || seen.has(id))
@@ -2283,9 +2449,9 @@ async function runImageEdit(
     inputs.push({ asset_id: id, role: 'image' })
   }
   const prompt = expandPromptTokens((promptOverride || node.data.prompt || IMAGE_EDIT_PROMPTS[action]).trim(), node.data.markElements)
-  if (!await gateSpend(estimateSpend(editModel, { edit: action, mode: 'i2i', ...(extra?.scale ? { scale: extra.scale } : {}) })))
-    return false
-  const res = await taskApi.create({
+  const label = action === 'smart-edit' ? '智能编辑' : action === 'inpaint' ? '移除物体' : '图片编辑'
+  const sibling = spawnDerivedImage(node, label, prompt)
+  const task = await submitDerivedTask(sibling, label, {
     type: 'image',
     model: editModel,
     prompt,
@@ -2295,24 +2461,8 @@ async function runImageEdit(
       ...(extra?.scale ? { scale: extra.scale } : {}),
     },
     inputs,
-    canvas_id: canvasId() || undefined,
-    node_id: node.id,
   })
-  if (!res?.success || !res.data) {
-    notify(res?.message || t('提交失败'), 'error')
-    return false
-  }
-  applyTaskToNode(node.id, res.data)
-  pushHistory()
-  void refreshWallet()
-  if (res.data.status === 'pending' || res.data.status === 'running') {
-    notify(t('已提交编辑任务'))
-    pollTask(node.id, res.data.id)
-  }
-  else if (res.data.status === 'failed') {
-    notify(res.data.error_msg || t('生成失败'), 'error')
-  }
-  return res.data
+  return Boolean(task)
 }
 
 
@@ -2327,6 +2477,9 @@ async function runImageEdit(
     openLightPanel,
     onLightSubmit,
     runUpscale,
+    openImageHd,
+    onImageHdParamsUpdate,
+    onImageHdSubmit,
     runRemoveBg,
     runThreeView,
     openAnglePanel,

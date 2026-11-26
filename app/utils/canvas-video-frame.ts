@@ -42,13 +42,20 @@ export function videoCoverUrl(src: string, cover = '', timeSec = 0.04, width = 1
   return ossVideoSnapshotUrl(src, timeSec, width)
 }
 
-export function ossVideoSnapshotUrl(src: string, timeSec: number, width = 240) {
+/**
+ * 公开 OSS 视频的截帧地址。t 是毫秒。
+ * fast 截的是该时间之前最近的关键帧，封面和胶片条用它换速度。
+ * 要对准钟点（取当前帧、反推抽帧）必须用 accurate：短片常常整段只有首帧这一个关键帧，
+ * 带 m_fast 时标着 2 秒的图实际仍是第 0 帧。
+ */
+export function ossVideoSnapshotUrl(src: string, timeSec: number, width = 240, mode: 'fast' | 'accurate' = 'fast') {
   if (!isOssSnapshotableUrl(src))
     return ''
   const ms = Math.max(0, Math.round(timeSec * 1000))
   const w = Math.max(80, Math.round(width) || 240)
   const sep = src.includes('?') ? '&' : '?'
-  return `${src}${sep}x-oss-process=video/snapshot,t_${ms},f_jpg,w_${w},h_0,m_fast`
+  const fast = mode === 'fast' ? ',m_fast' : ''
+  return `${src}${sep}x-oss-process=video/snapshot,t_${ms},f_jpg,w_${w},h_0${fast}`
 }
 
 export function stripFrameTimes(duration: number, count: number) {
@@ -305,7 +312,7 @@ export async function captureVideoFrame(
   src: string,
   timeSec: number,
 ): Promise<{ blob: Blob, width: number, height: number, time: number }> {
-  const snap = ossVideoSnapshotUrl(src, timeSec, 1280)
+  const snap = Number.isFinite(timeSec) ? ossVideoSnapshotUrl(src, timeSec, 1280, 'accurate') : ''
   if (snap) {
     try {
       const res = await fetch(readableVideoUrl(snap), { cache: 'force-cache' })

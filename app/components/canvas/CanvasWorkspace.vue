@@ -26,7 +26,7 @@ import type { StylePreset } from '~/components/canvas/CanvasStyleEditModal.vue'
 import styleApi from '~/api/style'
 import assetApi from '~/api/asset'
 import subjectApi from '~/api/subject'
-import { IMAGE_EDIT_PROMPTS } from '~/utils/canvas-image-edit'
+import { IMAGE_EDIT_PROMPTS, compositeMarkImage } from '~/utils/canvas-image-edit'
 import {
   absPosition,
   alignFlowNodes,
@@ -56,7 +56,10 @@ import {
   FX_PRESET_ITEMS,
   isDepthMotionNode,
   isFramePullNode,
+  isCanvasSourceAsset,
+  isQuietImageResult,
   isHdNode,
+  isImageHdNode,
   pickHdUpscaleModel,
   isRetakeInProgress,
   settledRetakePatch,
@@ -240,6 +243,7 @@ const CanvasTranscribeModal = lazyOverlay(() => import('~/components/canvas/Canv
 const CanvasMontageModal = lazyOverlay(() => import('~/components/canvas/CanvasMontageModal.vue'))
 const CanvasComposePanel = lazyOverlay(() => import('~/components/canvas/CanvasComposePanel.vue'))
 const CanvasPromptOptimizeModal = lazyOverlay(() => import('~/components/canvas/CanvasPromptOptimizeModal.vue'))
+const CanvasVideoTuneModal = lazyOverlay(() => import('~/components/canvas/CanvasVideoTuneModal.vue'))
 const CanvasStyleEditModal = lazyOverlay(() => import('~/components/canvas/CanvasStyleEditModal.vue'))
 const CanvasMarkPickBar = lazyOverlay(() => import('~/components/canvas/CanvasMarkPickBar.vue'))
 const CanvasPracticeTour = lazyOverlay(() => import('~/components/canvas/CanvasPracticeTour.vue'))
@@ -496,6 +500,7 @@ const {
   markMode,
   markSrc,
   markExisting,
+  markInk,
   markNodeId,
   inpaintBusy,
   smartEditOpen,
@@ -527,6 +532,8 @@ const {
   mattingOpen,
   mattingNodeId,
   mattingBusy,
+  imageHdOpen,
+  imageHdNodeId,
   viralOpen,
   viralNodeId,
   viralBusy,
@@ -561,8 +568,11 @@ const showInspector = computed(() => {
   // 右键上传的占位节点：上传中只显示卡片本身，成功后才弹功能检查器
   if (canvasNodeUploadingId.value === node.id)
     return false
+  // 上传 / 资产库素材只留上方工具条，底部生成框留给还要写提示词或重跑的节点
+  if (isCanvasSourceAsset(node.data) || isQuietImageResult(node.data))
+    return false
   // 高清 / 逐帧拉片节点用专用参数面板，不走普通 Inspector
-  if (isHdNode(node.data) || isFramePullNode(node.data) || isDepthMotionNode(node.data))
+  if (isHdNode(node.data) || isImageHdNode(node.data) || isFramePullNode(node.data) || isDepthMotionNode(node.data))
     return false
   // 片段重拍还在出片时改选中的几秒，不走全能参考生成栏；成片之后就是普通视频
   if (isRetakeInProgress(node.data))
@@ -571,6 +581,10 @@ const showInspector = computed(() => {
   if (isMergeResult(node.data))
     return false
   return !barMode.value || barMode.value === 'text' || barMode.value === 'image' || barMode.value === 'video' || barMode.value === 'audio'
+})
+const showImageHdPanel = computed(() => {
+  const node = selected.value
+  return Boolean(node && selectedNodes.value.length === 1 && isContentNode(node) && isImageHdNode(node.data) && !canvasLocked.value && !nodeLocked(node))
 })
 const showHdPanel = computed(() => {
   const node = selected.value
@@ -597,7 +611,7 @@ const showRetakeStrip = computed(() => {
  */
 const flowPaneRectTick = ref(0)
 const hdPanelStyle = computed(() => {
-  if (!showHdPanel.value && !showDepthMotionPanel.value)
+  if (!showHdPanel.value && !showDepthMotionPanel.value && !showImageHdPanel.value)
     return null
   void flowPaneRectTick.value
   const box = selectedNodeBox()
@@ -777,15 +791,17 @@ const overlay = computed(() => {
         ? eraseNodeId.value
         : mattingOpen.value
           ? mattingNodeId.value
-          : viralOpen.value
-            ? viralNodeId.value
-            : extendStripOpen.value
-              ? extendStripNodeId.value
-              : clipStripOpen.value
-                ? clipStripNodeId.value
-                : splitStripOpen.value
-                  ? splitStripNodeId.value
-                  : ''
+          : imageHdOpen.value
+            ? imageHdNodeId.value
+            : viralOpen.value
+              ? viralNodeId.value
+              : extendStripOpen.value
+                ? extendStripNodeId.value
+                : clipStripOpen.value
+                  ? clipStripNodeId.value
+                  : splitStripOpen.value
+                    ? splitStripNodeId.value
+                    : ''
   if (overlayNodeId) {
     const node = findNode(overlayNodeId) as CanvasFlowNode | undefined
     if (node) {
@@ -3444,6 +3460,13 @@ const optimizeError = ref('')
 const optimizeModel = ref('')
 /** 这次改写预计扣的积分（按文本模型单价估），弹窗里给用户看一眼 */
 const optimizePoints = ref(0)
+const tuneOpen = ref(false)
+const tuneNodeId = ref('')
+const tunePrompt = ref('')
+const tuneTarget = ref('')
+const tuneVideoMode = ref('t2v')
+const tuneParams = ref<Record<string, unknown>>({})
+const tuneMedia = ref<Array<{ id: string, kind: 'image' | 'video' | 'audio', role: string, url?: string, name?: string, assetId?: number }>>([])
 
 /** 分镜组拼接：多选的图片按阅读顺序拼成一张宫格图 */
 const montageOpen = ref(false)
@@ -3933,6 +3956,13 @@ function openAssetPicker(opts: Partial<Omit<typeof picker, 'chatPick' | 'open'>>
   picker.pendingNodeId = ''
   chatPickHandler = opts.chatPick ?? null
   picker.chatPick = Boolean(opts.chatPick)
+  if (picker.open) {
+    picker.open = false
+    nextTick(() => {
+      picker.open = true
+    })
+    return
+  }
   picker.open = true
 }
 
@@ -4269,6 +4299,7 @@ function closeNodeBars(nodeId: string) {
   close(lightOpen, lightNodeId)
   close(angleOpen, angleNodeId)
   close(mattingOpen, mattingNodeId)
+  close(imageHdOpen, imageHdNodeId)
   close(extendStripOpen, extendStripNodeId)
   close(clipStripOpen, clipStripNodeId)
   close(splitStripOpen, splitStripNodeId)
@@ -5013,6 +5044,7 @@ function onSelAction(name: string) {
     outpaint: openOutpaintEditor,
     flip: openFlipEditor,
     runUpscale: scale => { void runUpscale(scale) },
+    openUpscale: openImageHd,
     runRemoveBg: name => { void runRemoveBg(name) },
     runThreeView: name => { void runThreeView(name) },
     hd: onNodeMenuHd,
@@ -5567,6 +5599,16 @@ const hdCost = computed(() => {
   return estimateSpend(model, { duration: estimateSecondDuration(hdSourceSeconds.value) }) || undefined
 })
 
+const imageHdCost = computed(() => {
+  const node = selected.value
+  if (!node || !isContentNode(node) || !isImageHdNode(node.data))
+    return undefined
+  const model = String(node.data.imageHdParams?.model || '')
+  if (!model)
+    return undefined
+  return estimateSpend(model, { edit: 'upscale', mode: 'i2i', scale: node.data.imageHdParams?.scale || 2 }) || undefined
+})
+
 const { running: mergeRunning, mergeClips: mergeSelectedVideos } = useCanvasVideoMerge({
   nodes,
   findNode: id => findNode(id) as CanvasFlowNode | undefined,
@@ -6000,11 +6042,30 @@ function openMarkEditor(node = selected.value, kind: 'mark' | 'erase' = 'mark') 
   }
   markNodeId.value = node.id
   markSrc.value = resolveMediaUrl(src)
-  markExisting.value = kind === 'mark' && node.data.markUrl ? resolveMediaUrl(node.data.markUrl) : ''
+  markInk.value = false
+  markExisting.value = ''
+  if (kind === 'mark') {
+    const ink = node.data.markInkUrl?.trim() || ''
+    const mask = node.data.markUrl?.trim() || ''
+    if (ink && isMediaUrl(ink)) {
+      markExisting.value = resolveMediaUrl(ink)
+      markInk.value = true
+    }
+    else if (mask && isMediaUrl(mask)) {
+      markExisting.value = resolveMediaUrl(mask)
+    }
+  }
   markMode.value = kind
   closeOverlays(['smartEdit', 'depth', 'light', 'angle', 'crop', 'outpaint', 'flip'])
   markOpen.value = true
+  canvasMarkNodeId.value = kind === 'mark' ? node.id : ''
 }
+
+const canvasMarkNodeId = useState('canvas-mark-node-id', () => '')
+watch(markOpen, (on) => {
+  if (!on)
+    canvasMarkNodeId.value = ''
+})
 
 function startMarkPick(node = selected.value) {
   if (!node || !isContentNode(node) || nodeLocked(node))
@@ -6175,24 +6236,91 @@ watch(() => canvasMarkTap.value?.seq, () => {
   placeMark(tap.nodeId, tap.x, tap.y)
 })
 
-async function onMarkConfirm(blob: Blob, model?: string) {
+async function onMarkConfirm(blob: Blob, model?: string, ink?: Blob) {
   if (markMode.value === 'erase') {
     await runInpaint(blob, model)
     return
   }
-  markOpen.value = false
   const node = findNode(markNodeId.value) as CanvasFlowNode | undefined
   if (!node || !isContentNode(node))
     return
-  const file = new File([blob], 'mark-mask.png', { type: 'image/png' })
-  const res = await assetApi.upload(file)
-  if (!res?.success || !res.data) {
-    notify(res?.message || t('标记上传失败'), 'error')
+  if (!ink) {
+    notify(t('笔迹导出失败，请重试'), 'error')
     return
   }
-  updateNodeData(node.id, { markAssetId: res.data.id, markUrl: res.data.url })
-  pushHistory()
-  notify(t('已保存标记'))
+  const src = markSrc.value
+  if (!src) {
+    notify(t('原图无法读取，请先把图片上传到资产库再编辑'), 'error')
+    return
+  }
+  inpaintBusy.value = true
+  try {
+    const flat = await compositeMarkImage(src, ink)
+    const uploaded = await assetApi.upload(new File([flat], 'mark.jpg', { type: 'image/jpeg' }))
+    if (!uploaded?.success || !uploaded.data?.url) {
+      notify(uploaded?.message || t('标记上传失败'), 'error')
+      return
+    }
+    const size = nodeSize(node)
+    counts.image += 1
+    const id = `image-${counts.image}`
+    const sibling: CanvasFlowNode = {
+      id,
+      type: 'easytv',
+      position: { x: node.position.x + size.w + 80, y: node.position.y },
+      width: size.w,
+      height: size.h,
+      style: { width: `${size.w}px`, height: `${size.h}px` },
+      selected: true,
+      data: {
+        kind: 'image',
+        label: t('标注'),
+        tag: '标注',
+        content: uploaded.data.url,
+        assetId: uploaded.data.id,
+        prompt: '',
+        mode: 'idle',
+      },
+    }
+    if (node.parentNode) {
+      sibling.parentNode = node.parentNode
+      sibling.extent = 'parent'
+      sibling.expandParent = true
+    }
+    for (const item of nodes.value)
+      item.selected = false
+    if (node.data.markInkUrl || node.data.markUrl) {
+      updateNodeData(node.id, {
+        markAssetId: undefined,
+        markUrl: '',
+        markInkAssetId: undefined,
+        markInkUrl: '',
+      })
+    }
+    addNodes(sibling)
+    addEdges({
+      id: `e-${node.id}-${id}-${Date.now()}`,
+      source: node.id,
+      target: id,
+      sourceHandle: 'out',
+      targetHandle: 'in',
+      ...defaultEdgeOptions,
+    })
+    pushHistory()
+    markOpen.value = false
+    notify(t('已添加标注'))
+    nextTick(() => {
+      const created = findNode(id)
+      if (created)
+        addSelectedNodes([created])
+    })
+  }
+  catch {
+    notify(t('笔迹导出失败，请重试'), 'error')
+  }
+  finally {
+    inpaintBusy.value = false
+  }
 }
 
 async function runInpaint(blob: Blob, preferredModel?: string) {
@@ -6507,6 +6635,60 @@ function onClearChip(key: string) {
   pushHistory()
 }
 
+function confirmTuneSpend(model: string) {
+  return gateSpend(estimateSpend(model, {}))
+}
+
+function openVideoTune(node: CanvasFlowNode & { data: CanvasNodeData }) {
+  const media: Array<{ id: string, kind: 'image' | 'video' | 'audio', role: string, url?: string, name?: string, assetId?: number }> = []
+  const seen = new Set<string>()
+  connectedRefThumbs(node.id).forEach((item, index) => {
+    if (!item.url || seen.has(item.url))
+      return
+    seen.add(item.url)
+    const role = item.kind === 'video'
+      ? 'reference_video'
+      : item.kind === 'audio'
+        ? 'reference_audio'
+        : (index === 0 && (node.data.videoMode === 'i2v' || node.data.videoMode === 'fl2v') ? 'first_frame' : 'reference_image')
+    media.push({ id: item.key, kind: item.kind, role, url: item.url, name: item.label, assetId: item.assetId })
+  })
+  for (const item of uploadedRefList(node.data)) {
+    if (seen.has(item.url))
+      continue
+    seen.add(item.url)
+    const kind = mediaKindOfUrl(item.url)
+    media.push({
+      id: item.url,
+      kind,
+      role: kind === 'video' ? 'reference_video' : kind === 'audio' ? 'reference_audio' : 'reference_image',
+      url: item.url,
+      name: item.name,
+      assetId: item.assetId,
+    })
+  }
+  const lastUrl = String(node.data.lastUrl || '').trim()
+  if (lastUrl)
+    media.push({ id: lastUrl, kind: 'image', role: 'last_frame', url: lastUrl, name: t('尾帧'), assetId: node.data.lastAssetId })
+  tuneNodeId.value = node.id
+  tunePrompt.value = String(node.data.prompt || '')
+  tuneTarget.value = String(node.data.model || '')
+  tuneVideoMode.value = String(node.data.videoMode || 't2v')
+  tuneParams.value = { ...(node.data.params || {}) }
+  tuneMedia.value = media
+  tuneOpen.value = true
+}
+
+function onTuneApply(prompt: string) {
+  const node = findNode(tuneNodeId.value)
+  tuneOpen.value = false
+  if (!node || !isContentNode(node) || !prompt.trim())
+    return
+  updateNodeData(node.id, { prompt: prompt.trim() })
+  pushHistory()
+  notify(t('已采用调优后的提示词'))
+}
+
 function onInspectorChip(key: string) {
   // chips 与面板按钮（参考 / 标记 / 运镜 / 风格库 / 宫格 / 优化 / 技能模板）都是编辑入口；
   // 跟练自己写进去的这些字段照常渲染（只读查看），但点不动
@@ -6626,7 +6808,10 @@ function onInspectorChip(key: string) {
     return
   }
   if (key === 'optimize') {
-    void runPromptOptimize()
+    if (node.data.kind === 'video' || node.data.kind === 'director')
+      openVideoTune(node)
+    else
+      void runPromptOptimize()
     return
   }
   if (key === 'skill') {
@@ -7300,6 +7485,9 @@ const {
   openLightPanel,
   onLightSubmit,
   runUpscale,
+  openImageHd,
+  onImageHdParamsUpdate,
+  onImageHdSubmit,
   runRemoveBg,
   runThreeView,
   openAnglePanel,
@@ -7427,6 +7615,8 @@ const {
   mattingBusy,
   mattingNodeId,
   mattingOpen,
+  imageHdOpen,
+  imageHdNodeId,
   optimizeBusy,
   optimizeError,
   optimizeModel,
@@ -7888,6 +8078,17 @@ const styleLibValue = computed(() => {
       @submit="onHdSubmit"
     />
 
+    <CanvasImageHdPanel
+      v-if="showImageHdPanel && hdPanelStyle"
+      :open="showImageHdPanel"
+      :params="selected && isContentNode(selected) ? selected.data.imageHdParams : null"
+      :panel-style="hdPanelStyle"
+      :submitting="mediaPanelSubmitting"
+      :cost="imageHdCost"
+      @update:params="onImageHdParamsUpdate"
+      @submit="onImageHdSubmit"
+    />
+
     <CanvasDepthMotionPanel
       v-if="showDepthMotionPanel && hdPanelStyle"
       :open="showDepthMotionPanel"
@@ -7928,6 +8129,19 @@ const styleLibValue = computed(() => {
       @storyboard-off="onStoryboardOff"
     />
     </div>
+
+    <CanvasVideoTuneModal
+      v-if="tuneOpen"
+      :open="tuneOpen"
+      :prompt="tunePrompt"
+      :target-model="tuneTarget"
+      :video-mode="tuneVideoMode"
+      :params="tuneParams"
+      :media="tuneMedia"
+      :confirm-spend="confirmTuneSpend"
+      @close="tuneOpen = false"
+      @apply="onTuneApply"
+    />
 
     <CanvasPromptOptimizeModal
       v-if="optimizeOpen"
@@ -8094,6 +8308,8 @@ const styleLibValue = computed(() => {
       :mode="markMode"
       :src="markSrc"
       :mask-url="markExisting"
+      :preserve-colors="markInk"
+      :node-id="markNodeId"
       :box="overlay"
       :submitting="inpaintBusy"
       @close="markOpen = false"
@@ -8225,7 +8441,6 @@ const styleLibValue = computed(() => {
     />
 
     <CanvasAssetPicker
-      v-if="picker.open"
       :open="picker.open"
       :title="picker.title"
       :accept="picker.accept"

@@ -202,17 +202,23 @@ function confirmPick() {
 }
 
 function pickFiles() {
-  fileInput.value?.click()
+  const input = fileInput.value
+  if (!input)
+    return
+  input.click()
   if (!props.autoUpload)
     return
-  const onBack = () => {
-    window.removeEventListener('focus', onBack)
-    window.setTimeout(() => {
-      if (props.open && props.autoUpload && !uploading.value)
-        emit('close')
-    }, 250)
+  // 取消才关。不能靠窗口重新聚焦来判断：文件窗一打开窗口就会失焦再聚焦，
+  // 过早 close 会把还没收到文件的 input 拆掉，选中的图就丢了。
+  const onCancel = () => {
+    window.clearTimeout(timer)
+    if (props.open && !uploading.value)
+      emit('close')
   }
-  window.addEventListener('focus', onBack)
+  input.addEventListener('cancel', onCancel, { once: true })
+  const timer = window.setTimeout(() => {
+    input.removeEventListener('cancel', onCancel)
+  }, 120_000)
 }
 
 async function onFilesChosen(event: Event) {

@@ -49,6 +49,13 @@ describe('ossVideoSnapshotUrl', () => {
     )
   })
 
+  it('精确截帧不带 m_fast，避免短片被吸回首个关键帧', () => {
+    const src = 'https://tv-oss.easyapi.com/easytv/a.mp4'
+    expect(ossVideoSnapshotUrl(src, 2.7, 1280, 'accurate')).toBe(
+      `${src}?x-oss-process=video/snapshot,t_2700,f_jpg,w_1280,h_0`,
+    )
+  })
+
   it('优先用现成封面，没有就截公开 OSS 的首帧', () => {
     const src = 'https://tv-oss.easyapi.com/easytv/a.mp4'
     expect(videoCoverUrl(src, 'https://cdn.example/cover.jpg')).toBe('https://cdn.example/cover.jpg')

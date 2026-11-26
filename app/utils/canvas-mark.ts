@@ -58,6 +58,61 @@ export function markHitCrop(x = 0.5, y = 0.5, size = MARK_HIT_CROP): CanvasMarkB
   }
 }
 
+/**
+ * 图片在盒子里的实际画面（object-fit contain / cover）。
+ * 卡片比例和原图不一致时，笔迹必须落在这块上，不能铺满整张卡片。
+ */
+export function fittedMediaRect(
+  box: { left: number, top: number, width: number, height: number },
+  imageWidth: number,
+  imageHeight: number,
+  fit: 'contain' | 'cover' = 'contain',
+) {
+  const iw = imageWidth > 0 ? imageWidth : 1
+  const ih = imageHeight > 0 ? imageHeight : 1
+  const bw = Math.max(0, box.width)
+  const bh = Math.max(0, box.height)
+  const scale = fit === 'cover' ? Math.max(bw / iw, bh / ih) : Math.min(bw / iw, bh / ih)
+  const width = iw * scale
+  const height = ih * scale
+  return {
+    left: box.left + (bw - width) / 2,
+    top: box.top + (bh - height) / 2,
+    width,
+    height,
+  }
+}
+
+/**
+ * 画笔层在节点里的位置。屏幕坐标含画布缩放，先除掉缩放再按 object-fit 收到画面上。
+ * left/top 相对 stage 的内边距边缘（绝对定位的起点），不含边框。
+ */
+export function stagePaintRect(input: {
+  stageScreen: { left: number, top: number, width: number, height: number }
+  stageLayoutWidth: number
+  stageLayoutHeight: number
+  borderLeft?: number
+  borderTop?: number
+  imageScreen: { left: number, top: number, width: number, height: number }
+  imageWidth: number
+  imageHeight: number
+  fit?: 'contain' | 'cover'
+}) {
+  const layoutW = input.stageLayoutWidth > 0 ? input.stageLayoutWidth : 1
+  const layoutH = input.stageLayoutHeight > 0 ? input.stageLayoutHeight : 1
+  const scaleX = input.stageScreen.width > 0 ? input.stageScreen.width / layoutW : 1
+  const scaleY = input.stageScreen.height > 0 ? input.stageScreen.height / layoutH : 1
+  const borderLeft = input.borderLeft || 0
+  const borderTop = input.borderTop || 0
+  const local = {
+    left: (input.imageScreen.left - input.stageScreen.left) / scaleX - borderLeft,
+    top: (input.imageScreen.top - input.stageScreen.top) / scaleY - borderTop,
+    width: input.imageScreen.width / scaleX,
+    height: input.imageScreen.height / scaleY,
+  }
+  return fittedMediaRect(local, input.imageWidth, input.imageHeight, input.fit || 'contain')
+}
+
 /** 原图上的点击点，换成裁图里的归一化坐标 */
 export function markHitLocalPoint(crop: CanvasMarkBox, x: number, y: number) {
   return {

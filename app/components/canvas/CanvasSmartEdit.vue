@@ -3,6 +3,7 @@ import assetApi from '~/api/asset'
 import taskApi from '~/api/task'
 import type { GenerationModel, GenerationTask } from '~/types/creative'
 import { cropImage } from '~/utils/canvas-image-edit'
+import { buildSmartEditPrompt } from '~/utils/canvas-smart-edit'
 import { listImageEditModels, pickVisionTextModel } from '~/utils/image-input'
 import { effectiveUnitPrice, estimateTaskPoints, modelPromoDisplay } from '~/utils/model-price'
 import { shortModelName } from '~/utils/model-name'
@@ -32,6 +33,26 @@ const props = withDefaults(defineProps<{
   readonly: false,
 })
 
+const editIntent = ref<'edit' | 'move'>('edit')
+const paintBox = ref<SmartRegion | null>(null)
+
+const composerStyle = computed(() => {
+  const box = props.box
+  const base = props.panelStyle
+  const width = box
+    ? `${Math.max(260, Math.round(Math.min(box.width, 420)))}px`
+    : 'min(420px, calc(100vw - 32px))'
+  if (base?.left && base?.top)
+    return { ...base, width }
+  if (!box)
+    return null
+  return {
+    left: `${box.left + box.width / 2}px`,
+    top: `${box.top + box.height + 12}px`,
+    width,
+  }
+})
+
 const layerStyle = computed(() => {
   const box = props.box
   if (!box)
@@ -57,7 +78,7 @@ const generationModelsLoaded = useState('generation-models-loaded', () => false)
 const imgRef = ref<HTMLImageElement | null>(null)
 const canvasRef = ref<HTMLCanvasElement | null>(null)
 const fileInput = ref<HTMLInputElement | null>(null)
-type SmartRegion = { id: number, x: number, y: number, w: number, h: number }
+type SmartRegion = { id: number, x: number, y: number, w: number, h: number, note: string }
 type SmartSnap = { paint: ImageData, regions: SmartRegion[] }
 type BoxHandle = 'nw' | 'ne' | 'sw' | 'se'
 
@@ -69,16 +90,18 @@ const HANDLE_CURSORS: Record<BoxHandle, string> = {
   se: 'nwse-resize',
 }
 
-const DEFAULT_BRUSH = 12
-const prompt = ref('')
-const tool = ref<'paint' | 'box'>('paint')
+const DEFAULT_BRUSH = 2
+const paintNote = ref('')
+const linePlaceholder = computed(() => editIntent.value === 'move'
+  ? t('描述要把选区移到哪里')
+  : t('描述要改的地方，例如把衣服换成红色'))
+const tool = ref<'paint' | 'box'>('box')
 const paintMode = ref<'brush' | 'erase'>('brush')
 const brush = ref(DEFAULT_BRUSH)
 const drawing = ref(false)
 const uploading = ref(false)
 const recognizingIds = ref<number[]>([])
 const namedRefs = computed(() => props.refs.filter(item => item.label))
-const plainRefs = computed(() => props.refs.filter(item => !item.label))
 let recognizeGen = 0
 const undos = ref<SmartSnap[]>([])
 const redos = ref<SmartSnap[]>([])
@@ -93,11 +116,9 @@ let resize: { id: number, handle: BoxHandle, px: number, py: number, orig: Smart
 let drawOrigin: { x: number, y: number } | null = null
 let maskEl: HTMLCanvasElement | null = null
 let overlayEl: HTMLCanvasElement | null = null
-let checkerTile: HTMLCanvasElement | null = null
 let lastPt: { x: number, y: number } | null = null
 const MAX_WORK = 2048
 const MAX_EXPORT = 4096
-const MASK_TINT = 'rgba(225, 29, 119, 0.62)'
 const brushTip = ref({ x: 0, y: 0, on: false })
 const photoReady = ref(false)
 
@@ -111,23 +132,6 @@ function maskCtx() {
 
 function overlayCtx() {
   return overlayEl?.getContext('2d') ?? null
-}
-
-function checkerPattern(c: CanvasRenderingContext2D) {
-  if (!checkerTile) {
-    checkerTile = document.createElement('canvas')
-    checkerTile.width = 20
-    checkerTile.height = 20
-    const tile = checkerTile.getContext('2d')
-    if (tile) {
-      tile.fillStyle = '#d8d8de'
-      tile.fillRect(0, 0, 20, 20)
-      tile.fillStyle = '#8e8e96'
-      tile.fillRect(0, 0, 10, 10)
-      tile.fillRect(10, 10, 10, 10)
-    }
-  }
-  return c.createPattern(checkerTile, 'repeat') || '#cfcfd4'
 }
 
 function workingSize() {
@@ -214,15 +218,10 @@ function redrawView() {
       overlay.clearRect(0, 0, overlayEl.width, overlayEl.height)
       overlay.drawImage(maskEl, 0, 0)
       overlay.globalCompositeOperation = 'source-in'
-      overlay.fillStyle = checkerPattern(overlay)
-      overlay.fillRect(0, 0, overlayEl.width, overlayEl.height)
-      overlay.globalCompositeOperation = 'source-atop'
-      overlay.fillStyle = MASK_TINT
+      overlay.fillStyle = '#fff'
       overlay.fillRect(0, 0, overlayEl.width, overlayEl.height)
       overlay.globalCompositeOperation = 'source-over'
-      view.globalAlpha = 0.72
       view.drawImage(overlayEl, 0, 0)
-      view.globalAlpha = 1
     }
   }
   view.restore()
@@ -290,6 +289,98 @@ function regionStyle(item: SmartRegion) {
   }
 }
 
+function currentMark() {
+  if (tool.value === 'box')
+    return regions.value.find(item => item.id === activeRegionId.value) || null
+  return paintBox.value
+}
+
+const markChip = computed(() => {
+  if (draft.value || drawing.value)
+    return null
+  return currentMark()
+})
+
+const placeCount = computed(() => tool.value === 'paint' ? (paintBox.value ? 1 : 0) : regions.value.length)
+const hasMarks = computed(() => placeCount.value > 0)
+
+function chipOnLeft(item: SmartRegion) {
+  const { w } = imageSize()
+  return (item.x + item.w) / w > 0.62
+}
+
+function shotStyle(item: SmartRegion) {
+  const { w, h } = imageSize()
+  const nw = Math.max(item.w / w, 0.001)
+  const nh = Math.max(item.h / h, 0.001)
+  return {
+    width: `${100 / nw}%`,
+    height: `${100 / nh}%`,
+    left: `${-(item.x / w) / nw * 100}%`,
+    top: `${-(item.y / h) / nh * 100}%`,
+  }
+}
+
+function chipStyle(item: SmartRegion) {
+  const { w, h } = imageSize()
+  const right = (item.x + item.w) / w
+  const top = item.y / h
+  if (right > 0.62) {
+    return {
+      right: `${(1 - item.x / w) * 100}%`,
+      top: `${top * 100}%`,
+    }
+  }
+  return {
+    left: `${right * 100}%`,
+    top: `${top * 100}%`,
+  }
+}
+
+function measurePaint() {
+  const mask = maskCtx()
+  if (!mask || !maskEl?.width) {
+    paintBox.value = null
+    return
+  }
+  const { width, height } = maskEl
+  const data = mask.getImageData(0, 0, width, height).data
+  let minX = width
+  let minY = height
+  let maxX = -1
+  let maxY = -1
+  for (let y = 0; y < height; y++) {
+    const row = y * width
+    for (let x = 0; x < width; x++) {
+      if ((data[(row + x) * 4 + 3] ?? 0) <= 12)
+        continue
+      if (x < minX)
+        minX = x
+      if (y < minY)
+        minY = y
+      if (x > maxX)
+        maxX = x
+      if (y > maxY)
+        maxY = y
+    }
+  }
+  if (maxX < 0) {
+    paintBox.value = null
+    return
+  }
+  const pad = 6
+  const x = Math.max(0, minX - pad)
+  const y = Math.max(0, minY - pad)
+  paintBox.value = {
+    id: 0,
+    x,
+    y,
+    w: Math.min(width, maxX + pad) - x,
+    h: Math.min(height, maxY + pad) - y,
+    note: '',
+  }
+}
+
 function normalizeRect(a: { x: number, y: number }, b: { x: number, y: number }) {
   const { w: maxW, h: maxH } = imageSize()
   const x = Math.max(0, Math.min(a.x, b.x))
@@ -303,9 +394,8 @@ function normalizeRect(a: { x: number, y: number }, b: { x: number, y: number })
 }
 
 const UNIT_LABEL: Record<string, string> = { second: '秒', image: '张', call: '次' }
-const needMask = ref(false)
 const modelMenu = ref(false)
-const editModels = computed(() => listImageEditModels(generationModels.value, needMask.value))
+const editModels = computed(() => listImageEditModels(generationModels.value, false))
 const pickerModels = computed(() => editModels.value.map((item) => {
   const name = shortModelName(item)
   const label = String(item.label || '').trim()
@@ -342,7 +432,7 @@ function onDocPointer(event: PointerEvent) {
   if (!modelMenu.value)
     return
   const el = event.target as HTMLElement | null
-  if (el?.closest('.canvas-inspector__model'))
+  if (el?.closest('.canvas-smart__composer, .canvas-inspector__models, .canvas-smart__model'))
     return
   modelMenu.value = false
 }
@@ -365,7 +455,7 @@ function markHasPaint() {
 }
 
 function refreshMaskFlag() {
-  needMask.value = markHasPaint() || regions.value.length > 0
+  measurePaint()
   syncModel()
 }
 
@@ -384,8 +474,8 @@ function fitCanvas() {
   regions.value = []
   activeRegionId.value = 0
   draft.value = null
+  paintBox.value = null
   paintMode.value = 'brush'
-  needMask.value = false
   syncModel()
 }
 
@@ -446,7 +536,7 @@ function strokeOn(
   c.fillStyle = erase ? '#000' : style
   c.lineCap = 'round'
   c.lineJoin = 'round'
-  c.lineWidth = Math.max(2, r * 2)
+  c.lineWidth = Math.max(1, r * 2)
   if (lastPt) {
     c.beginPath()
     c.moveTo(lastPt.x, lastPt.y)
@@ -520,7 +610,7 @@ function onHitDown(event: PointerEvent) {
     return
   listOpen.value = false
   drawOrigin = point(event)
-  draft.value = { id: 0, x: drawOrigin.x, y: drawOrigin.y, w: 0, h: 0 }
+  draft.value = { id: 0, x: drawOrigin.x, y: drawOrigin.y, w: 0, h: 0, note: '' }
   ;(event.currentTarget as HTMLElement).setPointerCapture(event.pointerId)
 }
 
@@ -528,7 +618,7 @@ function onHitMove(event: PointerEvent) {
   if (!drawOrigin)
     return
   const rect = normalizeRect(drawOrigin, point(event))
-  draft.value = { id: 0, ...rect }
+  draft.value = { id: 0, ...rect, note: '' }
 }
 
 function onHitUp() {
@@ -541,9 +631,11 @@ function onHitUp() {
     return
   snapshot()
   const id = regionSeq++
-  regions.value = [...regions.value, { ...next, id }]
+  regions.value = [...regions.value, { ...next, id, note: '' }]
   activeRegionId.value = id
+  editIntent.value = 'edit'
   refreshMaskFlag()
+  nextTick(() => focusActiveLine())
 }
 
 function onRegionDown(event: PointerEvent, item: SmartRegion) {
@@ -816,13 +908,14 @@ function exportMask(): Promise<Blob | null> {
     }
   }
   c.putImageData(data, 0, 0)
-  if (regions.value.length) {
+  const noted = regions.value.filter(item => item.note.trim())
+  if (noted.length) {
     const sx = out.width / src.width
     const sy = out.height / src.height
     c.fillStyle = '#fff'
-    for (const item of regions.value)
+    for (const item of noted)
       c.fillRect(item.x * sx, item.y * sy, item.w * sx, item.h * sy)
-    marked += regions.value.length
+    marked += noted.length
   }
   if (!marked)
     return Promise.resolve(null)
@@ -831,8 +924,36 @@ function exportMask(): Promise<Blob | null> {
   })
 }
 
+function instruction() {
+  const { w, h } = imageSize()
+  const imageInput = currentApiModel.value?.image_input === 'edits' ? 'edits' : 'url'
+  if (tool.value === 'paint') {
+    const text = paintNote.value.trim()
+    if (!text || !paintBox.value)
+      return ''
+    return buildSmartEditPrompt([{ box: paintBox.value, text }], { w, h }, imageInput)
+  }
+  return buildSmartEditPrompt(
+    regions.value.map(item => ({ box: item, text: item.note })),
+    { w, h },
+    imageInput,
+  )
+}
+
+function focusActiveLine() {
+  const root = document.querySelector('.canvas-smart__composer')
+  const row = root?.querySelector<HTMLInputElement>('.canvas-smart__line.is-on input')
+    || root?.querySelector<HTMLInputElement>('.canvas-smart__line input')
+  row?.focus()
+}
+
+function openEdit(intent: 'edit' | 'move') {
+  editIntent.value = intent
+  nextTick(focusActiveLine)
+}
+
 async function submit() {
-  const text = prompt.value.trim()
+  const text = instruction()
   if (!text) {
     useToast().add({ title: t('请先描述你想要的修改'), color: 'error' })
     return
@@ -918,8 +1039,10 @@ watch(() => props.open, (open) => {
   recognizingIds.value = []
   if (!open)
     return
-  prompt.value = ''
-  tool.value = 'paint'
+  paintNote.value = ''
+  editIntent.value = 'edit'
+  paintBox.value = null
+  tool.value = 'box'
   paintMode.value = 'brush'
   brush.value = DEFAULT_BRUSH
   regions.value = []
@@ -972,46 +1095,34 @@ onUnmounted(() => {
             <span>{{ t('智能编辑') }}</span>
           </button>
           <span class="canvas-smart__split" />
-          <div class="canvas-smart__switch" role="group" :aria-label="t('智能编辑')">
-            <button type="button" :class="{ 'is-on': tool === 'paint' }" @click="setTool('paint')">
-              <UIcon name="i-lucide-paintbrush" class="size-3.5" />
-              {{ t('涂抹') }}
-            </button>
-            <button type="button" :class="{ 'is-on': tool === 'box' }" @click="setTool('box')">
-              <UIcon name="i-lucide-square-dashed" class="size-3.5" />
-              {{ t('框选') }}
-            </button>
-          </div>
+          <button type="button" class="canvas-smart__icon" :class="{ 'is-on': tool === 'box' }" :aria-label="t('框选')" @click="setTool('box')">
+            <UIcon name="i-lucide-square-dashed" class="size-3.5" />
+            <span class="canvas-tip canvas-tip--down">{{ t('框选') }}</span>
+          </button>
+          <button type="button" class="canvas-smart__icon" :class="{ 'is-on': tool === 'paint' }" :aria-label="t('涂抹')" @click="setTool('paint')">
+            <UIcon name="i-lucide-paintbrush" class="size-3.5" />
+            <span class="canvas-tip canvas-tip--down">{{ t('涂抹') }}</span>
+          </button>
           <template v-if="tool === 'paint'">
-            <div class="canvas-smart__switch" role="group" :aria-label="t('笔刷')">
-              <button
-                type="button"
-                class="canvas-smart__icon"
-                :class="{ 'is-on': paintMode === 'brush' }"
-                :aria-label="t('涂抹')"
-                @click="paintMode = 'brush'"
-              >
-                <UIcon name="i-lucide-paintbrush" class="size-3.5" />
-              </button>
-              <button
-                type="button"
-                class="canvas-smart__icon"
-                :class="{ 'is-on': paintMode === 'erase' }"
-                :aria-label="t('橡皮')"
-                @click="paintMode = 'erase'"
-              >
-                <UIcon name="i-lucide-eraser" class="size-3.5" />
-              </button>
-            </div>
             <label class="canvas-smart__brush">
-              <input v-model.number="brush" type="range" min="8" max="80" :aria-label="t('笔刷')">
+              <input v-model.number="brush" type="range" min="1" max="48" :aria-label="t('笔刷')">
             </label>
+            <button
+              type="button"
+              class="canvas-smart__icon"
+              :class="{ 'is-on': paintMode === 'erase' }"
+              :aria-label="t('橡皮')"
+              @click="paintMode = paintMode === 'erase' ? 'brush' : 'erase'"
+            >
+              <UIcon name="i-lucide-eraser" class="size-3.5" />
+              <span class="canvas-tip canvas-tip--down">{{ t('橡皮') }}</span>
+            </button>
           </template>
-          <div v-else class="canvas-smart__list-wrap">
-            <button type="button" :class="{ 'is-on': listOpen }" :disabled="!regions.length" @click="listOpen = !listOpen">
+          <div v-else-if="regions.length" class="canvas-smart__list-wrap">
+            <button type="button" class="canvas-smart__icon" :class="{ 'is-on': listOpen }" :disabled="!regions.length" :aria-label="t('框选列表')" @click="listOpen = !listOpen">
               <UIcon name="i-lucide-list" class="size-3.5" />
-              {{ t('框选列表') }}
-              <i>{{ regions.length }}</i>
+              <i v-if="regions.length">{{ regions.length }}</i>
+              <span class="canvas-tip canvas-tip--down">{{ t('框选列表') }}</span>
             </button>
             <div v-if="listOpen" class="canvas-smart__list">
               <button
@@ -1025,6 +1136,13 @@ onUnmounted(() => {
                 <span>{{ Math.round(item.w) }}×{{ Math.round(item.h) }}</span>
                 <i
                   role="button"
+                  :aria-label="t('智能识别图片内容')"
+                  @click.stop="recognizeRegion(item)"
+                >
+                  <UIcon :name="isRecognizing(item.id) ? 'i-lucide-loader-circle' : 'i-lucide-sparkles'" class="size-3.5" :class="{ 'animate-spin': isRecognizing(item.id) }" />
+                </i>
+                <i
+                  role="button"
                   :aria-label="t('删除框选')"
                   @click.stop="removeRegion(item.id)"
                 >
@@ -1033,10 +1151,10 @@ onUnmounted(() => {
               </button>
             </div>
           </div>
-          <button type="button" :disabled="!undos.length" :aria-label="t('撤销')" @click="undo">
+          <button type="button" class="canvas-smart__icon" :disabled="!undos.length" :aria-label="t('撤销')" @click="undo">
             <UIcon name="i-lucide-undo-2" class="size-3.5" />
           </button>
-          <button type="button" :disabled="!redos.length" :aria-label="t('重做')" @click="redo">
+          <button type="button" class="canvas-smart__icon" :disabled="!redos.length" :aria-label="t('重做')" @click="redo">
             <UIcon name="i-lucide-redo-2" class="size-3.5" />
           </button>
         </div>
@@ -1072,8 +1190,9 @@ onUnmounted(() => {
           @pointerup="onHitUp"
           @pointercancel="onHitUp"
         />
+        <p v-if="!regions.length && !paintBox && !draft" class="canvas-smart__hint">{{ t('标记你想要修改的对象') }}</p>
         <div
-          v-for="(item, index) in regions"
+          v-for="item in regions"
           :key="item.id"
           class="canvas-smart__region"
           :class="{ 'is-on': activeRegionId === item.id, 'is-edit': tool === 'box' }"
@@ -1083,26 +1202,6 @@ onUnmounted(() => {
           @pointerup="onRegionUp"
           @pointercancel="onRegionUp"
         >
-          <b>{{ index + 1 }}</b>
-          <button type="button" class="canvas-smart__drop" :aria-label="t('删除框选')" @pointerdown.stop @click.stop="removeRegion(item.id)">
-            <UIcon name="i-lucide-trash-2" class="size-3.5" />
-          </button>
-          <button
-            v-if="tool === 'box'"
-            type="button"
-            class="canvas-smart__plus"
-            :class="{ 'is-busy': isRecognizing(item.id) }"
-            :aria-label="t('智能识别图片内容')"
-            @pointerdown.stop
-            @click.stop="recognizeRegion(item)"
-          >
-            <UIcon
-              :name="isRecognizing(item.id) ? 'i-lucide-loader-circle' : 'i-lucide-sparkles'"
-              class="size-3.5"
-              :class="{ 'animate-spin': isRecognizing(item.id) }"
-            />
-            <span v-if="!isRecognizing(item.id)" class="canvas-tip canvas-tip--up">{{ t('智能识别图片内容') }}</span>
-          </button>
           <i
             v-for="handle in BOX_HANDLES"
             :key="handle"
@@ -1116,103 +1215,145 @@ onUnmounted(() => {
           />
         </div>
         <div
+          v-if="tool === 'paint' && paintBox && !drawing"
+          class="canvas-smart__region"
+          :style="regionStyle(paintBox)"
+        />
+        <div
           v-if="draft && draft.w > 2 && draft.h > 2"
           class="canvas-smart__region is-draft"
           :style="regionStyle(draft)"
         />
+        <div
+          v-if="markChip"
+          class="canvas-smart__chip"
+          :class="{ 'is-left': chipOnLeft(markChip) }"
+          :style="chipStyle(markChip)"
+          @pointerdown.stop
+        >
+          <span class="canvas-smart__chip-name">
+            <i class="canvas-smart__chip-shot">
+              <img :src="src" alt="" :style="shotStyle(markChip)">
+            </i>
+            {{ t('选区') }}
+          </span>
+          <button type="button" @pointerdown.stop @click="openEdit('edit')">
+            <UIcon name="i-lucide-pen-line" class="size-3.5" />
+            {{ t('修改') }}
+          </button>
+          <button v-if="tool === 'box'" type="button" @pointerdown.stop @click="openEdit('move')">
+            <UIcon name="i-lucide-move" class="size-3.5" />
+            {{ t('移动') }}
+          </button>
+        </div>
       </div>
       <div
-        v-if="panelStyle"
+        v-if="composerStyle"
         class="canvas-smart__composer nodrag nopan nowheel"
-        :style="panelStyle"
+        :class="{ 'is-pending': !hasMarks }"
+        :style="composerStyle"
         @pointerdown.stop
         @dblclick.stop
       >
-        <div class="canvas-smart__attach">
-          <button type="button" class="canvas-inspector__chip" @click="emit('cite')">
-            <UIcon name="i-lucide-image-plus" class="size-3.5" />
-            {{ t('引用') }}
-          </button>
-          <button type="button" class="canvas-inspector__chip" :disabled="uploading" @click="fileInput?.click()">
-            <UIcon name="i-lucide-plus" class="size-3.5" />
-            {{ uploading ? t('上传中…') : t('上传') }}
-          </button>
-          <span v-for="item in plainRefs" :key="item.assetId" class="canvas-smart__thumb">
-            <img :src="resolveMediaUrl(item.url)" alt="">
-            <button type="button" :aria-label="t('移除')" @click="removeRef(item.assetId)">
-              <UIcon name="i-lucide-x" class="size-3" />
+        <button v-if="!hasMarks" type="button" class="canvas-smart__pending" @click="openEdit('edit')">
+          <UIcon name="i-lucide-pen-line" class="size-3.5" />
+          <span>{{ t('编辑内容') }}</span>
+          <em>{{ t('待添加') }}</em>
+        </button>
+        <template v-else>
+          <div class="canvas-smart__dock-head">
+            <UIcon name="i-lucide-list" class="size-3.5" />
+            <span>{{ t('编辑内容') }}</span>
+            <em>{{ placeCount }}{{ t('处') }}</em>
+            <button type="button" :aria-label="t('引用图片')" @click="emit('cite')">
+              <UIcon name="i-lucide-image-plus" class="size-3.5" />
+              <span class="canvas-tip canvas-tip--down">{{ t('引用图片') }}</span>
             </button>
-          </span>
-          <input ref="fileInput" type="file" accept="image/*" multiple hidden @change="onFilesChosen">
-        </div>
-        <div v-if="namedRefs.length" class="canvas-smart__tags">
-          <button
-            v-for="item in namedRefs"
-            :key="item.assetId"
-            type="button"
-            class="canvas-smart__tag"
-            :aria-label="t('移除')"
-            @click="removeRef(item.assetId)"
-          >
-            <img :src="resolveMediaUrl(item.url)" alt="">
-            <span>{{ item.label }}</span>
-          </button>
-        </div>
-        <textarea
-          v-model="prompt"
-          rows="3"
-          :placeholder="t('描述你想要的修改，例如「把背景换成海边」；也可上传图片或点「引用」使用画布上其他图片作为参考')"
-        />
-        <div class="canvas-smart__bar">
-          <div v-if="currentPicker" class="canvas-inspector__model">
+            <button type="button" :disabled="uploading" :aria-label="t('上传图片')" @click="fileInput?.click()">
+              <UIcon :name="uploading ? 'i-lucide-loader-circle' : 'i-lucide-plus'" class="size-3.5" :class="{ 'animate-spin': uploading }" />
+              <span v-if="!uploading" class="canvas-tip canvas-tip--down">{{ t('上传图片') }}</span>
+            </button>
+            <input ref="fileInput" type="file" accept="image/*" multiple hidden @change="onFilesChosen">
+          </div>
+          <div class="canvas-smart__lines">
+            <label
+              v-for="item in regions"
+              :key="item.id"
+              class="canvas-smart__line"
+              :class="{ 'is-on': activeRegionId === item.id }"
+            >
+              <i class="canvas-smart__chip-shot">
+                <img :src="src" alt="" :style="shotStyle(item)">
+              </i>
+              <span>{{ t('选区') }}</span>
+              <input
+                v-model="item.note"
+                type="text"
+                :placeholder="linePlaceholder"
+                @focus="activeRegionId = item.id"
+                @keydown.enter.prevent="submit"
+              >
+            </label>
+            <label v-if="tool === 'paint' && paintBox" class="canvas-smart__line is-on">
+              <i class="canvas-smart__chip-shot">
+                <img :src="src" alt="" :style="shotStyle(paintBox)">
+              </i>
+              <span>{{ t('选区') }}</span>
+              <input
+                v-model="paintNote"
+                type="text"
+                :placeholder="linePlaceholder"
+                @keydown.enter.prevent="submit"
+              >
+            </label>
+          </div>
+          <div v-if="namedRefs.length" class="canvas-smart__tags">
+            <button
+              v-for="item in namedRefs"
+              :key="item.assetId"
+              type="button"
+              class="canvas-smart__tag"
+              :aria-label="t('移除')"
+              @click="removeRef(item.assetId)"
+            >
+              <img :src="resolveMediaUrl(item.url)" alt="">
+              <span>{{ item.label }}</span>
+            </button>
+          </div>
+          <div class="canvas-smart__dock-actions">
+            <button v-if="currentPicker" type="button" class="canvas-smart__model" @pointerdown.stop @click.stop="toggleModel">
+              {{ currentPicker.name }}
+            </button>
+            <div class="canvas-smart__pair">
+            <button type="button" class="canvas-smart__cancel" @click="emit('close')">{{ t('取消') }}</button>
             <button
               type="button"
-              class="canvas-inspector__model-btn"
-              :title="currentPicker.desc || currentPicker.name"
-              :aria-expanded="modelMenu"
-              :aria-label="t('模型')"
-              @click="toggleModel"
+              class="canvas-smart__go"
+              :disabled="submitting || uploading"
+              @click="submit"
             >
-              <span class="canvas-inspector__model-mark" />
-              <span class="canvas-inspector__model-name">{{ currentPicker.name }}</span>
-              <UIcon :name="modelMenu ? 'i-lucide-chevron-up' : 'i-lucide-chevron-down'" class="size-3.5" />
+              <UIcon :name="submitting ? 'i-lucide-loader-circle' : 'i-lucide-zap'" class="size-3.5" :class="{ 'animate-spin': submitting }" />
+              <template v-if="typeof zapCost === 'number'">{{ zapCost }}</template>
+              {{ t('生成') }}
             </button>
-            <div v-if="modelMenu" class="canvas-inspector__models nowheel" @pointerdown.stop @wheel.stop>
-              <button
-                v-for="item in pickerModels"
-                :key="item.id"
-                type="button"
-                :class="{ 'is-on': modelId === item.id }"
-                @click="pickModel(item.id)"
-              >
-                <span class="canvas-inspector__model-mark" />
-                <span>
-                  <strong>{{ item.name }}</strong>
-                  <em v-if="item.desc" :title="item.desc">{{ item.desc }}</em>
-                  <small v-if="item.promo" class="canvas-promo">
-                    <s>{{ item.promo.origin }}</s>
-                    {{ t('{n} 积分/{unit}', { n: item.promo.price, unit: t(item.promo.unit) }) }}
-                    <i class="canvas-promo__chip">{{ item.promo.label || t('促销') }}</i>
-                  </small>
-                </span>
-              </button>
             </div>
           </div>
-          <span class="canvas-inspector__grow" />
-          <span v-if="zapCost !== ''" class="canvas-smart__cost">
-            <UIcon name="i-lucide-zap" class="size-3.5" />
-            {{ zapCost }}
-          </span>
-          <button
-            type="button"
-            class="canvas-smart__send"
-            :disabled="submitting || uploading"
-            :aria-label="t('生成')"
-            @click="submit"
-          >
-            <UIcon :name="submitting ? 'i-lucide-loader-circle' : 'i-lucide-arrow-up'" class="size-3.5" :class="{ 'animate-spin': submitting }" />
-          </button>
-        </div>
+          <div v-if="modelMenu && currentPicker" class="canvas-inspector__models nowheel" @pointerdown.stop @wheel.stop>
+            <button
+              v-for="item in pickerModels"
+              :key="item.id"
+              type="button"
+              :class="{ 'is-on': modelId === item.id }"
+              @pointerdown.stop.prevent="pickModel(item.id)"
+            >
+              <span class="canvas-inspector__model-mark" />
+              <span>
+                <strong>{{ item.name }}</strong>
+                <em v-if="item.desc" :title="item.desc">{{ item.desc }}</em>
+              </span>
+            </button>
+          </div>
+        </template>
       </div>
     </template>
   </Teleport>

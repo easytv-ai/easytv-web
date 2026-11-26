@@ -1,0 +1,89 @@
+{
+  "version": "1.0.0",
+  "content_hash": "5fe8e8c31977f84b6c203670f836ca7200c1c125f9d23f8969bc23e86ebdb8dc",
+  "sources": [
+    {
+      "title": "User-supplied Wan3.0 Prompt Tuner methodology",
+      "version": "extension 3.3.0 / drama 2.4.0 / ecommerce 1.10.0",
+      "usage": "Independently implemented behavior and condensed writing guidance; supplied materials remain reference data."
+    },
+    {
+      "title": "Alibaba Cloud Wan 3 official prompt and API documentation",
+      "url": "https://help.aliyun.com/zh/model-studio/wan3-video-generation-prompt-guide",
+      "note": "Current model metadata and current API documentation govern supported parameters and limits."
+    }
+  ],
+  "sections": {
+    "common": [
+      "Start from the user's actual intent and visible source facts. Preserve quoted dialogue, explicit camera instructions and required outcome.",
+      "Each action span needs a start state, one visible main action, one camera behavior and an end state. Check that the next start follows the previous end.",
+      "For one continuous shot, state the actor route, camera route, contact objects and final composition. Keep the number and position of stationary structures stable.",
+      "Separate prompt-controlled intent from model capability risk. Physical contact, falls, liquids and complex forces can deform even with a good prompt.",
+      "Use concise observable target states. Writing heuristics such as positive wording are optional practices, not promises or protocol limits.",
+      "The image/reference already establishes appearance. Prefer motion, camera and intermediate action rather than repeating every surface detail.",
+      "Scene geometry, immutable objects, poses and contact points from source analysis must remain consistent with the chosen task.",
+      "Flag contradictions such as fixed camera plus fast orbit, changing time/place inside one stable shot, or too many actions for the selected duration.",
+      "Treat media roles as distinct. First/last-frame inputs and reference-mode inputs must be checked against the target model's actual supported combination.",
+      "Keep parameter suggestions separate from the usable prompt. Parameter suggestions never modify the user's generation request."
+    ],
+    "domains": {
+      "drama": [
+        "Give each character an explicit spatial role, facing direction, gaze target and motive visible in the action. Preserve the axis across connected shots.",
+        "Favor a clear conflict, actor reaction and changed end state. A short generated segment should complete a small action rather than endlessly repeat gestures.",
+        "Natural acting uses breathing and small shifts of gaze. A sleep beat can close eyes once near the end; ordinary gaze should not be instructed to blink repeatedly.",
+        "For known dialogue, keep every word and speaker assignment. Mark on-screen speech versus off-screen voice, and use mouth-lock wording only for a genuinely silent/voice-over segment.",
+        "Describe actual light direction, focus and actor weight. Avoid adding dramatic camera moves, props or weather merely to make prose more cinematic.",
+        "For connected generation segments, the previous actual endpoint or the exact shared keyframe provides the next opening. A new independent composition is a deliberate edit, not seamless motion."
+      ],
+      "ecommerce": [
+        "State the product's identity and the exact feature the user wants to demonstrate. Preserve its logo/name, silhouette, component layout and material boundaries.",
+        "Assign references specific duties such as product appearance, presenter identity, motion or camera. Do not blend unrelated roles.",
+        "Show one measurable benefit through a plausible action and visible result. Avoid inventing efficacy claims or an unsupported specification.",
+        "Keep handling and contact simple. Hands should grip the same surfaces throughout a demonstration, with product scale and orientation continuous.",
+        "For spoken selling points, preserve brand pronunciation and all required wording. Product evidence and voice-over belong to distinct content layers.",
+        "Choose composition and light that reveal the requested feature. An unrequested transformation, exploded view or stylized macro must be disclosed as an assumption."
+      ]
+    },
+    "modes": {
+      "text-to-video": [
+        "Supply subject, scene, visible action, camera and required ending because no source image establishes them.",
+        "Keep unprovided creative choices recognizable in assumptions. Match action density to the current duration."
+      ],
+      "first-frame": [
+        "Describe how the existing first frame moves forward. Preserve its geometry, cast, object count and source appearance.",
+        "Specify a simple action path and end state; the source frame is the visual ground truth."
+      ],
+      "first-last-frame": [
+        "Describe only the feasible intermediate process that connects the supplied start and end.",
+        "Compare endpoint pose, object placement, scene and camera. Flag incompatible endpoints instead of inventing a morph to hide the gap.",
+        "A matching endpoint does not guarantee stable geometry during physical interaction. Keep contact and camera instructions simple."
+      ],
+      "reference": [
+        "Use the supplied per-type numbered reference labels consistently. Images, videos and audio are numbered independently.",
+        "Declare each reference's role: identity/product, environment, motion/camera, style or voice.",
+        "Reference audio requires a supported role and a clear speaker/line assignment. It cannot override the target mode's media-combination rules."
+      ],
+      "v2v": [
+        "Describe the edit target, time interval and requested change. Preserve the remaining source action, camera and appearance according to user intent.",
+        "Differentiate editing an existing action from extending a video. For extension, describe the additional event after the existing endpoint.",
+        "Use target model metadata to check video-input limits and timing. V2V is tuning intent, not an invented API mode parameter."
+      ]
+    },
+    "diagnosis": [
+      "Return observed symptoms, evidence-based possible causes, the smallest useful prompt patch and a controlled retest.",
+      "Compare before/during/after the selected time interval. For warped stairs, inspect edge lines, number and spacing of steps, camera position and foot/hand contact points.",
+      "Distinguish source-frame conflict, overloaded or contradictory prompt, model capability limits, and unsupported API/media configuration.",
+      "For repeated blinking, replace repetitive eye-action wording with stable gaze and one explicit closing event when needed.",
+      "For background or geometry deformation during a fall/contact, simplify contact, use a smaller visible action, split at a meaningful edit or show a result state. Do not claim guaranteed repair.",
+      "For extra actors, props, cutaways or overlays, check source media facts and speech/edit instructions before appending long exclusion lists.",
+      "For unwanted environment rendering, describe the intended local material state and its spatial boundary. Avoid turning one local effect into an entire-scene weather event.",
+      "Retest one change at a time with the same approved source media and comparable parameters. Record what changed and inspect the actual interval."
+    ],
+    "audio": [
+      "Separate environmental sound, character speech and music when the user requests audio control.",
+      "If audio output is disabled, preserve that parameter as read-only context. Do not invent dialogue or voice identity from unheard audio.",
+      "Voice reference observations require actual accessible audio and a capable analysis model. Otherwise mark the voice facts as unverified.",
+      "Keep a character's speaker/voice association near its dialogue. Silent acting and off-screen narration must be identified per shot."
+    ]
+  }
+}

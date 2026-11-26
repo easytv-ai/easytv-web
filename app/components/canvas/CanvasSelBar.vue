@@ -2,7 +2,7 @@
 import type { GenerationModel, MediaAction } from '~/types/creative'
 import type { CanvasGroupLayout } from '~/utils/canvas-group'
 import { GROUP_COLORS, GROUP_LAYOUTS } from '~/utils/canvas-group'
-import { pickCanvasImageEditModel, pickImageUpscaleModel, pickVisionTextModel } from '~/utils/image-input'
+import { pickCanvasImageEditModel, pickVisionTextModel } from '~/utils/image-input'
 import { effectiveUnitPrice, estimateTaskPoints } from '~/utils/model-price'
 import { mediaBarItemState } from '~/utils/canvas-media-job'
 import { fillI18n } from '~/utils/i18n-fill'
@@ -43,17 +43,6 @@ const imageEditCost = computed(() => {
     return t('未定价')
   return estimateTaskPoints(effectiveUnitPrice(model, isMember.value), model.unit, 1)
 })
-
-/** 和 runUpscale 同一个模型。按张计费，2x / 4x 都是这一张的单价 */
-function upscaleCost(_scale: 2 | 4) {
-  const modelId = pickImageUpscaleModel(generationModels.value, '')
-  const model = generationModels.value.find(item => item.model === modelId)
-  if (!model)
-    return ''
-  if (!model.priced)
-    return t('未定价')
-  return estimateTaskPoints(effectiveUnitPrice(model, isMember.value), model.unit, 1)
-}
 
 const props = withDefaults(defineProps<{
   mode: 'pick' | 'group' | 'text' | 'image' | 'video' | 'audio'
@@ -139,7 +128,6 @@ const alignOpen = ref(false)
 const viewsOpen = ref(false)
 const editOpen = ref(false)
 const bgOpen = ref(false)
-const upscaleOpen = ref(false)
 const videoMenuOpen = ref('')
 const captureOpen = ref(false)
 const extractOpen = ref(false)
@@ -232,18 +220,19 @@ const IMAGE_BG = [
 ] as const
 
 const IMAGE_EDITS = [
-  { id: 'upscale', label: '图片高清', icon: 'i-lucide-scan-search', hd: true, more: true },
-  { id: 'crop', label: '裁剪', icon: 'i-lucide-crop' },
-  { id: 'grid-split', label: '宫格切分', icon: 'i-lucide-grid-3x3' },
+  { id: 'upscale', label: '图片高清', icon: 'i-lucide-scan-search', hd: true },
+  { id: 'crop', label: '裁剪', icon: 'i-lucide-crop', pin: true },
+  { id: 'grid-split', label: '宫格切分', icon: 'i-lucide-grid-3x3', pin: true },
   { id: 'flip', label: '旋转与镜像', icon: 'i-lucide-flip-horizontal-2' },
-  { id: 'brush', label: '画笔标记', icon: 'i-lucide-pen-line' },
+  { id: 'brush', label: '画笔标记', icon: 'i-lucide-pen-line', pin: true },
   { id: 'bg', label: '去除背景', icon: 'i-lucide-image', more: true },
   { id: 'outpaint', label: 'AI图像扩展', icon: 'i-lucide-expand' },
   { id: 'inpaint', label: '移除物体', icon: 'i-lucide-eraser' },
   { id: 'multiview', label: '多视角', icon: 'i-lucide-boxes' },
 ] as const
 
-const visibleImageEdits = computed(() => IMAGE_EDITS.filter(item => videoItemState(item.id).available))
+const visibleImagePins = computed(() => IMAGE_EDITS.filter(item => 'pin' in item && item.pin && videoItemState(item.id).available))
+const visibleImageEdits = computed(() => IMAGE_EDITS.filter(item => !('pin' in item && item.pin) && videoItemState(item.id).available))
 
 watch(() => [props.mode, props.left, props.top], () => {
   cancelHoverClose()
@@ -253,7 +242,6 @@ watch(() => [props.mode, props.left, props.top], () => {
   viewsOpen.value = false
   editOpen.value = false
   bgOpen.value = false
-  upscaleOpen.value = false
   videoMenuOpen.value = ''
   videoEditOpen.value = false
   captureOpen.value = false
@@ -276,7 +264,6 @@ function toggleColor() {
   viewsOpen.value = false
   editOpen.value = false
   bgOpen.value = false
-  upscaleOpen.value = false
   videoMenuOpen.value = ''
   colorOpen.value = !colorOpen.value
 }
@@ -287,7 +274,6 @@ function toggleLayout() {
   viewsOpen.value = false
   editOpen.value = false
   bgOpen.value = false
-  upscaleOpen.value = false
   videoMenuOpen.value = ''
   layoutOpen.value = !layoutOpen.value
 }
@@ -298,7 +284,6 @@ function toggleAlign() {
   viewsOpen.value = false
   editOpen.value = false
   bgOpen.value = false
-  upscaleOpen.value = false
   videoMenuOpen.value = ''
   alignOpen.value = !alignOpen.value
 }
@@ -327,7 +312,6 @@ function closeHoverMenus() {
   viewsOpen.value = false
   editOpen.value = false
   bgOpen.value = false
-  upscaleOpen.value = false
   videoMenuOpen.value = ''
   videoEditOpen.value = false
   captureOpen.value = false
@@ -340,7 +324,6 @@ function openViewsMenu() {
   layoutOpen.value = false
   editOpen.value = false
   bgOpen.value = false
-  upscaleOpen.value = false
   videoMenuOpen.value = ''
   viewsOpen.value = true
 }
@@ -409,33 +392,18 @@ function onVideoMenuItem(id: string) {
 
 function onEditItem(id: string) {
   if (id === 'bg') {
-    upscaleOpen.value = false
     bgOpen.value = !bgOpen.value
     return
   }
-  if (id === 'upscale') {
-    bgOpen.value = false
-    upscaleOpen.value = !upscaleOpen.value
-    return
-  }
   bgOpen.value = false
-  upscaleOpen.value = false
   editOpen.value = false
   emit('action', id)
 }
 
 function onBgItem(id: string) {
   bgOpen.value = false
-  upscaleOpen.value = false
   editOpen.value = false
   emit('action', id)
-}
-
-function onUpscaleItem(scale: 2 | 4) {
-  bgOpen.value = false
-  upscaleOpen.value = false
-  editOpen.value = false
-  emit('action', `upscale-${scale}x`)
 }
 
 /** 视频条「编辑」下拉的展开状态（与图片条编辑菜单同一套 hover 习惯） */
@@ -443,7 +411,7 @@ const videoEditOpen = ref(false)
 /** 任一向下展开的菜单都要抬到生成条上面，否则下半截会被检查器挡住 */
 const menuOpen = computed(() => Boolean(
   colorOpen.value || layoutOpen.value || alignOpen.value || viewsOpen.value || editOpen.value
-  || bgOpen.value || upscaleOpen.value || videoMenuOpen.value || videoEditOpen.value || captureOpen.value || extractOpen.value,
+  || bgOpen.value || videoMenuOpen.value || videoEditOpen.value || captureOpen.value || extractOpen.value,
 ))
 
 function openVideoEditMenu() {
@@ -453,7 +421,6 @@ function openVideoEditMenu() {
   viewsOpen.value = false
   editOpen.value = false
   bgOpen.value = false
-  upscaleOpen.value = false
   videoMenuOpen.value = ''
   videoEditOpen.value = true
 }
@@ -670,8 +637,16 @@ function toggleVideoEdit() {
           {{ t('深度提取') }}
         </button>
       </template>
-      <span class="canvas-selbar__div" />
+      <template v-for="item in visibleImagePins" :key="item.id">
+        <span class="canvas-selbar__div" />
+        <button type="button" @click="onEditItem(item.id)">
+          <UIcon :name="item.icon" class="size-4" />
+          {{ t(item.label) }}
+        </button>
+      </template>
+      <span v-if="visibleImageEdits.length" class="canvas-selbar__div" />
       <div
+        v-if="visibleImageEdits.length"
         class="canvas-selbar__color-wrap"
         @pointerenter="onMenuEnter(openEditMenu, $event)"
         @pointerleave="onMenuLeave"
@@ -686,7 +661,7 @@ function toggleVideoEdit() {
             <div
               v-if="item.id === 'bg'"
               class="canvas-selbar__fly"
-              @pointerenter="bgOpen = true; upscaleOpen = false"
+              @pointerenter="bgOpen = true"
               @pointerleave="bgOpen = false"
             >
               <button type="button" :class="{ 'is-on': bgOpen }" @click="onEditItem(item.id)">
@@ -706,38 +681,6 @@ function toggleVideoEdit() {
                   <i v-if="imageEditCost !== ''" class="canvas-selbar__cost">
                     <UIcon name="i-lucide-zap" class="size-3.5" />
                     {{ imageEditCost }}
-                  </i>
-                </button>
-              </div>
-            </div>
-            <div
-              v-else-if="item.id === 'upscale'"
-              class="canvas-selbar__fly"
-              @pointerenter="upscaleOpen = true; bgOpen = false"
-              @pointerleave="upscaleOpen = false"
-            >
-              <button type="button" :class="{ 'is-on': upscaleOpen }" @click="onEditItem(item.id)">
-                <UIcon :name="item.icon" class="size-4" />
-                <span class="canvas-selbar__label">
-                  {{ t(item.label) }}
-                  <i class="canvas-selbar__hd">HD</i>
-                </span>
-                <UIcon name="i-lucide-chevron-right" class="size-3.5 canvas-selbar__chev" />
-              </button>
-              <div v-if="upscaleOpen" class="canvas-selbar__pop canvas-selbar__pop--list canvas-selbar__pop--menu canvas-selbar__pop--fly">
-                <button
-                  v-for="scale in [2, 4] as const"
-                  :key="scale"
-                  type="button"
-                  @click="onUpscaleItem(scale)"
-                >
-                  <span class="canvas-selbar__label">
-                    <i class="canvas-selbar__hd">HD</i>
-                    {{ scale }}x
-                  </span>
-                  <i v-if="upscaleCost(scale) !== ''" class="canvas-selbar__cost">
-                    <UIcon name="i-lucide-zap" class="size-3.5" />
-                    {{ upscaleCost(scale) }}
                   </i>
                 </button>
               </div>

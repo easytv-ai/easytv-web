@@ -15,6 +15,7 @@ import {
   isFramePullNode,
   isDepthMotionNode,
   isHdNode,
+  isImageHdNode,
   isRetakeInProgress,
   isSilentNode,
   FRAME_PULL_STAGE_SIZE,
@@ -116,6 +117,15 @@ const imageDisplaySrc = computed(() => {
     return src
   return ossImageDisplayUrl(src, OSS_IMAGE_DISPLAY_WIDTH)
 })
+/** 正在这张图上画笔标记时先藏起已保存的笔迹，避免和编辑层各画各的 */
+const canvasMarkNodeId = useState('canvas-mark-node-id', () => '')
+/** 画笔标记的笔迹和文字，盖在原图上 */
+const markInkSrc = computed(() => {
+  const url = props.data.markInkUrl?.trim() || ''
+  if (canvasMarkNodeId.value === props.id || !isImage.value || !imageSrc.value || !url || !isMediaUrl(url))
+    return ''
+  return resolveMediaUrl(url)
+})
 const videoSrc = computed(() => {
   const value = props.data.content?.trim() || ''
   if (props.data.kind !== 'video' || !value || !isMediaUrl(value))
@@ -130,6 +140,7 @@ const audioSrc = computed(() => {
 })
 const isBlank = computed(() => isMediaCard.value && !isDirector.value && !isStoryboard.value && !imageSrc.value && !videoSrc.value && !audioSrc.value)
 const isHd = computed(() => isHdNode(props.data))
+const isImageHd = computed(() => isImageHdNode(props.data))
 const isRetake = computed(() => isRetakeInProgress(props.data))
 /** 重拍卡片上标出改的是哪几秒，避免看起来像整段又生成了一条 */
 const retakeSpanLabel = computed(() => {
@@ -896,7 +907,10 @@ onMounted(() => {
           </div>
         </div>
         <template v-else>
-          <span v-if="isHd && !taskBusy" class="cnode__hd-hint">
+          <span v-if="isImageHd && !taskBusy" class="cnode__hd-hint">
+            {{ t('配置参数生成高清图像') }}
+          </span>
+          <span v-else-if="isHd && !taskBusy" class="cnode__hd-hint">
             {{ t('配置参数生成高清视频') }}
           </span>
           <div v-else-if="isMediaCard && nodeUploading && !taskBusy" class="cnode__uploading nodrag nopan nowheel">
@@ -938,6 +952,13 @@ onMounted(() => {
             <span v-if="isText" class="cnode__hint">{{ t('双击编辑') }}</span>
           </template>
         </template>
+        <img
+          v-if="markInkSrc"
+          class="cnode__mark-ink"
+          :src="markInkSrc"
+          alt=""
+          draggable="false"
+        >
         <span v-if="isRetake && data.retakeParams?.sourceLabel && videoSrc" class="cnode__src-chip">
           <UIcon name="i-lucide-film" class="size-3" />
           {{ data.retakeParams.sourceLabel }}<template v-if="retakeSpanLabel"> · {{ retakeSpanLabel }}</template>

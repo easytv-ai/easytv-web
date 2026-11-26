@@ -3239,6 +3239,81 @@ html.dark .camera-lib__search {
   width: min(94vw, 760px);
 }
 
+.canvas-optimize.is-tune {
+  width: min(94vw, 860px);
+}
+
+.canvas-tune {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 0 20px 12px;
+}
+
+.canvas-tune__grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.canvas-tune__field {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 6px;
+  color: var(--st-muted);
+  font-size: 12px;
+}
+
+.canvas-tune__field textarea,
+.canvas-tune__field select {
+  width: 100%;
+  border: 1px solid var(--st-border);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--st-text);
+  font: inherit;
+  font-size: 13px;
+  padding: 8px 10px;
+}
+
+.canvas-tune__field textarea {
+  resize: vertical;
+  line-height: 1.5;
+}
+
+.canvas-tune__check {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  color: var(--st-text-soft);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.canvas-tune__media {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  color: var(--st-muted);
+  font-size: 12px;
+}
+
+.canvas-tune__analysis {
+  margin: 0;
+  color: var(--st-muted);
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+@media (max-width: 720px) {
+  .canvas-tune__grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 .canvas-optimize__points {
   display: inline-block;
   margin-left: 8px;

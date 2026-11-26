@@ -932,7 +932,7 @@ async function onImportFile(event: Event) {
   // 去掉别人账号里的任务状态与资产 ID，只保留内容、提示词与媒体地址
   for (const node of graph.nodes as Array<{ data?: Record<string, unknown> }>) {
     if (node.data) {
-      for (const k of ['taskId', 'taskStatus', 'taskProgress', 'taskError', 'assetId', 'refAssetId', 'styleAssetId', 'markAssetId', 'voiceAssetId', 'castAssetId', 'setAssetId'])
+      for (const k of ['taskId', 'taskStatus', 'taskProgress', 'taskError', 'assetId', 'refAssetId', 'styleAssetId', 'markAssetId', 'markInkAssetId', 'voiceAssetId', 'castAssetId', 'setAssetId'])
         delete node.data[k]
     }
   }

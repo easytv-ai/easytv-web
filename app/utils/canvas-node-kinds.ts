@@ -37,9 +37,12 @@ export type CanvasNodeData = {
   /** 风格参考图 */
   styleAssetId?: number
   styleUrl?: string
-  /** 局部修改蒙版 */
+  /** 局部修改蒙版（白底区域，提交时当 mask） */
   markAssetId?: number
   markUrl?: string
+  /** 画笔标记的笔迹和文字，透明底，盖在图片上 */
+  markInkAssetId?: number
+  markInkUrl?: string
   /** 元素标记（点选图片局部后的名称框），随画布保存 */
   markElements?: import('~/utils/canvas-mark').CanvasMarkElement[]
   /**
@@ -118,6 +121,11 @@ export type CanvasNodeData = {
     resolution: '1080P' | '2K' | '4K'
     interp: string
     slowmo: string
+  }
+  /** 图片高清：原图下方的空节点，选倍数后再提交。6 倍按模型上限出 4K */
+  imageHdParams?: {
+    model: string
+    scale: 2 | 4 | 6
   }
   /** 片段重拍：选中的时间段，随画布保存 */
   retakeParams?: {
@@ -214,8 +222,42 @@ export const HD_DEFAULT_PARAMS: NonNullable<CanvasNodeData['hdParams']> = {
 
 export const HD_RESOLUTION_ITEMS = ['1080P', '2K', '4K'] as const
 
-export function isHdNode(data?: Pick<CanvasNodeData, 'tag' | 'hdParams'> | null) {
-  return Boolean(data && (data.tag === '高清' || data.hdParams))
+export function isHdNode(data?: Pick<CanvasNodeData, 'kind' | 'tag' | 'hdParams'> | null) {
+  if (!data || data.kind === 'image')
+    return false
+  return Boolean(data.tag === '高清' || data.hdParams)
+}
+
+/** 图片高清节点：点「图片高清」后挂在原图下方，参数在节点底下的面板里 */
+export function isImageHdNode(data?: Pick<CanvasNodeData, 'kind' | 'tag' | 'imageHdParams'> | null) {
+  return Boolean(data && data.kind === 'image' && (data.tag === '高清' || data.imageHdParams))
+}
+
+/**
+ * 上传或从资产库放上来的素材：已经有文件，但从来不是一条生成。
+ * 这种节点不挂底部生成框。生成过、失败待重跑、写了提示词的副本，都不算素材。
+ */
+/** 智能编辑等改图结果：成片挂在旁边，不再打开底部生成框 */
+const QUIET_IMAGE_TAGS = new Set(['智能编辑', '移除物体', '图片编辑', '旋转与镜像'])
+
+export function isQuietImageResult(data?: Partial<CanvasNodeData> | null) {
+  return Boolean(data && data.kind === 'image' && data.tag && QUIET_IMAGE_TAGS.has(data.tag))
+}
+
+export function isCanvasSourceAsset(data?: Partial<CanvasNodeData> | null) {
+  if (!data)
+    return false
+  const kind = data.kind
+  if (kind !== 'image' && kind !== 'video' && kind !== 'audio' && kind !== 'panorama')
+    return false
+  const content = String(data.content || '').trim()
+  if (!isMediaUrl(content))
+    return false
+  if (Number(data.taskId) > 0 || data.taskStatus)
+    return false
+  if (String(data.prompt || '').trim() || String(data.talking?.script || '').trim())
+    return false
+  return true
 }
 
 /**
@@ -337,6 +379,7 @@ export function cloneContentNodeData(data: CanvasNodeData, extra?: Partial<Canva
     talking: data.talking ? { ...data.talking } : undefined,
     storyboardShots: data.storyboardShots?.map(item => ({ ...item })),
     hdParams: data.hdParams ? { ...data.hdParams } : undefined,
+    imageHdParams: data.imageHdParams ? { ...data.imageHdParams } : undefined,
     retakeParams: data.retakeParams ? { ...data.retakeParams } : undefined,
     frameParams: data.frameParams
       ? { ...data.frameParams, dims: data.frameParams.dims ? [...data.frameParams.dims] : undefined }

@@ -30,6 +30,8 @@ export type CanvasSelActionApi = {
   outpaint: () => void
   flip: () => void
   runUpscale: (scale: UpscaleScale) => void
+  /** 图片高清：在图片上打开 2x / 4x，不直接提交 */
+  openUpscale: () => void
   runRemoveBg: (name: 'bg-object' | 'bg-person') => void
   runThreeView: (name: 'view-char' | 'view-face' | 'view-prop') => void
   hd: () => void
@@ -123,8 +125,10 @@ export function dispatchCanvasSelAction(name: string, api: CanvasSelActionApi) {
     api.runUpscale(upscaleScale)
     return
   }
-  if (name === 'upscale')
+  if (name === 'upscale') {
+    api.openUpscale()
     return
+  }
   if (name === 'bg-object' || name === 'bg-person') {
     api.runRemoveBg(name)
     return

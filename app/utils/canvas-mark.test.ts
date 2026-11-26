@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { dilateMarked, displayedClickToImage, expandMarkTokens, insertMarkToken, mapMarkBox, markGridToMask, markHitCrop, markHitInstruction, markHitLocalPoint, parseMarkHit, placeMarkBox, stripMarkToken } from './canvas-mark'
+import { dilateMarked, displayedClickToImage, expandMarkTokens, fittedMediaRect, insertMarkToken, mapMarkBox, markGridToMask, markHitCrop, markHitInstruction, markHitLocalPoint, parseMarkHit, placeMarkBox, stagePaintRect, stripMarkToken } from './canvas-mark'
 
 describe('mark token', () => {
   it('追加到文末', () => {
@@ -17,6 +17,44 @@ describe('mark token', () => {
 
   it('生成时展开成名称', () => {
     expect(expandMarkTokens('锁定{{mark:mark-1}}', [{ id: 'mark-1', name: '标记 1', sourceNodeId: 'n1', box: { x: 0, y: 0, w: 1, h: 1 } }])).toBe('锁定标记 1')
+  })
+})
+
+describe('fittedMediaRect', () => {
+  it('竖图放进扁卡片时上下留白，笔迹跟画面走不跟卡片走', () => {
+    const rect = fittedMediaRect({ left: 10, top: 20, width: 300, height: 200 }, 900, 1600)
+    expect(rect.height).toBeCloseTo(200)
+    expect(rect.width).toBeCloseTo(112.5)
+    expect(rect.left).toBeCloseTo(10 + (300 - 112.5) / 2)
+    expect(rect.top).toBeCloseTo(20)
+  })
+
+  it('比例一致时铺满盒子', () => {
+    expect(fittedMediaRect({ left: 0, top: 0, width: 320, height: 480 }, 1080, 1620)).toEqual({
+      left: 0,
+      top: 0,
+      width: 320,
+      height: 480,
+    })
+  })
+})
+
+describe('stagePaintRect', () => {
+  it('画布放大两倍时，笔迹仍落在节点里的画面上，不跟屏幕像素走', () => {
+    const rect = stagePaintRect({
+      stageScreen: { left: 100, top: 80, width: 600, height: 400 },
+      stageLayoutWidth: 300,
+      stageLayoutHeight: 200,
+      borderLeft: 1,
+      borderTop: 1,
+      imageScreen: { left: 102, top: 82, width: 596, height: 396 },
+      imageWidth: 900,
+      imageHeight: 1600,
+    })
+    expect(rect.height).toBeCloseTo(198)
+    expect(rect.width).toBeCloseTo(198 * 900 / 1600)
+    expect(rect.top).toBeCloseTo(0)
+    expect(rect.left).toBeCloseTo((298 - rect.width) / 2)
   })
 })
 

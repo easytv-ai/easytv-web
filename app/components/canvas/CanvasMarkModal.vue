@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import taskApi from '~/api/task'
 import type { GenerationModel } from '~/types/creative'
-import { markGridToMask } from '~/utils/canvas-mark'
+import { stagePaintRect } from '~/utils/canvas-mark'
 import { listImageEditModels } from '~/utils/image-input'
 import { effectiveUnitPrice, estimateTaskPoints, modelPromoDisplay } from '~/utils/model-price'
 import { shortModelName } from '~/utils/model-name'
@@ -9,8 +9,6 @@ import { shortModelName } from '~/utils/model-name'
 const { t } = useI18n()
 const toast = useToast()
 const { isMember } = useWallet()
-/** 蒙版计算网格的长边（像素级泛洪在 4K 图上太慢，蒙版边缘粗一点不影响局部重绘） */
-const MASK_GRID = 512
 /** 标记画布的工作尺寸上限：按原图尺寸建 4K 画布时每步撤销快照约 64MB，30 步能吃掉 2GB；导出蒙版时再放大回原图尺寸 */
 const WORK_MAX = 2048
 
@@ -20,18 +18,24 @@ const props = withDefaults(defineProps<{
   /** mark = 画笔标注；erase = 涂抹擦除（移除物体） */
   mode?: 'mark' | 'erase'
   maskUrl?: string
+  /** 带回来的是彩色笔迹，按原色画回画布，不要染成单色 */
+  preserveColors?: boolean
   submitting?: boolean
+  /** 正在标记的节点，用来量画面实际显示区域 */
+  nodeId?: string
   box?: { left: number, top: number, width: number, height: number } | null
 }>(), {
   mode: 'mark',
   maskUrl: '',
+  preserveColors: false,
   submitting: false,
+  nodeId: '',
   box: null,
 })
 
 const emit = defineEmits<{
   close: []
-  confirm: [blob: Blob, model?: string]
+  confirm: [blob: Blob, model?: string, ink?: Blob]
 }>()
 
 type MarkTool = 'pen' | 'eraser' | 'rect' | 'arrow' | 'text'
@@ -111,8 +115,104 @@ let checkerTile: HTMLCanvasElement | null = null
 const MASK_TINT = 'rgba(225, 29, 119, 0.62)'
 const DEFAULT_BRUSH = 12
 
+/**
+ * 画笔画在节点内部，和图片同一层（LibTV 的标注也是这样）。
+ * 不在屏幕上另盖一块：那块盒子和卡片对不齐时，右边会裁出另一张图。
+ */
+const paintStyle = ref<Record<string, string>>({})
+const toolbarBox = ref<{ left: number, top: number, width: number, height: number } | null>(null)
+const stageSelector = computed(() => {
+  if (props.mode !== 'mark' || !props.nodeId)
+    return ''
+  return `.vue-flow__node[data-id="${CSS.escape(props.nodeId)}"] .cnode__stage`
+})
+
+function screenMedia() {
+  const id = props.nodeId
+  if (!id)
+    return null
+  const node = document.querySelector(`.vue-flow__node[data-id="${CSS.escape(id)}"]`)
+  return node?.querySelector('img.cnode__media') as HTMLImageElement | null
+}
+
+let paintObserver: ResizeObserver | null = null
+let fittingPaint = false
+const paintWait = new WeakSet<HTMLImageElement>()
+
+function layoutPaintCanvas() {
+  if (!props.open || props.mode !== 'mark')
+    return false
+  const img = screenMedia()
+  const stage = img?.closest('.cnode__stage') as HTMLElement | null
+  if (!img || !stage)
+    return false
+  if (!img.naturalWidth || !img.naturalHeight) {
+    if (!paintWait.has(img)) {
+      paintWait.add(img)
+      img.addEventListener('load', () => {
+        paintWait.delete(img)
+        fitCanvas()
+      }, { once: true })
+    }
+    return false
+  }
+  const stageScreen = stage.getBoundingClientRect()
+  const imageScreen = img.getBoundingClientRect()
+  if (stageScreen.width < 2 || stageScreen.height < 2 || imageScreen.width < 2 || imageScreen.height < 2)
+    return false
+  const stageStyle = getComputedStyle(stage)
+  const fit = getComputedStyle(img).objectFit === 'cover' ? 'cover' : 'contain'
+  const local = stagePaintRect({
+    stageScreen,
+    stageLayoutWidth: stage.offsetWidth,
+    stageLayoutHeight: stage.offsetHeight,
+    borderLeft: Number.parseFloat(stageStyle.borderLeftWidth) || 0,
+    borderTop: Number.parseFloat(stageStyle.borderTopWidth) || 0,
+    imageScreen,
+    imageWidth: img.naturalWidth,
+    imageHeight: img.naturalHeight,
+    fit,
+  })
+  const style = {
+    left: `${local.left}px`,
+    top: `${local.top}px`,
+    width: `${Math.max(local.width, 1)}px`,
+    height: `${Math.max(local.height, 1)}px`,
+    right: 'auto',
+    bottom: 'auto',
+  }
+  paintStyle.value = style
+  const canvas = canvasRef.value
+  if (canvas)
+    Object.assign(canvas.style, style)
+  const rect = canvas?.getBoundingClientRect()
+  if (rect && rect.width > 2 && rect.height > 2)
+    toolbarBox.value = { left: rect.left, top: rect.top, width: rect.width, height: rect.height }
+  else {
+    nextTick(() => {
+      const box = canvasRef.value?.getBoundingClientRect()
+      if (!box || box.width < 2 || box.height < 2)
+        return
+      toolbarBox.value = { left: box.left, top: box.top, width: box.width, height: box.height }
+    })
+  }
+  const size = paintBitmapSize()
+  if (!fittingPaint && size && canvas && canvas.dataset.paintKey !== `${size.w}x${size.h}`)
+    fitCanvas()
+  return true
+}
+
+function watchPaintBox() {
+  paintObserver?.disconnect()
+  const img = screenMedia()
+  if (!img || typeof ResizeObserver === 'undefined')
+    return
+  paintObserver = new ResizeObserver(() => layoutPaintCanvas())
+  paintObserver.observe(img)
+}
+
 const layerStyle = computed(() => {
-  const box = props.box
+  const box = props.mode === 'mark' ? (toolbarBox.value || props.box) : props.box
   if (!box)
     return null
   return {
@@ -411,9 +511,34 @@ function tintOverlay(c: CanvasRenderingContext2D, w: number, h: number) {
   c.putImageData(data, 0, 0)
 }
 
-function fitCanvas() {
-  const canvas = canvasRef.value
+function paintBitmapSize() {
+  const shown = props.mode === 'mark' ? screenMedia() : null
   const img = imgRef.value
+  const nw = shown?.naturalWidth || img?.naturalWidth || 0
+  const nh = shown?.naturalHeight || img?.naturalHeight || 0
+  if (!nw || !nh)
+    return null
+  const workScale = Math.min(1, WORK_MAX / Math.max(nw, nh))
+  return {
+    w: Math.max(1, Math.round(nw * workScale)),
+    h: Math.max(1, Math.round(nh * workScale)),
+  }
+}
+
+function fitCanvas() {
+  if (fittingPaint)
+    return
+  fittingPaint = true
+  try {
+    fitCanvasNow()
+  }
+  finally {
+    fittingPaint = false
+  }
+}
+
+function fitCanvasNow() {
+  const canvas = canvasRef.value
   if (!canvas)
     return
   if (props.mode === 'erase') {
@@ -426,11 +551,17 @@ function fitCanvas() {
     redrawSmear()
     return
   }
-  if (!img?.naturalWidth)
+  const size = paintBitmapSize()
+  if (!size)
     return
-  const workScale = Math.min(1, WORK_MAX / Math.max(img.naturalWidth, img.naturalHeight))
-  canvas.width = Math.max(1, Math.round(img.naturalWidth * workScale))
-  canvas.height = Math.max(1, Math.round(img.naturalHeight * workScale))
+  if (props.mode === 'mark' && !layoutPaintCanvas())
+    return
+  if (props.mode === 'mark' && canvas.dataset.paintKey === `${size.w}x${size.h}`)
+    return
+  canvas.width = size.w
+  canvas.height = size.h
+  if (props.mode === 'mark')
+    canvas.dataset.paintKey = `${size.w}x${size.h}`
   const c = canvas.getContext('2d', { willReadFrequently: true })
   if (!c)
     return
@@ -441,7 +572,8 @@ function fitCanvas() {
   mask.crossOrigin = 'anonymous'
   mask.onload = () => {
     c.drawImage(mask, 0, 0, canvas.width, canvas.height)
-    tintOverlay(c, canvas.width, canvas.height)
+    if (!props.preserveColors)
+      tintOverlay(c, canvas.width, canvas.height)
   }
   mask.src = props.maskUrl
 }
@@ -505,7 +637,7 @@ function commitText() {
     return
   pushUndo()
   applyStroke(c, 'shape')
-  c.font = '700 18px ui-sans-serif, system-ui, sans-serif'
+  c.font = '700 16px ui-sans-serif, system-ui, sans-serif'
   c.textBaseline = 'top'
   c.fillText(value, draft.x, draft.y)
 }
@@ -644,12 +776,31 @@ function redo() {
   c.putImageData(snap, 0, 0)
 }
 
-/**
- * 导出局部修改蒙版（白色不透明 = 要改，后端 OpenAIMaskFromMark 反转 alpha）。
- * 标记是细线 / 矩形框 / 箭头 / 文字：在缩小的网格上把圈住的区域填满、线条向外膨胀，
- * 否则只会重绘一圈 2px 的线（markGridToMask）。
- */
-function confirm() {
+function canvasPng(canvas: HTMLCanvasElement) {
+  return new Promise<Blob | null>((resolve) => {
+    canvas.toBlob(blob => resolve(blob), 'image/png')
+  })
+}
+
+/** 笔迹按画面比例导出。原图尺寸读不到时用画布本身，避免导出成 0 像素 */
+function exportInk(src: HTMLCanvasElement) {
+  const natural = imgRef.value
+  const natW = natural?.naturalWidth || 0
+  const natH = natural?.naturalHeight || 0
+  const srcAspect = src.width / Math.max(src.height, 1)
+  const natAspect = natW > 0 && natH > 0 ? natW / natH : 0
+  const same = natAspect > 0 && Math.abs(srcAspect - natAspect) / natAspect < 0.01
+  const out = document.createElement('canvas')
+  out.width = Math.max(1, same ? natW : src.width)
+  out.height = Math.max(1, same ? natH : src.height)
+  const c = out.getContext('2d')
+  if (!c)
+    return canvasPng(src)
+  c.drawImage(src, 0, 0, out.width, out.height)
+  return canvasPng(out).then(blob => blob || canvasPng(src))
+}
+
+async function confirm() {
   if (props.submitting)
     return
   commitText()
@@ -700,52 +851,26 @@ function confirm() {
   const src = canvasRef.value
   if (!src || !src.width || !src.height)
     return
-  const scale = Math.min(1, MASK_GRID / Math.max(src.width, src.height))
-  const gw = Math.max(1, Math.round(src.width * scale))
-  const gh = Math.max(1, Math.round(src.height * scale))
-  const small = document.createElement('canvas')
-  small.width = gw
-  small.height = gh
-  const sc = small.getContext('2d', { willReadFrequently: true })
-  if (!sc)
-    return
-  sc.drawImage(src as unknown as CanvasImageSource, 0, 0, gw, gh)
-  const px = sc.getImageData(0, 0, gw, gh)
-  const marked = new Uint8Array(gw * gh)
-  let count = 0
-  for (let i = 0; i < marked.length; i++) {
-    if ((px.data[i * 4 + 3] ?? 0) > 12) {
-      marked[i] = 1
-      count++
+  const sample = src.getContext('2d', { willReadFrequently: true })?.getImageData(0, 0, src.width, src.height)
+  let marked = 0
+  if (sample) {
+    for (let i = 3; i < sample.data.length; i += 4) {
+      if ((sample.data[i] ?? 0) > 12) {
+        marked++
+        break
+      }
     }
   }
-  if (!count) {
+  if (!marked) {
     emit('close')
     return
   }
-  const mask = markGridToMask(marked, gw, gh, Math.max(gw, gh) * 0.015)
-  for (let i = 0; i < mask.length; i++) {
-    const o = i * 4
-    const on = mask[i] ? 255 : 0
-    px.data[o] = 255
-    px.data[o + 1] = 255
-    px.data[o + 2] = 255
-    px.data[o + 3] = on
-  }
-  sc.putImageData(px, 0, 0)
-  const natural = imgRef.value
-  const out = document.createElement('canvas')
-  out.width = natural?.naturalWidth || src.width
-  out.height = natural?.naturalHeight || src.height
-  const c = out.getContext('2d')
-  if (!c)
+  const ink = await exportInk(src)
+  if (!ink) {
+    toast.add({ title: t('笔迹导出失败，请重试'), color: 'error', close: false, progress: false, orientation: 'horizontal' })
     return
-  c.imageSmoothingEnabled = false
-  c.drawImage(small, 0, 0, out.width, out.height)
-  out.toBlob((blob) => {
-    if (blob)
-      emit('confirm', blob)
-  }, 'image/png')
+  }
+  emit('confirm', ink, undefined, ink)
 }
 
 function onDocPointer(event: PointerEvent) {
@@ -810,8 +935,16 @@ watch(() => [props.open, props.src, props.maskUrl, props.mode], () => {
   startPt = null
   lastPt = null
   shapeSnap = null
-  nextTick(fitCanvas)
+  nextTick(() => {
+    watchPaintBox()
+    layoutPaintCanvas()
+    fitCanvas()
+  })
 }, { immediate: true })
+
+watch(() => [props.box?.left, props.box?.top, props.box?.width, props.box?.height], () => {
+  layoutPaintCanvas()
+})
 
 watch(editModels, syncModel, { immediate: true })
 
@@ -827,6 +960,7 @@ onMounted(() => {
   }
 })
 onUnmounted(() => {
+  paintObserver?.disconnect()
   window.removeEventListener('keydown', onKey, true)
   document.removeEventListener('pointerdown', onDocPointer, true)
 })
@@ -842,7 +976,6 @@ defineExpose({ confirm })
         :src="src"
         alt=""
         class="canvas-smart__probe"
-        :crossorigin="mode === 'mark' ? 'anonymous' : undefined"
         @load="fitCanvas"
       >
       <div
@@ -965,16 +1098,6 @@ defineExpose({ confirm })
             }"
           />
         </div>
-        <canvas
-          v-else
-          ref="canvasRef"
-          class="canvas-mark__paint nodrag nopan nowheel"
-          :class="{ 'is-text': tool === 'text', 'is-erase': tool === 'eraser' }"
-          @pointerdown.prevent.stop="onDown"
-          @pointermove.prevent="onMove"
-          @pointerup="onUp"
-          @pointercancel="onUp"
-        />
         <input
           v-if="textDraft"
           ref="textInputRef"
@@ -1055,5 +1178,17 @@ defineExpose({ confirm })
         </div>
       </div>
     </template>
+    <Teleport v-if="open && mode === 'mark' && stageSelector" :to="stageSelector">
+      <canvas
+        ref="canvasRef"
+        class="cnode__mark-paint nodrag nopan nowheel"
+        :class="{ 'is-text': tool === 'text', 'is-erase': tool === 'eraser' }"
+        :style="paintStyle"
+        @pointerdown.prevent.stop="onDown"
+        @pointermove.prevent="onMove"
+        @pointerup="onUp"
+        @pointercancel="onUp"
+      />
+    </Teleport>
   </Teleport>
 </template>
