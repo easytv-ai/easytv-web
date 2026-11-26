@@ -8,7 +8,8 @@ import type { GenerationModel, GenerationModelDetail, GeneratePayload, NodeCandi
 import { modelKeepInfo } from '~/utils/canvas-reroll'
 import { effectiveUnitPrice, estimateSecondDuration, estimateTaskPoints, modelPromoDisplay } from '~/utils/model-price'
 import { canvasImageSpec, canvasParamEnum } from '~/utils/canvas-image-spec'
-import { canvasVideoSpec } from '~/utils/canvas-video-spec'
+import { canvasVideoExtraFields, canvasVideoSpec } from '~/utils/canvas-video-spec'
+import { canvasActiveVideoMode, canvasModeLimitText, canvasRefSupport, canvasThumbIssue, canvasVideoModes, type CanvasRefRole } from '~/utils/canvas-reference-support'
 import { prettyModelSlug, shortModelName } from '~/utils/model-name'
 import { resolveCatalogModel } from '~/utils/canvas-catalog-model'
 import { hasVideoReference } from '~/utils/canvas-viral'
@@ -121,12 +122,20 @@ const DIRECTOR_CHIPS = [
 ] as const
 
 const VIDEO_MODES = [
-  { id: 'reference', label: t('全能参考') },
-  { id: 'fl2v', label: t('首尾帧') },
-  { id: 'i2v', label: t('首帧') },
-  { id: 'talking', label: t('口播') },
+  { id: 't2v', label: t('文生视频'), icon: 'i-lucide-type' },
+  { id: 'i2v', label: t('图生视频'), icon: 'i-lucide-image' },
+  { id: 'fl2v', label: t('首尾帧'), icon: 'i-lucide-gallery-horizontal-end' },
+  { id: 'imageRef', label: t('图片参考'), icon: 'i-lucide-image' },
+  { id: 'reference', label: t('全能参考'), icon: 'i-lucide-images' },
+  { id: 'extend', label: t('视频续写'), icon: 'i-lucide-clapperboard' },
+  { id: 'talking', label: t('口播'), icon: 'i-lucide-mic' },
 ] as const
 type VideoModeId = (typeof VIDEO_MODES)[number]['id']
+
+function normalizeVideoMode(mode: unknown): VideoModeId {
+  const value = String(mode || 'reference')
+  return VIDEO_MODES.some(item => item.id === value) ? value as VideoModeId : 'reference'
+}
 const EXTRA_THUMB_KEYS = new Set(['style', 'cast', 'set', 'voice'])
 
 const QUALITY_ITEMS = [
@@ -377,11 +386,11 @@ const CHIP_ON_LABEL: Record<string, string> = {
   fx: t('已选特效'),
   lens: t('已配镜头'),
 }
-const videoMode = ref<VideoModeId>(VIDEO_MODES.some(item => item.id === props.videoMode) ? props.videoMode as VideoModeId : 'reference')
+const videoMode = ref<VideoModeId>(normalizeVideoMode(props.videoMode))
 /** 口播模式（API.md 24.9）：台词 → 固定机位口播提示词，只列原生带声的模型 */
-const isTalkingMode = computed(() => isVideo.value && videoMode.value === 'talking')
+const isTalkingMode = computed(() => isVideo.value && activeMode.value === 'talking')
 /** 全能参考连了参考视频：只列能吃 reference_video 的模型（能力位 video_reference），否则提交到网关才被拒 */
-const hasRefVideo = computed(() => isVideo.value && videoMode.value === 'reference' && props.attachThumbs.some(item => item.kind === 'video'))
+const hasRefVideo = computed(() => isVideo.value && (activeMode.value === 'reference' || activeMode.value === 'extend') && props.attachThumbs.some(item => item.kind === 'video'))
 /** 点亮后的文案：风格库带上风格名，其余走静态表 */
 function chipOnLabel(chip: { key: string, label: string }) {
   if (chip.key === 'stylelib')
@@ -395,8 +404,8 @@ function chipOn(key: string) {
     return Boolean(props.chipState.ref || props.refUrl)
   return Boolean(props.chipState[key])
 }
-const isFl2vMode = computed(() => isVideo.value && videoMode.value === 'fl2v')
-const isFrameMode = computed(() => isVideo.value && (videoMode.value === 'fl2v' || videoMode.value === 'i2v'))
+const isFl2vMode = computed(() => isVideo.value && activeMode.value === 'fl2v')
+const isFrameMode = computed(() => isVideo.value && (activeMode.value === 'fl2v' || activeMode.value === 'i2v'))
 const refThumbs = computed(() => props.attachThumbs.filter(item => !EXTRA_THUMB_KEYS.has(item.key) && item.key !== 'last'))
 const extraThumbs = computed(() => props.attachThumbs.filter(item => EXTRA_THUMB_KEYS.has(item.key)))
 const firstThumb = computed(() => props.attachThumbs.find(item => item.key === 'first') || refThumbs.value[0] || null)
@@ -407,9 +416,20 @@ const lastThumb = computed(() => {
   const firstUrl = firstThumb.value?.url
   return refThumbs.value.find(item => item.url && item.url !== firstUrl) || null
 })
-const displayThumbs = computed(() => isFrameMode.value
-  ? extraThumbs.value
-  : props.attachThumbs.filter(item => item.key !== 'last'))
+const displayThumbs = computed(() => {
+  if (!isFrameMode.value)
+    return props.attachThumbs.filter(item => item.key !== 'last')
+  // 首帧 / 尾帧已经单独占槽，剩下的图、视频留在条上打叉，让人看到这个模式吃不下
+  const used = new Set<string>(['first'])
+  if (firstThumb.value)
+    used.add(firstThumb.value.key)
+  if (isFl2vMode.value) {
+    used.add('last')
+    if (lastThumb.value)
+      used.add(lastThumb.value.key)
+  }
+  return props.attachThumbs.filter(item => !used.has(item.key))
+})
 const chips = computed(() => {
   if (isVideo.value)
     return VIDEO_CHIPS
@@ -576,7 +596,7 @@ const currentModel = computed<ModelOption>(() => {
     return { id: modelId.value, name: prettyModelSlug(modelId.value) || modelId.value, desc: '' }
   return models.value[0] ?? { id: '', name: noModelsText.value.title, desc: noModelsText.value.desc }
 })
-const currentMode = computed(() => VIDEO_MODES.find(item => item.id === videoMode.value) ?? VIDEO_MODES[0])
+const currentMode = computed(() => VIDEO_MODES.find(item => item.id === activeMode.value) ?? VIDEO_MODES[0]!)
 const qualityLabel = computed(() => QUALITY_ITEMS.find(item => item.id === quality.value)?.label ?? t('标准画质'))
 function ratioLabel(item: string) {
   const key = item.trim().toLowerCase()
@@ -627,6 +647,135 @@ const imageSpec = computed(() => {
   const detail = peekModelDetail(modelId.value)
   return canvasImageSpec(isImage.value && !isPanorama.value && detail?.params ? detail : null)
 })
+/** 视频参数卡没画的字段（例如返回尾帧），和图片同一套控件 */
+const videoExtra = computed(() => {
+  void modelDetailTick.value
+  if (!isVideo.value && !isDirector.value)
+    return []
+  const detail = peekModelDetail(modelId.value)
+  return canvasVideoExtraFields(detail?.params ? detail : null)
+})
+/**
+ * 参考素材能力。详情里的 input_references 说了算；
+ * 图片模型没有这张表时看 image_input。还没加载完时 known 为 false，不打叉。
+ */
+const refSupport = computed(() => {
+  void modelDetailTick.value
+  const detail = peekModelDetail(modelId.value)
+  const listed = generationModels.value.find(item => item.model === modelId.value)
+  return canvasRefSupport({
+    kind: isDirector.value ? 'director' : props.kind,
+    detail: detail?.params ? detail : null,
+    imageInput: detail?.image_input || listed?.image_input,
+  })
+})
+function refMissing(role: CanvasRefRole) {
+  const support = refSupport.value
+  return support.known && !support.roles.has(role)
+}
+function thumbBan(item: { key: string, kind: 'image' | 'video' | 'audio' }) {
+  if (isFrameMode.value && item.kind === 'image' && item.key !== 'first' && item.key !== 'last')
+    return t(activeMode.value === 'i2v' ? '图生视频只吃一张图' : '首尾帧最多 2 张图')
+  const pool = props.attachThumbs.filter(thumb => thumb.kind === item.kind && !EXTRA_THUMB_KEYS.has(thumb.key))
+  const index = pool.findIndex(thumb => thumb.key === item.key)
+  const issue = canvasThumbIssue({
+    mode: activeMode.value,
+    kind: item.kind,
+    key: item.key,
+    index: Math.max(0, index),
+    support: refSupport.value,
+  })
+  return issue ? t(issue) : ''
+}
+const firstFrameBan = computed(() => isFrameMode.value && refMissing('first_frame') ? t('当前模型不支持首帧') : '')
+const lastFrameBan = computed(() => isFl2vMode.value && refMissing('last_frame') ? t('当前模型不支持尾帧') : '')
+const refBanNote = computed(() => {
+  const titles = new Set<string>()
+  if (firstFrameBan.value)
+    titles.add(firstFrameBan.value)
+  if (lastFrameBan.value)
+    titles.add(lastFrameBan.value)
+  for (const item of displayThumbs.value) {
+    const title = thumbBan(item)
+    if (title)
+      titles.add(title)
+  }
+  if (!titles.size)
+    return ''
+  if (titles.size === 1)
+    return `${[...titles][0]}，${t('生成时不会带上')}`
+  return t('有参考素材当前模型不支持，已打叉，生成时不会带上')
+})
+function modeSupported(id: string) {
+  return visibleModes.value.some(item => item.id === id)
+}
+const visibleModes = computed(() => {
+  const detail = peekModelDetail(modelId.value)
+  const listed = generationModels.value.find(item => item.model === modelId.value)
+  const model = detail || listed
+  const ids = canvasVideoModes({
+    support: refSupport.value,
+    nativeAudio: hasNativeAudio(model),
+    videoReference: hasVideoReference(model),
+  })
+  return ids.flatMap((id) => {
+    const item = VIDEO_MODES.find(mode => mode.id === id)
+    return item ? [item] : []
+  })
+})
+/** 节点上记住的模式这个模型没有时，落到当前列表里真有的那一项。全能参考只剩参考图时落到图片参考。 */
+const activeMode = computed(() => canvasActiveVideoMode(videoMode.value, visibleModes.value.map(item => item.id)) as VideoModeId)
+/** 详情还没到时先记着用户原来的模式；详情证明这个模型也有，再改回去 */
+const carriedMode = ref<VideoModeId | ''>('')
+watch(activeMode, (mode) => {
+  if (!isVideo.value || writeBlocked.value || mode === videoMode.value)
+    return
+  if (!refSupport.value.known)
+    carriedMode.value = carriedMode.value || videoMode.value
+  else
+    carriedMode.value = ''
+  videoMode.value = mode
+  emit('update:videoMode', mode)
+}, { immediate: true })
+watch(visibleModes, (modes) => {
+  const carried = carriedMode.value
+  if (!carried || !refSupport.value.known || writeBlocked.value)
+    return
+  carriedMode.value = ''
+  if (!modes.some(item => item.id === carried) || carried === videoMode.value)
+    return
+  videoMode.value = carried
+  emit('update:videoMode', carried)
+})
+/** 文生视频挂了图，而且模型收首帧：菜单仍是文生视频，提交时把这张图当首帧 */
+const useImageAsFirst = computed(() => activeMode.value === 't2v'
+  && firstThumb.value?.kind === 'image'
+  && !refMissing('first_frame'))
+const extendNeedsVideo = computed(() => activeMode.value === 'extend' && !props.attachThumbs.some(item => item.kind === 'video'))
+const mediaThumbs = computed(() => props.attachThumbs.filter(item => !EXTRA_THUMB_KEYS.has(item.key)))
+const audioOnlyRef = computed(() => {
+  const items = mediaThumbs.value
+  return items.length > 0 && items.every(item => item.kind === 'audio')
+})
+const imageRefMissing = computed(() => activeMode.value === 'imageRef' && !mediaThumbs.value.some(item => item.kind === 'image') && subjectIds.value.length === 0)
+const modeHint = computed(() => {
+  if (!isVideo.value)
+    return null
+  if (extendNeedsVideo.value)
+    return { warn: true, text: t('先接一段视频，再续写') }
+  if (activeMode.value === 'reference' && audioOnlyRef.value)
+    return { warn: true, text: t('全能参考不能只有音频，再接一张图或一段视频') }
+  if (imageRefMissing.value)
+    return { warn: true, text: t('图片参考至少接一张图') }
+  if (useImageAsFirst.value)
+    return { warn: false, text: t('以当前图为首帧') }
+  if (activeMode.value === 'i2v')
+    return { warn: false, text: t('图生视频只吃一张图') }
+  if (activeMode.value === 'fl2v')
+    return { warn: false, text: t('需要连接 1～2 张图，尾帧可以不接') }
+  const limit = canvasModeLimitText(activeMode.value, refSupport.value)
+  return limit ? { warn: false, text: limit } : null
+})
 const imageValues = ref<Record<string, string | boolean | number>>({})
 const imageTouched = ref<Record<string, boolean>>({})
 function imageStored(name: string): unknown {
@@ -670,6 +819,29 @@ watch(imageSpec, (spec) => {
   }
   imageTouched.value = touched
   imageValues.value = next
+}, { immediate: true })
+const videoExtraValues = ref<Record<string, string | boolean | number>>({})
+const videoExtraTouched = ref<Record<string, boolean>>({})
+function setVideoExtra(name: string, value: string | boolean | number) {
+  videoExtraTouched.value = { ...videoExtraTouched.value, [name]: true }
+  videoExtraValues.value = { ...videoExtraValues.value, [name]: value }
+}
+watch(videoExtra, (fields) => {
+  if (!fields.length) {
+    videoExtraValues.value = {}
+    return
+  }
+  const next: Record<string, string | boolean | number> = {}
+  const touched = { ...videoExtraTouched.value }
+  for (const field of fields) {
+    const fromNode = imageStored(field.name)
+    if (fromNode !== undefined)
+      touched[field.name] = true
+    const raw = touched[field.name] ? (videoExtraValues.value[field.name] ?? fromNode) : fromNode
+    next[field.name] = coerceImageValue(field, raw)
+  }
+  videoExtraTouched.value = touched
+  videoExtraValues.value = next
 }, { immediate: true })
 const audioVoiceEnum = computed(() => {
   void modelDetailTick.value
@@ -762,8 +934,8 @@ function setWatermark(on: boolean) {
 }
 const ratioSelectOptions = computed(() => ratioItems.value.map(item => ({ value: item, label: ratioLabel(item) })))
 const videoResOptions = computed(() => videoResItems.value.map(item => ({ value: item, label: item })))
-const videoAdvanced = computed(() => isVideo.value && (
-  videoSpec.value.promptExtendDeclared || videoSpec.value.watermarkDeclared || videoSpec.value.seedDeclared
+const videoAdvanced = computed(() => (isVideo.value || isDirector.value) && (
+  videoSpec.value.promptExtendDeclared || videoSpec.value.watermarkDeclared || videoSpec.value.seedDeclared || videoExtra.value.length > 0
 ))
 const videoDurationOptions = computed(() => {
   const options = videoDurationItems.value.map(item => ({ value: item, label: item }))
@@ -997,6 +1169,19 @@ watch(() => props.params, (params) => {
     imageTouched.value = touched
     imageValues.value = next
   }
+  if (videoExtra.value.length) {
+    const next = { ...videoExtraValues.value }
+    const touched = { ...videoExtraTouched.value }
+    for (const field of videoExtra.value) {
+      const stored = params[field.name]
+      if (typeof stored !== 'string' && typeof stored !== 'boolean' && typeof stored !== 'number')
+        continue
+      touched[field.name] = true
+      next[field.name] = coerceImageValue(field, stored)
+    }
+    videoExtraTouched.value = touched
+    videoExtraValues.value = next
+  }
   videoRes.value = paramText('resolution', videoRes.value)
   videoDuration.value = paramSeconds('duration', videoDuration.value)
   audioDuration.value = paramSeconds('duration', audioDuration.value)
@@ -1007,7 +1192,12 @@ watch(() => props.params, (params) => {
 }, { deep: true })
 
 watch(() => String(props.videoMode || 'reference'), (mode) => {
-  videoMode.value = VIDEO_MODES.some(item => item.id === mode) ? mode as VideoModeId : 'reference'
+  const next = normalizeVideoMode(mode)
+  const modes = visibleModes.value
+  // 节点上还记着上一个模型的模式，而当前模型列表里没有：别把已经改掉的选中项盖回去
+  if (isVideo.value && modes.length && !modes.some(item => item.id === next))
+    return
+  videoMode.value = next
 })
 
 watch(() => String(props.model || ''), () => {
@@ -1064,7 +1254,8 @@ function generatePayload(): GeneratePayload {
   }
   else if (isVideo.value || isDirector.value) {
     const spec = videoSpec.value
-    Object.assign(params, { mode: videoMode.value, ratio: ratio.value, resolution: videoRes.value, duration: videoSeconds.value })
+    const submitMode = useImageAsFirst.value ? 'i2v' : activeMode.value
+    Object.assign(params, { mode: submitMode, ratio: ratio.value, resolution: videoRes.value, duration: videoSeconds.value })
     if (spec.audio !== 'hide')
       params.audio = audioOn.value
     if (spec.promptExtendDeclared)
@@ -1075,6 +1266,18 @@ function generatePayload(): GeneratePayload {
     const seed = Number.parseInt(seedRaw)
     if (spec.seedDeclared && seedRaw !== '' && Number.isFinite(seed))
       params.seed = seed
+    for (const field of videoExtra.value) {
+      const value = videoExtraValues.value[field.name]
+      if (value === '' || value === undefined)
+        continue
+      if (field.kind === 'number') {
+        const n = Number(value)
+        if (Number.isFinite(n))
+          params[field.name] = n
+        continue
+      }
+      params[field.name] = value
+    }
   }
   if (isAudio.value) {
     Object.assign(params, { duration: Number.parseInt(audioDuration.value), audioKind: audioKind.value })
@@ -1303,6 +1506,9 @@ function pickModel(id: string) {
 function pickMode(id: VideoModeId) {
   if (writeBlocked.value)
     return
+  if (isVideo.value && visibleModes.value.length && !modeSupported(id))
+    return
+  carriedMode.value = ''
   videoMode.value = id
   modeMenu.value = false
   emit('update:videoMode', id)
@@ -1606,39 +1812,44 @@ const placeholder = computed(() => {
         <UIcon :name="expanded ? 'i-lucide-minimize-2' : 'i-lucide-maximize-2'" class="size-3.5" />
       </button>
       <div v-if="isMedia" class="canvas-inspector__attach">
-        <span v-if="isFrameMode" class="canvas-inspector__frame">
-          <span v-if="firstThumb" class="canvas-inspector__thumb" :title="t('首帧')">
-            <button type="button" class="canvas-inspector__thumb-hit" :aria-label="t('首帧')" @click="emit('chip', 'first')">
+        <span v-if="isFrameMode" class="canvas-inspector__frame" :class="{ 'is-unsupported': Boolean(firstFrameBan) }">
+          <span v-if="firstThumb" class="canvas-inspector__thumb" :class="{ 'is-unsupported': Boolean(firstFrameBan) }" :title="firstFrameBan || t('首帧')">
+            <button type="button" class="canvas-inspector__thumb-hit" :aria-label="firstFrameBan || t('首帧')" @click="emit('chip', 'first')">
               <img :src="thumbSrc(firstThumb.url)" alt="" draggable="false" @error="onThumbError($event, firstThumb.url)">
             </button>
+            <i v-if="firstFrameBan" class="canvas-inspector__ban" aria-hidden="true" />
             <button type="button" class="canvas-inspector__thumb-x" :aria-label="t('移除')" @click.stop="emit('clear-chip', firstThumb.key)">
               <UIcon name="i-lucide-x" class="size-3" />
             </button>
           </span>
-          <button v-else type="button" class="canvas-inspector__add" :aria-label="t('选择首帧')" @click="emit('chip', 'first')">
+          <button v-else type="button" class="canvas-inspector__add" :class="{ 'is-unsupported': Boolean(firstFrameBan) }" :aria-label="firstFrameBan || t('选择首帧')" :title="firstFrameBan || t('选择首帧')" @click="emit('chip', 'first')">
             <UIcon name="i-lucide-plus" class="size-5" />
+            <i v-if="firstFrameBan" class="canvas-inspector__ban" aria-hidden="true" />
           </button>
-          <em>{{ t('首帧') }}</em>
+          <em>{{ firstFrameBan ? t('不支持首帧') : t('首帧') }}</em>
         </span>
-        <span v-if="isFl2vMode" class="canvas-inspector__frame">
-          <span v-if="lastThumb" class="canvas-inspector__thumb" :title="t('尾帧')">
-            <button type="button" class="canvas-inspector__thumb-hit" :aria-label="t('尾帧')" @click="emit('chip', 'last')">
+        <span v-if="isFl2vMode" class="canvas-inspector__frame" :class="{ 'is-unsupported': Boolean(lastFrameBan) }">
+          <span v-if="lastThumb" class="canvas-inspector__thumb" :class="{ 'is-unsupported': Boolean(lastFrameBan) }" :title="lastFrameBan || t('尾帧')">
+            <button type="button" class="canvas-inspector__thumb-hit" :aria-label="lastFrameBan || t('尾帧')" @click="emit('chip', 'last')">
               <img :src="thumbSrc(lastThumb.url)" alt="" draggable="false" @error="onThumbError($event, lastThumb.url)">
             </button>
+            <i v-if="lastFrameBan" class="canvas-inspector__ban" aria-hidden="true" />
             <button type="button" class="canvas-inspector__thumb-x" :aria-label="t('移除')" @click.stop="emit('clear-chip', lastThumb.key)">
               <UIcon name="i-lucide-x" class="size-3" />
             </button>
           </span>
-          <button v-else type="button" class="canvas-inspector__add" :aria-label="t('选择尾帧')" @click="emit('chip', 'last')">
+          <button v-else type="button" class="canvas-inspector__add" :class="{ 'is-unsupported': Boolean(lastFrameBan) }" :aria-label="lastFrameBan || t('选择尾帧')" :title="lastFrameBan || t('选择尾帧')" @click="emit('chip', 'last')">
             <UIcon name="i-lucide-plus" class="size-5" />
+            <i v-if="lastFrameBan" class="canvas-inspector__ban" aria-hidden="true" />
           </button>
-          <em>{{ t('尾帧') }}</em>
+          <em>{{ lastFrameBan ? t('不支持尾帧') : t('尾帧') }}</em>
         </span>
         <span
           v-for="item in displayThumbs"
           :key="item.key"
           class="canvas-inspector__thumb"
-          :title="item.label"
+          :class="{ 'is-unsupported': Boolean(thumbBan(item)) }"
+          :title="thumbBan(item) || item.label"
         >
           <button
             type="button"
@@ -1671,6 +1882,7 @@ const placeholder = computed(() => {
               <UIcon name="i-lucide-audio-lines" class="size-5" />
             </span>
           </button>
+          <i v-if="thumbBan(item)" class="canvas-inspector__ban" aria-hidden="true" />
           <button
             type="button"
             class="canvas-inspector__thumb-x"
@@ -1707,6 +1919,7 @@ const placeholder = computed(() => {
             </button>
           </div>
         </span>
+        <p v-if="refBanNote" class="canvas-inspector__note is-warn">{{ refBanNote }}</p>
       </div>
       <div v-if="showTagRow" class="canvas-inspector__subjects">
         <span v-for="item in subjectChips" :key="item.id" class="canvas-inspector__subject" :title="item.name">
@@ -1861,24 +2074,28 @@ const placeholder = computed(() => {
       </div>
       <CanvasNoModelsHint v-else />
 
-      <i v-if="isVideo && !noModels" class="canvas-inspector__split" />
-      <div v-if="isVideo" class="canvas-inspector__mode">
+      <i v-if="isVideo && !noModels && visibleModes.length" class="canvas-inspector__split" />
+      <div v-if="isVideo && visibleModes.length" class="canvas-inspector__mode">
         <button type="button" class="canvas-inspector__meta" data-guide="inspector-mode" :disabled="writeBlocked" :title="writeBlockedTitle" @click="toggleMode">
+          <UIcon :name="currentMode.icon" class="size-3.5" />
           {{ currentMode.label }}
           <UIcon :name="modeMenu ? 'i-lucide-chevron-up' : 'i-lucide-chevron-down'" class="size-3.5" />
         </button>
-        <div v-if="modeMenu" class="canvas-inspector__models nowheel" @pointerdown.stop @wheel.stop>
+        <div v-if="modeMenu" class="canvas-inspector__models is-menu nowheel" @pointerdown.stop @wheel.stop>
+          <p class="canvas-inspector__mode-title">{{ t('视频生成模式') }}</p>
           <button
-            v-for="item in VIDEO_MODES"
+            v-for="item in visibleModes"
             :key="item.id"
             type="button"
-            :class="{ 'is-on': videoMode === item.id }"
+            :class="{ 'is-on': activeMode === item.id }"
             @click="pickMode(item.id)"
           >
+            <UIcon :name="item.icon" class="size-3.5" />
             {{ item.label }}
           </button>
         </div>
       </div>
+      <p v-if="modeHint" class="canvas-inspector__note" :class="{ 'is-warn': modeHint.warn }">{{ modeHint.text }}</p>
 
       <i v-if="isAudio && !noModels" class="canvas-inspector__split" />
       <div v-if="isAudio" class="canvas-inspector__mode">
@@ -1886,7 +2103,7 @@ const placeholder = computed(() => {
           {{ t(`canvas.audio.kind.${audioKind}`) }}
           <UIcon :name="kindMenu ? 'i-lucide-chevron-up' : 'i-lucide-chevron-down'" class="size-3.5" />
         </button>
-        <div v-if="kindMenu" class="canvas-inspector__models nowheel" @pointerdown.stop @wheel.stop>
+        <div v-if="kindMenu" class="canvas-inspector__models is-menu nowheel" @pointerdown.stop @wheel.stop>
           <button
             v-for="item in AUDIO_KINDS"
             :key="item"
@@ -2104,6 +2321,39 @@ const placeholder = computed(() => {
                     :placeholder="t('留空自动')"
                   >
                 </label>
+                <div v-for="field in videoExtra" :key="field.name" class="canvas-inspector__row">
+                  <span>{{ t(field.label) }}</span>
+                  <StudioSelect
+                    v-if="field.kind === 'select'"
+                    :model-value="String(videoExtraValues[field.name] ?? field.defaultValue)"
+                    :options="field.options.map(item => ({ value: item, label: item }))"
+                    :sr-label="t(field.label)"
+                    size="compact"
+                    placement="up"
+                    @update:model-value="setVideoExtra(field.name, String($event))"
+                  />
+                  <button
+                    v-else-if="field.kind === 'boolean'"
+                    type="button"
+                    class="canvas-inspector__switch"
+                    role="switch"
+                    :aria-label="t(field.label)"
+                    :aria-checked="videoExtraValues[field.name] === true"
+                    :class="{ 'is-on': videoExtraValues[field.name] === true }"
+                    @click="setVideoExtra(field.name, videoExtraValues[field.name] !== true)"
+                  >
+                    <i />
+                  </button>
+                  <input
+                    v-else
+                    class="canvas-inspector__text"
+                    :type="field.kind === 'number' ? 'number' : 'text'"
+                    :min="field.min"
+                    :max="field.max"
+                    :value="videoExtraValues[field.name] ?? ''"
+                    @input="setVideoExtra(field.name, field.kind === 'number' ? Number(($event.target as HTMLInputElement).value) : ($event.target as HTMLInputElement).value)"
+                  >
+                </div>
               </div>
             </details>
           </template>

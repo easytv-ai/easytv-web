@@ -116,8 +116,23 @@ export function planCanvasGenerate(input: {
   // 少抽卡（API.md 39.5）：首帧 / 首尾帧模式却没有任何可当首帧的图，提交了也是白花钱，先拦下。
   // 只管视频节点；引用了主体或挂了角色素材的不拦（服务端会把主体图并进 inputs，口播就是这么走的）。
   const videoMode = typeof params.mode === 'string' ? params.mode : ''
+  const given = input.inputs || []
+  if (kind === 'video' && videoMode === 'extend' && !given.some(item => item.role === 'reference_video')) {
+    return { ok: false, messageKey: '先接一段视频，再续写' }
+  }
+  if (kind === 'video' && videoMode === 'imageRef') {
+    const hasImage = given.some(item => item.role === 'reference' || item.role === 'image' || item.role === 'character')
+    const hasSubject = (payload.subject_ids ?? node.data.subjectIds ?? []).length > 0
+    if (!hasImage && !hasSubject)
+      return { ok: false, messageKey: '图片参考至少接一张图' }
+  }
+  if (kind === 'video' && videoMode === 'reference') {
+    const visual = given.some(item => item.role === 'reference' || item.role === 'image' || item.role === 'reference_video' || item.role === 'character')
+    const audio = given.some(item => item.role === 'reference_audio')
+    if (audio && !visual)
+      return { ok: false, messageKey: '全能参考不能只有音频，再接一张图或一段视频' }
+  }
   if (kind === 'video' && (videoMode === 'i2v' || videoMode === 'fl2v')) {
-    const given = input.inputs || []
     const hasFrame = given.some(item => item.role === 'first_frame' || item.role === 'character')
     const hasSubject = (payload.subject_ids ?? node.data.subjectIds ?? []).length > 0
     if (!hasFrame && !hasSubject) {

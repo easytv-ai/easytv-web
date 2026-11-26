@@ -236,6 +236,21 @@ describe('planCanvasGenerate', () => {
     }).ok).toBe(true)
     expect(planCanvasGenerate({ ...base, payload: { model: 'vid-1', params: { mode: 'reference' } } }).ok).toBe(true)
     expect(planCanvasGenerate({ ...base, payload: { model: 'vid-1', params: {} } }).ok).toBe(true)
+    expect(planCanvasGenerate({
+      ...base,
+      payload: { model: 'vid-1', params: { mode: 'extend' } },
+      inputs: [],
+    })).toEqual({ ok: false, messageKey: '先接一段视频，再续写' })
+    expect(planCanvasGenerate({
+      ...base,
+      payload: { model: 'vid-1', params: { mode: 'imageRef' } },
+      inputs: [],
+    })).toEqual({ ok: false, messageKey: '图片参考至少接一张图' })
+    expect(planCanvasGenerate({
+      ...base,
+      payload: { model: 'vid-1', params: { mode: 'reference' } },
+      inputs: [{ asset_id: 8, role: 'reference_audio' }],
+    })).toEqual({ ok: false, messageKey: '全能参考不能只有音频，再接一张图或一段视频' })
     // 导演台不走这道闸
     expect(planCanvasGenerate({
       node: node('director', { prompt: '推镜头' }),

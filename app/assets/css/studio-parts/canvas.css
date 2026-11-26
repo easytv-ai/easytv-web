@@ -3347,6 +3347,49 @@ html.dark .canvas-inspector__chip:hover {
   object-fit: cover;
 }
 
+.canvas-inspector__ban {
+  position: absolute;
+  z-index: 1;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  pointer-events: none;
+  background:
+    linear-gradient(to top left, transparent calc(50% - 1.25px), #e11d48 calc(50% - 1.25px), #e11d48 calc(50% + 1.25px), transparent calc(50% + 1.25px)),
+    linear-gradient(to top right, transparent calc(50% - 1.25px), #e11d48 calc(50% - 1.25px), #e11d48 calc(50% + 1.25px), transparent calc(50% + 1.25px));
+}
+
+.canvas-inspector__thumb .canvas-inspector__ban,
+.canvas-inspector__frame.is-unsupported .canvas-inspector__ban {
+  top: 0;
+  left: 0;
+}
+
+.canvas-inspector__add {
+  position: relative;
+}
+
+.canvas-inspector__add.is-unsupported {
+  color: #e11d48;
+  border-color: rgba(225, 29, 72, 0.45);
+}
+
+.canvas-inspector__frame.is-unsupported em,
+.canvas-inspector__models button.is-unsupported em {
+  color: #e11d48;
+  font-style: normal;
+  white-space: nowrap;
+}
+
+.canvas-inspector__models button.is-unsupported {
+  color: var(--st-muted);
+}
+
+.canvas-inspector__attach > .canvas-inspector__note {
+  flex: 1 0 100%;
+  margin: 2px 0 0;
+}
+
 .canvas-inspector__thumb-audio {
   display: flex;
   width: 100%;
@@ -4022,6 +4065,53 @@ html.dark .canvas-inspector__meta.is-on {
   background: var(--st-scroll);
   border: 2px solid var(--st-pop);
   border-radius: 999px;
+}
+
+.canvas-inspector__mode-title {
+  margin: 0;
+  padding: 4px 8px 2px;
+  color: var(--st-muted);
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.2;
+}
+
+/* 对齐检查器里的模式菜单：小标题、一行图标加文字、选中是一条浅底 */
+.canvas-inspector__models.is-menu {
+  width: max-content;
+  min-width: 148px;
+  max-width: 196px;
+  gap: 2px;
+  padding: 6px;
+  border-radius: 14px;
+}
+
+.canvas-inspector__models.is-menu button {
+  gap: 8px;
+  height: 32px;
+  min-height: 0;
+  padding: 0 8px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1;
+}
+
+.canvas-inspector__models.is-menu button .icon,
+.canvas-inspector__models.is-menu button svg {
+  width: 14px;
+  height: 14px;
+  color: var(--st-text-soft, var(--st-text));
+}
+
+.canvas-inspector__models.is-menu button.is-on,
+.canvas-inspector__models.is-menu button:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+html:not(.dark) .canvas-inspector__models.is-menu button.is-on,
+html:not(.dark) .canvas-inspector__models.is-menu button:hover {
+  background: rgba(24, 24, 27, 0.06);
 }
 
 .canvas-inspector__models button {

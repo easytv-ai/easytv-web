@@ -3,6 +3,7 @@ import { canvasGenerateTaskType, planCanvasGenerate } from '~/utils/canvas-gener
 import { nodeGeneratePatch } from '~/utils/canvas-node-params'
 import { canvasNodeTitle, isRetakeInProgress, type CanvasNodeData, type CanvasNodeKind } from '~/utils/canvas-node-kinds'
 import { canvasConnectedRefs, canvasNodeMediaUrl } from '~/utils/canvas-refs'
+import { canvasRefSupport, filterCanvasModeInputs } from '~/utils/canvas-reference-support'
 import { buildCanvasTaskInputs, countUnlinkedCanvasRefs, pushCanvasRefImage, type CanvasRefImage } from '~/utils/canvas-task-inputs'
 import { syncViralPromptRefs, viralExtraRefCount } from '~/utils/canvas-viral'
 import { makeInputSnapshot, type InputSnapshot } from '~/utils/canvas-upstream'
@@ -74,6 +75,8 @@ export function useCanvasGenerate(opts: {
   mediaKindOfUrl: (url: string) => 'image' | 'video' | 'audio'
   dropNode: (id: string) => void
 }) {
+  const { peek: peekModelDetail } = useGenerationModelDetail()
+  const generationModels = useState<GenerationModel[]>('generation-models', () => [])
   function collectRefImages(node: ContentNode) {
     const items: CanvasRefImage[] = []
     const seenId = new Set<number>()
@@ -119,7 +122,16 @@ export function useCanvasGenerate(opts: {
         kind: opts.mediaKindOfUrl(item.url),
       })),
     ]
-    return buildCanvasTaskInputs(node, mode, collectRefImages(node), extra)
+    const inputs = buildCanvasTaskInputs(node, mode, collectRefImages(node), extra)
+    const name = String(node.data.model || '').trim()
+    const detail = peekModelDetail(name)
+    const listed = generationModels.value.find(item => item.model === name)
+    const support = canvasRefSupport({
+      kind: node.data.kind,
+      detail: detail?.params ? detail : null,
+      imageInput: detail?.image_input || listed?.image_input,
+    })
+    return filterCanvasModeInputs(inputs, mode, support)
   }
 
   function countUnlinkedRefs(node: ContentNode) {

@@ -1,7 +1,10 @@
 /**
  * 画布视频参数卡：按模型详情 params.video.properties 出选项。
  * 详情还没到、或这张表没声明时，回落到检查器原来的常用档，不把面板掏空。
+ * 比例 / 分辨率 / 时长 / 有声 / 改写 / 水印 / 种子由参数卡固定画；
+ * 其余标量字段走 canvasVideoExtraFields，和图片参数同一套控件。
  */
+import { canvasDynamicFields, type CanvasImageField } from './canvas-image-spec'
 
 export type CanvasVideoAudio = 'show' | 'hide' | 'unknown'
 
@@ -170,4 +173,24 @@ export function canvasVideoSpec(detail: DetailLike): CanvasVideoSpec {
     seedMin: finiteBound(seedProp?.min, -1),
     seedMax: finiteBound(seedProp?.max, 2147483647),
   }
+}
+
+/** 参数卡已经单独画过的字段，不再进动态行。mode 是画布的生成模式，不能跟参数表的 mode 抢。 */
+const VIDEO_HANDLED = [
+  'aspect_ratio',
+  'ratio',
+  'resolution',
+  'duration',
+  'generate_audio',
+  'audio',
+  'prompt_extend',
+  'watermark',
+  'seed',
+  'mode',
+  'prompt',
+  'input_references',
+]
+
+export function canvasVideoExtraFields(detail: DetailLike): CanvasImageField[] {
+  return canvasDynamicFields(detail, VIDEO_KEYS, VIDEO_HANDLED)
 }

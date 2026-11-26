@@ -85,8 +85,8 @@ export type CanvasNodeData = {
   trimIn?: number
   /** 多段合成出点（秒），0 表示接到片尾 */
   trimOut?: number
-  /** 视频节点的生成模式（全能参考 / 首尾帧 / 首帧 / 口播），随画布保存 */
-  videoMode?: 'reference' | 'fl2v' | 'i2v' | 'talking'
+  /** 视频节点的生成模式。按模型素材槽出现：文生视频 / 图生视频 / 首尾帧 / 图片参考 / 全能参考 / 视频续写 / 口播 */
+  videoMode?: 't2v' | 'i2v' | 'fl2v' | 'imageRef' | 'reference' | 'extend' | 'talking'
   /** 爆款复刻节点的原片资产。再生成时从参考素材计数里排除它 */
   viralSourceAssetId?: number
   /** 爆款复刻拉片结果：分镜和可替换的角色 / 场景 / 元素。有它时悬浮条进入替换再生成，不再直接出片 */

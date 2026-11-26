@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { canvasVideoSpec } from './canvas-video-spec'
+import { canvasVideoExtraFields, canvasVideoSpec } from './canvas-video-spec'
 
 describe('canvasVideoSpec', () => {
   it('详情未到时用常用档，有声开关先留着', () => {
@@ -57,5 +57,22 @@ describe('canvasVideoSpec', () => {
     expect(spec.audio).toBe('hide')
     expect(spec.durations).toEqual([4, 5, 6, 7, 8])
     expect(spec.ratiosDeclared).toBe(false)
+  })
+
+  it('参数卡没画的字段跟图片一样出控件，比例和素材表不重复', () => {
+    const fields = canvasVideoExtraFields({
+      params: {
+        video: {
+          properties: {
+            aspect_ratio: { type: 'string', enum: ['16:9'] },
+            input_references: { type: 'array' },
+            return_last_frame: { type: 'boolean', default: false },
+            mode: { type: 'string', enum: ['std', 'pro'] },
+          },
+        },
+      },
+    })
+    expect(fields.map(field => field.name)).toEqual(['return_last_frame'])
+    expect(fields[0]).toMatchObject({ kind: 'boolean', defaultValue: false })
   })
 })

@@ -131,8 +131,8 @@ function fieldLabel(name: string, prop: ParamProp): string {
   return name
 }
 
-function buildField(name: string, prop: ParamProp): CanvasImageField | null {
-  if (SKIP.has(name))
+function buildField(name: string, prop: ParamProp, skip: Set<string>): CanvasImageField | null {
+  if (skip.has(name))
     return null
   const type = String(prop.type || '').toLowerCase()
   if (type === 'object' || type === 'array')
@@ -185,13 +185,15 @@ function buildField(name: string, prop: ParamProp): CanvasImageField | null {
   return null
 }
 
-export function canvasImageSpec(detail: DetailLike): CanvasImageSpec {
-  const properties = propertiesOf(detail, IMAGE_KEYS)
+/** 按参数表出控件。skipExtra 用来去掉画布已经单独画过的字段（比例、时长等）。 */
+export function canvasDynamicFields(detail: DetailLike, keys: string[], skipExtra: readonly string[] = []): CanvasImageField[] {
+  const properties = propertiesOf(detail, keys)
   if (!properties)
-    return { declared: false, fields: [] }
+    return []
+  const skip = new Set([...SKIP, ...skipExtra])
   const fields: CanvasImageField[] = []
   for (const [name, prop] of Object.entries(properties)) {
-    const field = buildField(name, prop ?? {})
+    const field = buildField(name, prop ?? {}, skip)
     if (field)
       fields.push(field)
   }
@@ -200,6 +202,11 @@ export function canvasImageSpec(detail: DetailLike): CanvasImageSpec {
     const ib = FIELD_ORDER.indexOf(b.name)
     return (ia < 0 ? 999 : ia) - (ib < 0 ? 999 : ib)
   })
+  return fields
+}
+
+export function canvasImageSpec(detail: DetailLike): CanvasImageSpec {
+  const fields = canvasDynamicFields(detail, IMAGE_KEYS)
   return { declared: fields.length > 0, fields }
 }
 
