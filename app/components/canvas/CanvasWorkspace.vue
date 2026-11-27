@@ -11,9 +11,9 @@ import {
   canvasNodeViewStamp,
 } from '~/utils/canvas-node-view'
 import { CANVAS_STORYBOARD_KEY, storyboardExpandPlan, storyboardShotsOf } from '~/utils/canvas-storyboard'
-import { pickImageEditModel, pickVisionTextModel, preferredImageModel } from '~/utils/image-input'
+import { pickImageEditModel, preferredImageModel, shownImageUpscaleModel } from '~/utils/image-input'
 import { hasNativeAudio } from '~/utils/canvas-talking'
-import { effectiveUnitPrice, estimateSecondDuration, estimateTaskPoints } from '~/utils/model-price'
+import { effectiveUnitPrice, estimateSecondDuration, estimateTaskPoints, estimateUpscalePoints } from '~/utils/model-price'
 import { resolveCatalogModel } from '~/utils/canvas-catalog-model'
 import { defineAsyncComponent } from 'vue'
 import '@vue-flow/core/dist/style.css'
@@ -250,7 +250,7 @@ const CanvasPracticeTour = lazyOverlay(() => import('~/components/canvas/CanvasP
 const CanvasPaneMenu = lazyOverlay(() => import('~/components/canvas/CanvasPaneMenu.vue'))
 
 const { t, locale } = useI18n()
-const { growth: growthConfig } = useStudioAppConfig()
+const { ensureModels, resolveVisionTextModel } = useCanvasCatalog()
 const { confirm } = useConfirm()
 const { confirmSpend } = useCanvasAgentSettings()
 const { track } = useTrack()
@@ -270,9 +270,12 @@ function estimateSpend(model: string, params?: Record<string, unknown>, count = 
   const found = generationModels.value.find(item => item.model === id)
   if (!found?.priced)
     return 0
+  const price = effectiveUnitPrice(found, isMember.value)
+  if (params?.edit === 'upscale')
+    return estimateUpscalePoints(price, Number(params.width), Number(params.height), Number(params.scale), count)
   const raw = Number(params?.duration)
   const seconds = raw < 0 ? estimateSecondDuration(raw) : (Number.isFinite(raw) ? raw : 0)
-  return estimateTaskPoints(effectiveUnitPrice(found, isMember.value), found.unit, count, seconds)
+  return estimateTaskPoints(price, found.unit, count, seconds)
 }
 
 async function gateSpend(points: number) {
@@ -5496,7 +5499,7 @@ const applyMediaJobToNodeRef = { fn: (_nodeId: string, _job: MediaJob) => {} }
 const runQueueNotify = { submitted: () => {} }
 const laterFns = {
   dropNode: (_id: string) => {},
-  groupNodeList: (_ids: string[]): string => '',
+  groupNodeList: (_ids: string[], _options?: { label?: string, layout?: import('~/utils/canvas-group').CanvasGroupLayout }): string => '',
   joinGroup: (_group: CanvasFlowNode & { data: import('~/utils/canvas-group').CanvasGroupData }, _ids: string[]) => {},
 }
 
@@ -5583,6 +5586,8 @@ const {
 
 /** 高清源视频时长：节点参数 / 资产库 / 探测，供报价和提交共用 */
 const hdSourceSeconds = ref(0)
+/** 图片高清原图像素：面板报价用，提交时会再量一次并写进任务参数 */
+const imageHdSourcePx = ref({ width: 0, height: 0 })
 
 /**
  * 视频高清面板单价：和提交用的超分模型同一条。
@@ -5603,10 +5608,18 @@ const imageHdCost = computed(() => {
   const node = selected.value
   if (!node || !isContentNode(node) || !isImageHdNode(node.data))
     return undefined
-  const model = String(node.data.imageHdParams?.model || '')
+  const model = shownImageUpscaleModel(generationModels.value, node.data.imageHdParams?.model)
   if (!model)
     return undefined
-  return estimateSpend(model, { edit: 'upscale', mode: 'i2i', scale: node.data.imageHdParams?.scale || 2 }) || undefined
+  const px = imageHdSourcePx.value
+  const points = estimateSpend(model, {
+    edit: 'upscale',
+    mode: 'i2i',
+    scale: node.data.imageHdParams?.scale || 2,
+    width: px.width,
+    height: px.height,
+  })
+  return points > 0 ? points : undefined
 })
 
 const { running: mergeRunning, mergeClips: mergeSelectedVideos } = useCanvasVideoMerge({
@@ -6157,8 +6170,7 @@ async function placeMark(nodeId: string, x: number, y: number) {
   if (practiceBlocked())
     return
   const ownerId = owner.id
-  const models = useState<import('~/types/creative').GenerationModel[]>('generation-models', () => []).value
-  const model = pickVisionTextModel(models, growthConfig.value?.vision_text_model)
+  const model = await resolveVisionTextModel()
   if (!model) {
     notify(t('暂无能识别图片的文本模型，请联系运营开通'), 'error')
     return
@@ -6331,7 +6343,7 @@ async function runInpaint(blob: Blob, preferredModel?: string) {
     notify(t('该节点正在生成中'))
     return
   }
-  const models = useState<import('~/types/creative').GenerationModel[]>('generation-models', () => []).value
+  const models = await ensureModels()
   const model = pickImageEditModel(models, preferredModel || defaultImageModel(), true)
   if (!model) {
     notify(t('暂无支持局部修改的图片模型，请联系运营开通 gpt-image 系模型'), 'error')
@@ -6517,8 +6529,7 @@ async function runStyleExtract() {
     notify(t('请先生成或添加一张图片'), 'error')
     return
   }
-  const models = useState<import('~/types/creative').GenerationModel[]>('generation-models', () => []).value
-  const model = pickVisionTextModel(models, growthConfig.value?.vision_text_model)
+  const model = await resolveVisionTextModel()
   if (!model) {
     notify(t('暂无能识别图片的文本模型，请联系运营开通'), 'error')
     return
@@ -6864,7 +6875,7 @@ function joinGroup(group: CanvasFlowNode & { data: import('~/utils/canvas-group'
 }
 
 /** 返回新组 id（没打成组返回空串）：addNodes 不是同步落地的，调用方别去 nodes 里找刚加的组 */
-function groupNodeList(ids: string[]): string {
+function groupNodeList(ids: string[], options?: { label?: string, layout?: import('~/utils/canvas-group').CanvasGroupLayout }): string {
   const picked = ids
     .map(id => findNode(id) as CanvasFlowNode | undefined)
     .filter((node): node is CanvasFlowNode => Boolean(node))
@@ -6873,7 +6884,7 @@ function groupNodeList(ids: string[]): string {
   const box = nodesBounds(picked, nodes.value)
   if (!box)
     return ''
-  const pad = 28
+  const pad = options?.label ? 40 : 28
   groupCount.value += 1
   const id = `group-${groupCount.value}`
   const group: CanvasFlowNode = {
@@ -6882,9 +6893,10 @@ function groupNodeList(ids: string[]): string {
     position: { x: box.x - pad, y: box.y - pad },
     data: {
       kind: 'group',
-      label: `${t('组')} ${nodes.value.filter(isGroupNode).length + 1}`,
+      label: options?.label || `${t('组')} ${nodes.value.filter(isGroupNode).length + 1}`,
       color: defaultGroupColor(),
-      layout: 'row',
+      layout: options?.layout || 'row',
+      ...(options?.label ? { named: true } : {}),
     },
     selectable: true,
     draggable: true,
@@ -6928,7 +6940,6 @@ const {
   stampInputSnapshot,
   replaySubmit: (node, req) => practice.replaySubmit(node, req),
   pollTask,
-  waitTask,
   beforeGenerate: () => linkBriefShotAnchors(),
   pushHistory,
   notify,
@@ -7325,6 +7336,8 @@ function toggleMatrixPanel() {
 onMounted(() => {
   void matrixRestore()
   composeResume()
+  // 进画布先对齐后台看图模型和定价清单，工具条报价不用再各读一份过期配置
+  void resolveVisionTextModel()
 })
 watch(() => props.canvasId, (id) => {
   if (id) {
@@ -7478,6 +7491,7 @@ function onMatrixRollback() {
 const {
   currentImageSrc,
   imageEditModel,
+  lightModel,
   defaultImageModel,
   openSmartEdit,
   openDepthBar,
@@ -7568,6 +7582,7 @@ const {
   submitMediaJob,
   gateSpend,
   estimateSpend,
+  imageHdSourcePx,
   applyTaskToNode,
   pollTask,
   refreshWallet,
@@ -7583,7 +7598,7 @@ const {
   spawnDepthNode,
   runSubjectAction,
   relabelGroups,
-  groupNodeList: (ids: string[]) => laterFns.groupNodeList(ids),
+  groupNodeList: (ids: string[], options?: { label?: string, layout?: import('~/utils/canvas-group').CanvasGroupLayout }) => laterFns.groupNodeList(ids, options),
   updateNode,
   editSrc,
   montageOpen,
@@ -8349,7 +8364,7 @@ const styleLibValue = computed(() => {
     <CanvasLightPanel
       v-if="lightOpen"
       :open="lightOpen"
-      :model="imageEditModel"
+      :model="lightModel"
       :src="lightSrc"
       :panel-style="lightPanelStyle"
       :submitting="lightBusy"

@@ -25,6 +25,8 @@ export type CanvasGroupData = {
   expandedH?: number
   /** 有这个字段就是分镜组：grid 排版按 cols 列铺，工具条可改列数或转回普通组 */
   storyboard?: { cols: number }
+  /** 自己带名字（宫格切分这类），不参与「组 1、组 2」重排，标题一直显示 */
+  named?: boolean
   /** 单独锁定：组不能拖、不能删，随画布保存 */
   locked?: boolean
   /** 收起时记下的缩略图。子节点被隐藏后，组节点仍能画出来 */

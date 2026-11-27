@@ -93,6 +93,62 @@ describe('canvasRefSupport', () => {
     const url = canvasRefSupport({ kind: 'image', imageInput: 'url' })
     expect(url.roles.has('reference_image')).toBe(true)
     expect(url.roles.has('reference_video')).toBe(false)
+    expect(url.maxCount.reference_image).toBeUndefined()
+  })
+
+  it('图片参考图张数读 images 数组：1-3、up to 14、maxItems', () => {
+    const qwen = canvasRefSupport({
+      kind: 'image',
+      imageInput: 'url',
+      detail: {
+        params: {
+          image: {
+            properties: {
+              images: {
+                type: 'array',
+                description: 'Input image URL or Base64, 1-3 images; omit for text-to-image',
+              },
+            },
+          },
+        },
+      },
+    })
+    expect(qwen.maxCount.reference_image).toBe(3)
+    const seedream = canvasRefSupport({
+      kind: 'image',
+      imageInput: 'url',
+      detail: {
+        params: {
+          image: {
+            properties: {
+              images: {
+                type: 'array',
+                description: 'Array of reference images, up to 14 images with Seedream 4.5',
+              },
+            },
+          },
+        },
+      },
+    })
+    expect(seedream.maxCount.reference_image).toBe(14)
+    const explicit = canvasRefSupport({
+      kind: 'image',
+      imageInput: 'url',
+      detail: {
+        params: {
+          image: {
+            properties: {
+              images: { type: 'array', maxItems: 3, description: 'up to 14 images' },
+            },
+          },
+        },
+      },
+    })
+    expect(explicit.maxCount.reference_image).toBe(3)
+    const inputs = Array.from({ length: 5 }, (_, i) => ({ asset_id: i + 1, role: 'image' }))
+    expect(filterCanvasModeInputs(inputs, 'reference', qwen)).toHaveLength(3)
+    expect(canvasThumbIssue({ mode: 'imageRef', kind: 'image', index: 2, support: qwen })).toBe('')
+    expect(canvasThumbIssue({ mode: 'imageRef', kind: 'image', index: 3, support: qwen })).toBe('参考图最多 3 个')
   })
 })
 

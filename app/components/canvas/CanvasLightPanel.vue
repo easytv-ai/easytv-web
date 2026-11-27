@@ -12,7 +12,7 @@ import {
   type LightPreset,
 } from '~/utils/canvas-light'
 import { effectiveUnitPrice, estimateTaskPoints } from '~/utils/model-price'
-import { pickImageEditModel } from '~/utils/image-input'
+import { pickLightModel } from '~/utils/image-input'
 
 const { t } = useI18n()
 const { isMember } = useWallet()
@@ -22,7 +22,7 @@ const props = withDefaults(defineProps<{
   src: string
   submitting?: boolean
   panelStyle?: Record<string, string> | null
-  /** 实际提交用的模型（画布按默认图片模型挑的编辑模型），报价跟它走，否则显示的价和实扣对不上 */
+  /** 实际提交用的模型（打光固定 qwen-image-3.0-pro），报价跟它走，否则显示的价和实扣对不上 */
   model?: string
 }>(), {
   submitting: false,
@@ -46,7 +46,7 @@ const previewStyle = computed(() => lightOverlay(kelvin.value, brightness.value,
 const brightnessLabel = computed(() => `${brightness.value > 0 ? '+' : ''}${brightness.value}°`)
 const kelvinLabel = computed(() => `${kelvin.value}K`)
 const zapCost = computed(() => {
-  const modelId = props.model || pickImageEditModel(generationModels.value, '', false)
+  const modelId = props.model || pickLightModel(generationModels.value)
   const model = generationModels.value.find(item => item.model === modelId)
   if (!model?.priced)
     return ''

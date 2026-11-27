@@ -2,7 +2,6 @@
  * 画布上的图片编辑、视频处理条和分镜拼接。
  */
 import { computed, nextTick, reactive, ref, watch, type ComputedRef, type Ref } from 'vue'
-import { useStudioAppConfig } from '~/composables/useStudioAppConfig'
 import assetApi from '~/api/asset'
 import taskApi from '~/api/task'
 import { hasNativeAudio } from '~/utils/canvas-talking'
@@ -30,8 +29,8 @@ import {
   promptReverseFrameRanges,
   samplePromptReverseTimes,
 } from '~/utils/canvas-video-frame'
-import { isGptImageModel, isImageEditModel, listImageUpscaleModels, pickCanvasImageEditModel, pickImageEditModel, pickImageUpscaleModel, pickVisionTextModel, preferredImageModel } from '~/utils/image-input'
-import { cellNodeLayout, fitCellBox, type GridCell } from '~/utils/canvas-grid-split'
+import { isGptImageModel, isImageEditModel, pickCanvasImageEditModel, pickImageEditModel, pickImageUpscaleModel, pickLightModel, pickVisionTextModel, preferredImageModel, shownImageUpscaleModel } from '~/utils/image-input'
+import { splitBoardLayout, type GridCell } from '~/utils/canvas-grid-split'
 import { MONTAGE_CELL, montageCellAspect, montageNodeSize, type MontageOptions, type MontageSource } from '~/utils/canvas-montage'
 import { applyOptimizedPrompt, canOptimizePrompt, cleanOptimizedPrompt, promptOptimizeInstruction } from '~/utils/canvas-prompt-optimize'
 import { mediaGridLayout } from '~/utils/canvas-media-job'
@@ -86,6 +85,7 @@ export function useCanvasImageEdits(opts: { blocked?: () => boolean } & Record<s
     submitMediaJob,
     gateSpend,
     estimateSpend,
+    imageHdSourcePx,
     applyTaskToNode,
     pollTask,
     refreshWallet,
@@ -157,6 +157,7 @@ export function useCanvasImageEdits(opts: { blocked?: () => boolean } & Record<s
     viralStep,
   } = opts
   const nodes = opts.nodes as Ref<CanvasFlowNode[]>
+  const { models: generationModelList, growth: growthConfig, ensureModels, resolveVisionTextModel } = useCanvasCatalog()
   const findNode = opts.findNode as (id: string) => CanvasFlowNode | undefined
   function nodeFrozen(node: CanvasFlowNode | undefined | null) {
     return isNodeLocked(node, nodes.value)
@@ -178,15 +179,13 @@ function currentImageSrc(node = selected.value) {
   return ''
 }
 
-/** 打光 / 多角度提交用的图片编辑模型；面板报价必须读同一份 */
-const imageEditModel = computed(() => {
-  const list = useState<import('~/types/creative').GenerationModel[]>('generation-models', () => []).value
-  return pickCanvasImageEditModel(list) || ''
-})
+/** 多角度提交用的图片编辑模型；面板报价必须读同一份 */
+const imageEditModel = computed(() => pickCanvasImageEditModel(generationModelList.value) || '')
+/** 打光固定 qwen-image-3.0-pro；报价和提交读同一份 */
+const lightModel = computed(() => pickLightModel(generationModelList.value) || '')
 
 function defaultImageModel() {
-  const list = useState<import('~/types/creative').GenerationModel[]>('generation-models', () => []).value
-  return preferredImageModel(list) || 'lib-image'
+  return preferredImageModel(generationModelList.value) || 'lib-image'
 }
 
 function openSmartEdit() {
@@ -331,8 +330,7 @@ async function runPromptReverse() {
     notify(isVideo ? t('请先生成或添加一段视频') : t('请先生成或添加一张图片'), 'error')
     return
   }
-  const models = useState<import('~/types/creative').GenerationModel[]>('generation-models', () => []).value
-  const model = pickVisionTextModel(models, growthConfig.value?.vision_text_model)
+  const model = await resolveVisionTextModel()
   if (!model) {
     notify(t('暂无能识别图片的文本模型，请联系运营开通'), 'error')
     return
@@ -378,6 +376,7 @@ function openLightPanel() {
   lightNodeId.value = node.id
   lightSrc.value = src
   lightOpen.value = true
+  void ensureModels()
 }
 
 async function onLightSubmit(payload: { prompt: string }) {
@@ -388,7 +387,8 @@ async function onLightSubmit(payload: { prompt: string }) {
     notify(t('请先生成或添加一张图片'), 'error')
     return
   }
-  const model = imageEditModel.value
+  await ensureModels()
+  const model = lightModel.value
   if (!model) {
     notify(t('暂无支持图片编辑的模型，请联系运营开通'), 'error')
     return
@@ -425,7 +425,7 @@ async function runUpscale(scale: import('~/utils/canvas-image-edit').UpscaleScal
     notify(t('该节点正在生成中'))
     return
   }
-  const models = useState<import('~/types/creative').GenerationModel[]>('generation-models', () => []).value
+  const models = await ensureModels()
   const model = pickImageUpscaleModel(models, defaultImageModel())
   if (!model) {
     notify(t('暂无支持图片编辑的模型，请联系运营开通'), 'error')
@@ -455,14 +455,14 @@ async function runUpscale(scale: import('~/utils/canvas-image-edit').UpscaleScal
     type: 'image',
     model,
     prompt,
-    params: { edit: 'upscale', mode: 'i2i', scale, size, clarity, ratio },
+    params: { edit: 'upscale', mode: 'i2i', scale, size, clarity, ratio, width: px.width, height: px.height },
     inputs: [{ asset_id: assetId, role: 'image' }],
   })
 }
 
 function imagePixelSize(src: string) {
   return new Promise<{ width: number, height: number }>((resolve) => {
-    if (!src) {
+    if (!src || typeof Image === 'undefined') {
       resolve({ width: 0, height: 0 })
       return
     }
@@ -476,8 +476,38 @@ function imagePixelSize(src: string) {
   })
 }
 
+/** 高清面板报价用的原图像素。切倍数不用重测，换原图或换节点才重测。 */
+let imageHdPxSeq = 0
+watch(
+  () => {
+    const node = selected.value
+    if (!node || !isContentNode(node) || !isImageHdNode(node.data))
+      return ''
+    const from = mediaSourceNode(node)
+    if (!from || from.id === node.id)
+      return ''
+    return `${from.id}\n${currentImageSrc(from)}`
+  },
+  (key) => {
+    const seq = ++imageHdPxSeq
+    const target = imageHdSourcePx as Ref<{ width: number, height: number }> | undefined
+    if (!target)
+      return
+    const src = key.slice(key.indexOf('\n') + 1)
+    if (!src) {
+      target.value = { width: 0, height: 0 }
+      return
+    }
+    void imagePixelSize(src).then((px) => {
+      if (seq === imageHdPxSeq)
+        target.value = px
+    })
+  },
+  { immediate: true },
+)
+
 /** 图片高清：在原图下方挂一个空的「高清」节点。倍数和模型在节点底下的面板里，点发送再提交。 */
-function openImageHd() {
+async function openImageHd() {
   const from = selected.value
   if (!from || !isContentNode(from) || from.data.kind !== 'image' || !currentImageSrc(from)) {
     notify(t('请先生成或添加一张图片'), 'error')
@@ -490,7 +520,7 @@ function openImageHd() {
     return
   }
   closeOverlays(['smartEdit', 'depth', 'light', 'angle', 'crop', 'erase', 'outpaint', 'flip', 'mark', 'extendStrip', 'clipStrip', 'splitStrip', 'matting', 'viral'])
-  const list = useState<import('~/types/creative').GenerationModel[]>('generation-models', () => []).value
+  const list = await ensureModels()
   const model = pickImageUpscaleModel(list, defaultImageModel())
   const size = nodeSize(from)
   counts.image += 1
@@ -561,11 +591,8 @@ async function onImageHdSubmit() {
     notify(t('请先把高清节点连到一张图片上'), 'error')
     return
   }
-  const list = useState<import('~/types/creative').GenerationModel[]>('generation-models', () => []).value
-  const picked = String(node.data.imageHdParams?.model || '')
-  const model = listImageUpscaleModels(list).some(item => item.model === picked)
-    ? picked
-    : pickImageUpscaleModel(list, defaultImageModel())
+  const list = await ensureModels()
+  const model = shownImageUpscaleModel(list, node.data.imageHdParams?.model)
   if (!model) {
     notify(t('暂无支持图片编辑的模型，请联系运营开通'), 'error')
     return
@@ -587,7 +614,7 @@ async function onImageHdSubmit() {
   const clarity = upscaleClarity(scale)
   const ratio = upscaleRatio(px.width, px.height)
   const prompt = upscalePrompt(scale)
-  const params = { edit: 'upscale', mode: 'i2i', scale, size, clarity, ratio }
+  const params = { edit: 'upscale', mode: 'i2i', scale, size, clarity, ratio, width: px.width, height: px.height }
   if (!await gateSpend(estimateSpend(model, params)))
     return
   updateNodeData(node.id, {
@@ -633,7 +660,7 @@ async function runRemoveBg(action: 'bg-object' | 'bg-person') {
     notify(t('该节点正在生成中'))
     return
   }
-  const models = useState<import('~/types/creative').GenerationModel[]>('generation-models', () => []).value
+  const models = await ensureModels()
   const model = pickImageEditModel(models, defaultImageModel(), false)
   if (!model) {
     notify(t('暂无支持图片编辑的模型，请联系运营开通'), 'error')
@@ -673,7 +700,7 @@ async function runThreeView(action: 'view-char' | 'view-face' | 'view-prop') {
     notify(t('该节点正在生成中'))
     return
   }
-  const models = useState<import('~/types/creative').GenerationModel[]>('generation-models', () => []).value
+  const models = await ensureModels()
   const model = pickImageEditModel(models, defaultImageModel(), false)
   if (!model) {
     notify(t('暂无支持图片编辑的模型，请联系运营开通'), 'error')
@@ -717,6 +744,7 @@ function openAnglePanel() {
   angleNodeId.value = node.id
   angleSrc.value = src
   angleOpen.value = true
+  void ensureModels()
 }
 
 async function onAngleSubmit(payload: { prompt: string }) {
@@ -727,6 +755,7 @@ async function onAngleSubmit(payload: { prompt: string }) {
     notify(t('请先生成或添加一张图片'), 'error')
     return
   }
+  await ensureModels()
   const model = imageEditModel.value
   if (!model) {
     notify(t('暂无支持图片编辑的模型，请联系运营开通'), 'error')
@@ -802,7 +831,7 @@ async function onSmartEditSubmit(payload: { prompt: string, mask: Blob | null, m
   smartEditBusy.value = true
   try {
     let maskAssetId: number | null = null
-    const models = useState<import('~/types/creative').GenerationModel[]>('generation-models', () => []).value
+    const models = await ensureModels()
     const picked = models.find(item => item.model === payload.model)
     // 蒙版只有 edits 会收。Seedream / Qwen 的选区已经写在提示词的 <bbox> 里，再传蒙版任务会直接失败。
     if (payload.mask && picked?.image_input === 'edits') {
@@ -1008,9 +1037,6 @@ function rememberViralModel(id: string) {
   catch {}
 }
 
-const generationModelList = useState<import('~/types/creative').GenerationModel[]>('generation-models', () => [])
-const { growth: growthConfig } = useStudioAppConfig()
-
 /** 自动挑的复刻模型：只列能吃参考视频的视频模型（能力位 video_reference），当前选中的还在清单里就不动 */
 function ensureViralModel() {
   const usable = viralModels(generationModelList.value)
@@ -1138,7 +1164,7 @@ async function analyzeViral(from: CanvasFlowNode & { data: CanvasNodeData }) {
     notify(t('请先生成或添加一段视频'), 'error')
     return
   }
-  const vision = pickVisionTextModel(generationModelList.value, growthConfig.value?.vision_text_model)
+  const vision = await resolveVisionTextModel()
   if (!vision) {
     notify(t('暂无看图模型，暂时不能拉片'), 'error')
     return
@@ -1665,7 +1691,7 @@ async function onOutpaintSubmit(payload: { model: string, ratio: string }) {
     notify(t('请先生成或添加一张图片'), 'error')
     return
   }
-  const models = useState<import('~/types/creative').GenerationModel[]>('generation-models', () => []).value
+  const models = await ensureModels()
   const model = pickImageEditModel(models, payload.model || defaultImageModel(), false)
   if (!model) {
     notify(t('暂无支持图片编辑的模型，请联系运营开通'), 'error')
@@ -1784,8 +1810,7 @@ async function runPromptOptimize() {
     notify(current ? t('提示词太长了，先精简到 2000 字以内') : t('先写一句想要的画面，再让 AI 帮你补全'), 'error')
     return
   }
-  const models = useState<import('~/types/creative').GenerationModel[]>('generation-models', () => []).value
-  const model = pickVisionTextModel(models, growthConfig.value?.vision_text_model)
+  const model = await resolveVisionTextModel()
   if (!model) {
     notify(t('暂无可用的文本模型，请联系运营开通'), 'error')
     return
@@ -2001,7 +2026,8 @@ function onGridSplit() {
 
 /**
  * 宫格切分：浏览器按分割线把原图裁开。跨域图走本站代理读像素。
- * 第一片落在源节点右侧，其余按原行列摆开，一起打成一组。
+ * 原图留在左边。切片按真实像素做成普通图片卡，按原来的行列排到右侧，打成一组。
+ * 不连线，避免四张卡和原图之间拉出一堆线。
  */
 async function onGridSplitConfirm(cells: GridCell[]) {
   const node = findNode(gridSplitNodeId.value) as CanvasFlowNode | undefined
@@ -2025,22 +2051,31 @@ async function onGridSplitConfirm(cells: GridCell[]) {
   const source = { x: node.position.x, y: node.position.y, w: box.w, h: box.h }
   const label = node.data.label || t('图片')
   const prompt = String(node.data.prompt || '')
-  const ids: string[] = []
+  const measured: Array<{ cell: GridCell, blob: Blob, w: number, h: number }> = []
   for (let i = 0; i < slices.length; i++) {
     const cell = cells[i]
     const blob = slices[i]
     if (!cell || !blob)
       continue
-    const layout = cellNodeLayout(cell, source)
     const bitmap = await createImageBitmap(blob).catch(() => null)
-    const fitted = bitmap ? fitCellBox({ w: bitmap.width, h: bitmap.height }, layout) : null
+    const pixels = bitmap ? { w: bitmap.width, h: bitmap.height } : { w: 1, h: 1 }
     bitmap?.close()
-    const localUrl = URL.createObjectURL(blob)
-    const sibling = spawnMediaNode(node, 'image', t('宫格切分'), `${label}_${i + 1}`, {
+    measured.push({ cell, blob, ...canvasFitMediaSize(pixels.w, pixels.h) })
+  }
+  const layouts = splitBoardLayout(measured.map(item => item.cell), source, measured)
+  const ids: string[] = []
+  measured.forEach((item, i) => {
+    const layout = layouts[i]
+    if (!layout)
+      return
+    const localUrl = URL.createObjectURL(item.blob)
+    const sibling = spawnMediaNode(node, 'image', t('宫格切分'), `${label}_${item.cell.index}`, {
       at: { x: layout.x, y: layout.y },
-      w: fitted?.w || layout.w,
-      h: fitted?.h || layout.h,
-      select: i === 0,
+      w: layout.w,
+      h: layout.h,
+      select: false,
+      link: false,
+      parent: false,
       data: {
         content: localUrl,
         prompt,
@@ -2050,10 +2085,10 @@ async function onGridSplitConfirm(cells: GridCell[]) {
       },
     })
     ids.push(sibling.id)
-    void uploadBrowserMedia(sibling.id, blob, `grid-${i + 1}.jpg`, 'image/jpeg').catch(() => undefined)
-  }
+    void uploadBrowserMedia(sibling.id, item.blob, `grid-${item.cell.index}.jpg`, 'image/jpeg').catch(() => undefined)
+  })
   if (ids.length > 1)
-    nextTick(() => groupNodeList?.(ids))
+    nextTick(() => groupNodeList?.(ids, { label: `${label} ${t('组')}`, layout: 'grid' }))
 }
 
 async function onCropConfirm(box: {
@@ -2268,7 +2303,7 @@ async function analyzeStripFrames(
   frames: StripFrameAsset[],
   layout: { cell: { w: number, h: number }, origin: { x: number, y: number } },
 ) {
-  const model = pickVisionTextModel(generationModelList.value, growthConfig.value?.vision_text_model)
+  const model = await resolveVisionTextModel()
   if (!model) {
     notify(t('暂无能识别图片的文本模型，请联系运营开通'), 'error')
     return
@@ -2423,7 +2458,7 @@ async function runImageEdit(
   }
   // 原图交给能吃参考图的模型。蒙版只挂给 edits；url 模型的选区在提示词 <bbox> 里。
   const maskId = extra && 'maskAssetId' in extra ? extra.maskAssetId : node.data.markAssetId
-  const models = useState<import('~/types/creative').GenerationModel[]>('generation-models', () => []).value
+  const models = await ensureModels()
   const picked = models.find(item => item.model === preferredModel)
   const pickedOk = Boolean(picked && isImageEditModel(picked, false))
   const needMask = Boolean(maskId) && !pickedOk
@@ -2469,7 +2504,7 @@ async function runImageEdit(
   return {
     currentImageSrc,
     imageEditModel,
-    lightModel: imageEditModel,
+    lightModel,
     defaultImageModel,
     openSmartEdit,
     openDepthBar,

@@ -15,18 +15,22 @@ export function isOssSnapshotableUrl(src: string) {
 
 /** 画布卡片上的图。原图常是 2K/4K，卡片只有几百像素，按下限缩小后再显示。 */
 export const OSS_IMAGE_DISPLAY_WIDTH = 960
+/** 节点主图。放大看设定图时 960、质量 70 会糊，按模型上限出预览。 */
+export const OSS_NODE_IMAGE_WIDTH = 2048
+export const OSS_NODE_IMAGE_QUALITY = 85
 
 /**
  * 公开 OSS 图片的展示地址。签名和已经带处理参数的不改，避免把签名算坏。
  * 视频、音频地址原样返回。存储不认这个参数时，调用方应退回原图。
  */
-export function ossImageDisplayUrl(src: string, width = OSS_IMAGE_DISPLAY_WIDTH) {
+export function ossImageDisplayUrl(src: string, width = OSS_IMAGE_DISPLAY_WIDTH, quality = 70) {
   const value = String(src || '').trim()
   if (!isOssSnapshotableUrl(value) || !looksLikeStillImage(value))
     return value
   const w = Math.max(80, Math.round(width) || OSS_IMAGE_DISPLAY_WIDTH)
+  const q = Math.min(100, Math.max(1, Math.round(quality) || 70))
   const sep = value.includes('?') ? '&' : '?'
-  return `${value}${sep}x-oss-process=image/resize,m_lfit,w_${w}/quality,q_70/format,webp`
+  return `${value}${sep}x-oss-process=image/resize,m_lfit,w_${w}/quality,q_${q}/format,webp`
 }
 
 function looksLikeStillImage(src: string) {

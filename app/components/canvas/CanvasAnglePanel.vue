@@ -13,6 +13,7 @@ import {
   type AnglePreset,
 } from '~/utils/canvas-angle'
 import { effectiveUnitPrice, estimateTaskPoints } from '~/utils/model-price'
+import { pickImageEditModel } from '~/utils/image-input'
 
 const { t } = useI18n()
 const { isMember } = useWallet()
@@ -48,7 +49,8 @@ const cubeStyle = computed(() => ({
   transform: cubeTransform(rotate.value, tilt.value),
 }))
 const zapCost = computed(() => {
-  const model = generationModels.value.find(item => item.model === props.model)
+  const modelId = props.model || pickImageEditModel(generationModels.value, '', false)
+  const model = generationModels.value.find(item => item.model === modelId)
   if (!model?.priced)
     return ''
   return estimateTaskPoints(effectiveUnitPrice(model, isMember.value), model.unit, 1)

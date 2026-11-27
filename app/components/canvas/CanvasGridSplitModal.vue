@@ -3,7 +3,6 @@ import {
   cellPixelSize,
   GRID_SPLIT_MAX,
   GRID_SPLIT_PRESETS,
-  gridCellCount,
   gridCells,
   gridSplitTooMany,
   makeGridLines,
@@ -14,7 +13,8 @@ import {
 
 /**
  * 宫格切分：盖在图片节点上的一层，拖分割线定每一片的边界。
- * 确认后把切片的归一化 rect 交给工作区，由它逐片提交 crop 作业（本地 ffmpeg，免费）。
+ * 默认每格都切。点一格就去掉，格子变暗，再点加回来。
+ * 确认后只把选中的归一化 rect 交给工作区，原图留在画布上。
  */
 const props = withDefaults(defineProps<{
   open: boolean
@@ -38,6 +38,8 @@ const { t } = useI18n()
 
 const lines = ref<GridLines>(makeGridLines(3, 3))
 const presetId = ref<string>('3x3')
+/** 点掉、这次不切的格子编号。换预设或重新打开时清空，拖分割线不影响 */
+const skipped = ref<Set<number>>(new Set())
 const stageRef = ref<HTMLElement | null>(null)
 let drag: { axis: 'cols' | 'rows', index: number } | null = null
 
@@ -49,12 +51,29 @@ const layerStyle = computed(() => {
 })
 
 const cells = computed(() => gridCells(lines.value))
-const count = computed(() => gridCellCount(lines.value))
 const tooMany = computed(() => gridSplitTooMany(lines.value))
+const picked = computed(() => cells.value.filter(cell => !skipped.value.has(cell.index)))
 
-/** 第一片的像素尺寸，给用户一个「切出来多大」的直观参照 */
+function cellOn(index: number) {
+  return !skipped.value.has(index)
+}
+
+function toggleCell(index: number) {
+  const next = new Set(skipped.value)
+  if (next.has(index))
+    next.delete(index)
+  else
+    next.add(index)
+  skipped.value = next
+}
+
+function resetPick() {
+  skipped.value = new Set()
+}
+
+/** 第一片选中格子的像素尺寸，给用户一个「切出来多大」的直观参照 */
 const sizeLabel = computed(() => {
-  const first = cells.value[0]
+  const first = picked.value[0]
   if (!first || !props.naturalW || !props.naturalH)
     return ''
   const size = cellPixelSize(first, props.naturalW, props.naturalH)
@@ -64,6 +83,7 @@ const sizeLabel = computed(() => {
 function pickPreset(item: (typeof GRID_SPLIT_PRESETS)[number]) {
   presetId.value = item.id
   lines.value = makeGridLines(item.cols, item.rows)
+  resetPick()
 }
 
 function onLineDown(event: PointerEvent, axis: 'cols' | 'rows', index: number) {
@@ -89,9 +109,9 @@ function onUp() {
 }
 
 function onConfirm() {
-  if (tooMany.value)
+  if (tooMany.value || !picked.value.length)
     return
-  emit('confirm', cells.value)
+  emit('confirm', picked.value)
 }
 
 function onKey(event: KeyboardEvent) {
@@ -108,6 +128,7 @@ watch(() => props.open, (open) => {
   if (open) {
     lines.value = makeGridLines(3, 3)
     presetId.value = '3x3'
+    resetPick()
   }
 }, { immediate: true })
 
@@ -126,13 +147,19 @@ onUnmounted(() => window.removeEventListener('keydown', onKey, true))
       @pointercancel="onUp"
     >
       <div ref="stageRef" class="canvas-crop__stage">
-        <!-- 格子底纹：只画边框，图本身是节点自己渲染的 -->
-        <i
+        <!-- 格子可点：选中的切出去，点掉的变暗，这次不切。分割线盖在上面，拖线不受影响 -->
+        <button
           v-for="cell in cells"
           :key="`cell-${cell.index}`"
+          type="button"
           class="canvas-gsplit__cell"
+          :class="{ 'is-off': !cellOn(cell.index) }"
           :style="{ left: `${cell.x * 100}%`, top: `${cell.y * 100}%`, width: `${cell.w * 100}%`, height: `${cell.h * 100}%` }"
-        ><b>{{ cell.index }}</b></i>
+          :aria-pressed="cellOn(cell.index)"
+          :title="cellOn(cell.index) ? t('不切这一格') : t('切出这一格')"
+          @pointerdown.stop
+          @click.stop="toggleCell(cell.index)"
+        ><b>{{ cell.index }}</b></button>
         <i
           v-for="(line, i) in lines.cols"
           :key="`col-${i}`"
@@ -165,11 +192,11 @@ onUnmounted(() => window.removeEventListener('keydown', onKey, true))
           {{ t(item.label) }}
         </button>
         <span class="canvas-smart__split" />
-        <em class="canvas-gsplit__count" :class="{ 'is-warn': tooMany }">
-          {{ t('{n} 片', { n: count }) }}<template v-if="sizeLabel && !tooMany"> · {{ sizeLabel }}</template>
+        <em class="canvas-gsplit__count" :class="{ 'is-warn': tooMany || !picked.length }">
+          {{ t('已选 {n} 片', { n: picked.length }) }}<template v-if="sizeLabel && !tooMany && picked.length"> · {{ sizeLabel }}</template>
           <template v-if="tooMany"> · {{ t('最多 {n} 片', { n: GRID_SPLIT_MAX }) }}</template>
         </em>
-        <button type="button" class="canvas-gsplit__go" :disabled="tooMany" @click="onConfirm">
+        <button type="button" class="canvas-gsplit__go" :disabled="tooMany || !picked.length" @click="onConfirm">
           {{ t('切分') }}
         </button>
       </div>

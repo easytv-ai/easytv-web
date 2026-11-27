@@ -32,9 +32,19 @@ export function preferredImageModel(list: GenerationModel[]) {
     || ''
 }
 
-/** 打光 / 多角度 / 工具条报价：和提交同一条图片编辑模型 */
+/** 多角度 / 工具条报价：和提交同一条图片编辑模型 */
 export function pickCanvasImageEditModel(list: GenerationModel[]) {
   return pickImageEditModel(list, preferredImageModel(list), false)
+}
+
+/** 打光固定用 Qwen Image 3.0 Pro。清单里没有、未定价或带不了原图时，退回通用图片编辑模型。 */
+export const LIGHT_IMAGE_MODEL = 'qwen-image-3.0-pro'
+
+export function pickLightModel(list: GenerationModel[]) {
+  const pinned = list.find(item => item.model === LIGHT_IMAGE_MODEL)
+  if (pinned && isImageEditModel(pinned, false))
+    return pinned.model
+  return pickCanvasImageEditModel(list)
 }
 
 /** gpt-image 系 edits 最大边 1536，出不了 2K / 4K。 */
@@ -70,6 +80,19 @@ export function pickImageUpscaleModel(list: GenerationModel[], preferred: string
   if (preferred && capable.some(item => item.model === preferred))
     return preferred
   return capable[0]?.model || pickImageEditModel(list, preferred, false)
+}
+
+/**
+ * 图片高清面板上看到的那条模型。
+ * 节点里存过、并且还在可用清单里，就用存的；否则用清单第一条。
+ * 报价和提交必须跟这一条走：显示 Qwen、按空 id 计价会把按钮写成「未定价」。
+ */
+export function shownImageUpscaleModel(list: GenerationModel[], stored?: string | null) {
+  const capable = listImageUpscaleModels(list)
+  const id = String(stored || '').trim()
+  if (id && capable.some(item => item.model === id))
+    return id
+  return capable[0]?.model || ''
 }
 
 /** 能看图的文本模型（按名称识别：OpenAI 4o/4.1/5 系、Gemini、Claude、通义 VL、GLM-4V、豆包 vision 等） */

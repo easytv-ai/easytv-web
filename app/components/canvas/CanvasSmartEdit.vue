@@ -4,7 +4,7 @@ import taskApi from '~/api/task'
 import type { GenerationModel, GenerationTask } from '~/types/creative'
 import { cropImage } from '~/utils/canvas-image-edit'
 import { buildSmartEditPrompt } from '~/utils/canvas-smart-edit'
-import { listImageEditModels, pickVisionTextModel } from '~/utils/image-input'
+import { listImageEditModels } from '~/utils/image-input'
 import { effectiveUnitPrice, estimateTaskPoints, modelPromoDisplay } from '~/utils/model-price'
 import { shortModelName } from '~/utils/model-name'
 import { resolveMediaUrl } from '~/utils/media'
@@ -73,7 +73,7 @@ const emit = defineEmits<{
 }>()
 
 const generationModels = useState<GenerationModel[]>('generation-models', () => [])
-const { growth: growthConfig } = useStudioAppConfig()
+const { resolveVisionTextModel } = useCanvasCatalog()
 const generationModelsLoaded = useState('generation-models-loaded', () => false)
 const imgRef = ref<HTMLImageElement | null>(null)
 const canvasRef = ref<HTMLCanvasElement | null>(null)
@@ -714,11 +714,6 @@ function isRecognizing(id: number) {
   return recognizingIds.value.includes(id)
 }
 
-/** 识别要看图：只用能读图片的文本模型（后端文本任务会把 inputs 里的图片随消息发给模型） */
-function pickRecognizeModel() {
-  return pickVisionTextModel(generationModels.value, growthConfig.value?.vision_text_model)
-}
-
 function cleanLabel(text: string) {
   const line = (text.split(/\n/)[0] || '').trim()
   return line
@@ -799,12 +794,7 @@ async function recognizeRegion(item: SmartRegion) {
   recognizingIds.value = [...recognizingIds.value, item.id]
   const gen = recognizeGen
   try {
-    if (!generationModels.value.length) {
-      const res = await taskApi.models()
-      if (res?.success && Array.isArray(res.data))
-        generationModels.value = res.data
-    }
-    const model = pickRecognizeModel()
+    const model = await resolveVisionTextModel()
     if (!model) {
       useToast().add({ title: t('暂无可用的识别模型'), color: 'error' })
       return

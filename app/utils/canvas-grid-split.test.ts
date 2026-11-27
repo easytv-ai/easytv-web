@@ -13,6 +13,7 @@ import {
   gridSplitTooMany,
   makeGridLines,
   moveGridLine,
+  splitBoardLayout,
 } from './canvas-grid-split'
 
 describe('evenLines / makeGridLines', () => {
@@ -110,6 +111,35 @@ describe('尺寸与落点', () => {
     expect(first).toEqual({ w: 160, h: 160, x: 500, y: 200 })
     expect(last.x).toBeGreaterThan(first.x)
     expect(last.y).toBeGreaterThan(first.y)
+  })
+})
+
+describe('splitBoardLayout', () => {
+  const source = { x: 100, y: 200, w: 320, h: 240 }
+  const cells = gridCells(makeGridLines(2, 2))
+
+  it('按原来的行列排到源图右侧，卡片之间留出名字的空档', () => {
+    const cards = [
+      { w: 280, h: 210 },
+      { w: 280, h: 210 },
+      { w: 280, h: 210 },
+      { w: 280, h: 210 },
+    ]
+    const laid = splitBoardLayout(cells, source, cards)
+    expect(laid[0]).toEqual({ x: 500, y: 200, w: 280, h: 210 })
+    expect(laid[1]!.x).toBe(500 + 280 + 28)
+    expect(laid[1]!.y).toBe(200)
+    expect(laid[2]!.x).toBe(500)
+    expect(laid[2]!.y).toBe(200 + 210 + 44)
+    expect(laid[3]!.x).toBe(laid[1]!.x)
+    expect(laid[3]!.y).toBe(laid[2]!.y)
+  })
+
+  it('格子大小不一时，小图在统一格子里居中，不互相压住', () => {
+    const laid = splitBoardLayout(cells.slice(0, 2), source, [{ w: 200, h: 160 }, { w: 280, h: 210 }])
+    expect(laid[0]).toEqual({ x: 500 + 40, y: 200 + 25, w: 200, h: 160 })
+    expect(laid[1]).toEqual({ x: 500 + 280 + 28, y: 200, w: 280, h: 210 })
+    expect(laid[1]!.x).toBeGreaterThan(laid[0]!.x + laid[0]!.w)
   })
 })
 

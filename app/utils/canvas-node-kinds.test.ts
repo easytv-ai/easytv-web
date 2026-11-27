@@ -8,6 +8,7 @@ import {
   canvasFitMediaSize,
   canvasRatioSize,
   canvasMediaSizeClose,
+  textCardHeight,
   cloneContentNodeData,
   videoPlayerCrop,
   isCanvasSourceAsset,
@@ -24,6 +25,20 @@ import {
   stripCameraTokens,
   type CanvasNodeData,
 } from './canvas-node-kinds'
+
+describe('textCardHeight', () => {
+  it('空内容保持默认高度', () => {
+    expect(textCardHeight('', 320)).toBe(CANVAS_STAGE_SIZE.text.h)
+    expect(textCardHeight('   ', 252)).toBe(CANVAS_STAGE_SIZE.text.h)
+  })
+
+  it('一段反推说明比默认卡片高，但不超过上限', () => {
+    const text = '一位年轻的东亚女性，面容清秀端庄，神情平静而略带古典的忧郁，直视镜头。她披着略偏蓬松的栗杏盘发，发丝卷曲堆绕在头顶。一侧垂下一条粗长的波浪发辫搭在胸前，发间点缀着小巧精致的发饰。她特意穿着一件象牙色的蕾丝立领长裙。'
+    const height = textCardHeight(text, 252, 16)
+    expect(height).toBeGreaterThan(CANVAS_STAGE_SIZE.text.h)
+    expect(height).toBeLessThanOrEqual(720)
+  })
+})
 
 describe('canvasFitMediaSize', () => {
   it('竖图按宽度 320 拉高，完整露出', () => {

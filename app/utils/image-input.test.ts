@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { pickCanvasImageEditModel, pickImageEditModel, listImageEditModels, pickImageUpscaleModel, pickVisionTextModel, preferredImageModel, supportsImageRefs } from './image-input'
+import { pickCanvasImageEditModel, pickImageEditModel, listImageEditModels, pickImageUpscaleModel, pickLightModel, pickVisionTextModel, preferredImageModel, shownImageUpscaleModel, supportsImageRefs } from './image-input'
 import type { GenerationModel } from '~/types/creative'
 
 function m(model: string, image_input: GenerationModel['image_input'], priced = true): GenerationModel {
@@ -35,10 +35,28 @@ describe('image-input', () => {
     expect(pickImageEditModel(list, '', false)).toBe('seedream-4.5')
   })
 
+  it('打光固定用 qwen-image-3.0-pro', () => {
+    const withQwen = [m('gpt-image-2', 'edits'), m('qwen-image-3.0-pro', 'url')]
+    expect(pickLightModel(withQwen)).toBe('qwen-image-3.0-pro')
+    expect(pickCanvasImageEditModel(withQwen)).toBe('gpt-image-2')
+    expect(pickLightModel(list)).toBe('seedream-4.5')
+    expect(pickLightModel([m('qwen-image-3.0-pro', 'url', false), m('seedream-4.5', 'url')])).toBe('seedream-4.5')
+    expect(pickLightModel([m('qwen-image-3.0-pro', 'none'), m('seedream-4.5', 'url')])).toBe('seedream-4.5')
+  })
+
   it('图片高清避开封顶 1536 的 gpt-image', () => {
     expect(pickImageUpscaleModel(list, 'gpt-image-2')).toBe('seedream-4.5')
     expect(pickImageUpscaleModel(list, 'seedream-4.5')).toBe('seedream-4.5')
     expect(pickImageUpscaleModel([m('gpt-image-2', 'edits')], 'gpt-image-2')).toBe('gpt-image-2')
+  })
+
+  it('图片高清报价跟面板上看到的模型走', () => {
+    const hd = [m('qwen-image-2.0', 'url'), m('seedream-4.5', 'url'), m('gpt-image-2', 'edits'), m('qwen-image-edit', 'url')]
+    expect(shownImageUpscaleModel(hd, '')).toBe('qwen-image-2.0')
+    expect(shownImageUpscaleModel(hd, 'missing')).toBe('qwen-image-2.0')
+    expect(shownImageUpscaleModel(hd, 'gpt-image-2')).toBe('qwen-image-2.0')
+    expect(shownImageUpscaleModel(hd, 'qwen-image-edit')).toBe('qwen-image-2.0')
+    expect(shownImageUpscaleModel(hd, 'seedream-4.5')).toBe('seedream-4.5')
   })
 
   it('图片高清不用 qwen-image-edit，有 Seedream 就用 Seedream', () => {

@@ -297,8 +297,15 @@ function render(prompt: string) {
   const root = editorEl()
   if (!root)
     return
-  root.replaceChildren()
   const src = String(prompt || '')
+  // 父级把刚打的字回写过来时，DOM 里已经是这段文字。再 replaceChildren 会把光标扔回开头。
+  if (serializeNode(root) === src) {
+    root.classList.toggle('is-empty', !src)
+    return
+  }
+  const focused = root === document.activeElement
+  const caret = focused ? lastCaret.value : null
+  root.replaceChildren()
   const re = new RegExp(TOKEN_RE.source, 'g')
   let last = 0
   let match: RegExpExecArray | null
@@ -317,6 +324,8 @@ function render(prompt: string) {
   if (last < src.length)
     root.appendChild(document.createTextNode(src.slice(last)))
   root.classList.toggle('is-empty', !src)
+  if (focused && caret != null)
+    placeCaret(Math.min(Math.max(0, caret), src.length))
 }
 
 function emitPrompt() {

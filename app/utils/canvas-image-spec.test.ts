@@ -26,9 +26,45 @@ describe('canvasImageSpec', () => {
     })
     expect(spec.declared).toBe(true)
     expect(spec.fields.map(field => field.name)).toEqual(['size', 'output_format', 'sequential_image_generation'])
-    expect(spec.fields[0]).toMatchObject({ kind: 'text', label: '尺寸', defaultValue: '2048x2048' })
+    expect(spec.fields[0]).toMatchObject({ kind: 'select', label: '尺寸', defaultValue: '2048x2048', options: ['2048x2048', '1024x1024', '1536x1024', '1024x1536'] })
     expect(spec.fields[1]).toMatchObject({ kind: 'select', options: ['jpeg', 'png'], defaultValue: 'jpeg' })
     expect(spec.fields[2]?.defaultValue).toBe('disabled')
+  })
+
+  it('Qwen 没给枚举时按说明里的上限出分辨率，默认用最大方图', () => {
+    const spec = canvasImageSpec({
+      params: {
+        image: {
+          properties: {
+            size: { type: 'string', description: 'Output resolution in width x height format (e.g. 1024x1024); auto is also supported. Pixel area from 512x512 to 2048x2048' },
+            n: { type: 'integer', default: 1, min: 1, max: 6 },
+          },
+        },
+      },
+    })
+    expect(spec.fields.map(field => field.name)).toEqual(['size'])
+    expect(spec.fields[0]).toMatchObject({
+      kind: 'select',
+      options: ['1024x1024', '1536x1024', '1024x1536', '2048x2048'],
+      defaultValue: '2048x2048',
+    })
+  })
+
+  it('没给默认值的种子留空，不把 0 当成用户选的种子', () => {
+    const spec = canvasImageSpec({
+      params: {
+        image: {
+          properties: {
+            seed: { type: 'integer', min: 0, max: 2147483647 },
+            enable_thinking: { type: 'boolean', default: true },
+            negative_prompt: { type: 'string' },
+          },
+        },
+      },
+    })
+    expect(spec.fields.find(field => field.name === 'seed')).toMatchObject({ kind: 'number', defaultValue: '' })
+    expect(spec.fields.find(field => field.name === 'enable_thinking')?.label).toBe('思考模式')
+    expect(spec.fields.find(field => field.name === 'negative_prompt')?.label).toBe('反向提示词')
   })
 
   it('尺寸有枚举时做成下拉', () => {

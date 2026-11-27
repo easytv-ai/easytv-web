@@ -2869,9 +2869,40 @@ html.dark .camera-lib__search {
 
 .canvas-gsplit__cell {
   position: absolute;
+  box-sizing: border-box;
   display: block;
-  border: 1px dashed rgba(255, 255, 255, 0.55);
-  pointer-events: none;
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.72);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.canvas-gsplit__cell:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.canvas-gsplit__cell.is-off {
+  background: rgba(0, 0, 0, 0.55);
+  border-color: rgba(255, 255, 255, 0.22);
+}
+
+.canvas-gsplit__cell.is-off:hover {
+  background: rgba(0, 0, 0, 0.4);
+}
+
+.canvas-gsplit__cell.is-off b {
+  opacity: 0.5;
+}
+
+.canvas-gsplit__cell:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: -3px;
 }
 
 .canvas-gsplit__cell b {

@@ -3,6 +3,7 @@
  * 口径和模型广场 Playground 的素材槽一致：role / type 都声明时取交集。
  * 详情没给素材表时不下结论（known=false），避免把还没加载完的模型全部打叉。
  * 图片模型没有素材表时，用 image_input：none 不收参考图，url / edits 只收参考图。
+ * 图片参数里的 images / image 数组若写了 maxItems，或描述里写了张数（1-3 images、up to 14 images），参考图按这个数封顶。
  */
 
 export type CanvasRefRole = 'first_frame' | 'last_frame' | 'reference_image' | 'reference_video' | 'reference_audio'
@@ -10,7 +11,7 @@ export type CanvasRefRole = 'first_frame' | 'last_frame' | 'reference_image' | '
 export interface CanvasRefSupport {
   known: boolean
   roles: Set<CanvasRefRole>
-  /** 各槽最多几份。没写 media_constraints 时为空，不猜上限。 */
+  /** 各槽最多几份。视频看 media_constraints，图片看 images 数组；都没写时为空，不猜上限。 */
   maxCount: Partial<Record<CanvasRefRole, number>>
 }
 
@@ -36,6 +37,9 @@ const AUDIO_KEYS = ['audio', 'speech', 'tts', 'audio_speech']
 
 type ParamProp = {
   type?: string
+  description?: string
+  maxItems?: unknown
+  max?: unknown
   enum?: unknown[]
   items?: { properties?: Record<string, ParamProp> }
   media_constraints?: Record<string, { max_count?: unknown }>
@@ -158,6 +162,36 @@ function imageFallback(imageInput: string | undefined): CanvasRefSupport | null 
   return null
 }
 
+function positiveInt(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isInteger(value) && value > 0 ? value : undefined
+}
+
+/** 网关把张数写在数组说明里，没有 maxItems。例如 "1-3 images"、"up to 14 images"。 */
+function imageArrayMax(prop: ParamProp | undefined): number | undefined {
+  if (!prop || String(prop.type || '').toLowerCase() !== 'array')
+    return undefined
+  const direct = positiveInt(prop.maxItems) ?? positiveInt(prop.max)
+  if (direct)
+    return direct
+  const desc = String(prop.description ?? '')
+  const range = desc.match(/(\d+)\s*[-~～–—]\s*(\d+)\s+images?\b/i)
+  if (range)
+    return Number(range[2])
+  const upTo = desc.match(/\b(?:up to|at most|maximum of|max)\s+(\d+)\s+images?\b/i)
+  if (upTo)
+    return Number(upTo[1])
+  const zh = desc.match(/最多\s*(\d+)\s*张/)
+  if (zh)
+    return Number(zh[1])
+  return undefined
+}
+
+function imageRefMaxFromProperties(properties: Record<string, ParamProp> | null): number | undefined {
+  if (!properties)
+    return undefined
+  return imageArrayMax(properties.images) ?? imageArrayMax(properties.image)
+}
+
 export function canvasRefSupport(input: {
   kind?: string
   detail?: DetailLike
@@ -166,17 +200,20 @@ export function canvasRefSupport(input: {
   const kind = String(input.kind || '')
   const properties = propertiesOf(input.detail, groupKeys(kind))
   const fromParams = supportFromProperties(properties)
-  if (fromParams)
-    return fromParams
+  let support: CanvasRefSupport | null = fromParams
   // 视频参数已经拉到，但没有素材表：这个模型就是纯文生，不是「还没加载」。
-  if ((kind === 'video' || kind === 'director') && properties)
-    return { known: true, roles: new Set(), maxCount: {} }
-  if (kind === 'image') {
-    const fallback = imageFallback(input.imageInput)
-    if (fallback)
-      return fallback
+  if (!support && (kind === 'video' || kind === 'director') && properties)
+    support = { known: true, roles: new Set(), maxCount: {} }
+  if (!support && kind === 'image')
+    support = imageFallback(input.imageInput)
+  if (!support)
+    return { known: false, roles: new Set(), maxCount: {} }
+  if (kind === 'image' && support.known && support.roles.has('reference_image') && support.maxCount.reference_image == null) {
+    const max = imageRefMaxFromProperties(properties)
+    if (max)
+      support = { ...support, maxCount: { ...support.maxCount, reference_image: max } }
   }
-  return { known: false, roles: new Set(), maxCount: {} }
+  return support
 }
 
 const IMAGE_REF_ROLES = new Set(['image', 'reference', 'character', 'scene', 'style', 'subject'])

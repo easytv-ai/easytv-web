@@ -5,6 +5,7 @@ import {
   CANVAS_NODE_ITEMS,
   canvasFitMediaSize,
   canvasMediaSizeClose,
+  textCardHeight,
   canvasNodeIcon,
   canvasStageSize,
   hdNodeTag,
@@ -22,7 +23,7 @@ import {
   type CanvasNodeData,
 } from '~/utils/canvas-node-kinds'
 import { isMediaUrl, resolveMediaUrl } from '~/utils/media'
-import { OSS_IMAGE_DISPLAY_WIDTH, ossImageDisplayUrl } from '~/utils/canvas-video-frame'
+import { OSS_NODE_IMAGE_QUALITY, OSS_NODE_IMAGE_WIDTH, ossImageDisplayUrl } from '~/utils/canvas-video-frame'
 import CanvasVideoPlayer from '~/components/canvas/CanvasVideoPlayer.vue'
 import CanvasAudioPlayer from '~/components/canvas/CanvasAudioPlayer.vue'
 import CanvasFramePanel from '~/components/canvas/CanvasFramePanel.vue'
@@ -38,7 +39,7 @@ const { t } = useI18n()
 const { langLabel } = useLangs()
 
 const props = defineProps<NodeProps<CanvasNodeData>>()
-const { updateNode, updateNodeData, updateNodeInternals } = useVueFlow('easytv-canvas')
+const { updateNode, updateNodeData, updateNodeInternals, findNode } = useVueFlow('easytv-canvas')
 const nodeView = inject(CANVAS_NODE_VIEW_KEY, shallowRef(EMPTY_CANVAS_NODE_VIEW))
 const readZoom = inject(CANVAS_ZOOM_KEY, () => 1)
 const textRef = ref<HTMLTextAreaElement | null>(null)
@@ -115,7 +116,7 @@ const imageDisplaySrc = computed(() => {
   const src = imageSrc.value
   if (!src || imageThumbBroken.value)
     return src
-  return ossImageDisplayUrl(src, OSS_IMAGE_DISPLAY_WIDTH)
+  return ossImageDisplayUrl(src, OSS_NODE_IMAGE_WIDTH, OSS_NODE_IMAGE_QUALITY)
 })
 /** 正在这张图上画笔标记时先藏起已保存的笔迹，避免和编辑层各画各的 */
 const canvasMarkNodeId = useState('canvas-mark-node-id', () => '')
@@ -371,13 +372,31 @@ function onRetryTask(event: MouseEvent) {
   canvasTaskRetry.value = { seq: Date.now(), nodeId: props.id, taskId }
 }
 
+/** 受控文本框把内容写回节点后，浏览器会把光标放到开头。记下位置，渲染后再放回去。 */
+function keepCaret(event: Event, apply: (value: string) => void) {
+  const el = event.target as HTMLTextAreaElement
+  const start = el.selectionStart
+  const end = el.selectionEnd
+  apply(el.value)
+  nextTick(() => {
+    if (document.activeElement !== el || start == null || end == null)
+      return
+    if (el.selectionStart === start && el.selectionEnd === end)
+      return
+    const max = el.value.length
+    el.setSelectionRange(Math.min(start, max), Math.min(end, max))
+  })
+}
+
 function onPrompt(event: Event) {
   if (writeFrozen.value)
     return
-  const el = event.target as HTMLTextAreaElement
-  updateNodeData(props.id, { content: el.value })
-  // 节点内打字只标脏触发自动保存，不逐字压撤销历史
-  canvasChange?.change()
+  textUserSized = false
+  keepCaret(event, (value) => {
+    updateNodeData(props.id, { content: value })
+    // 节点内打字只标脏触发自动保存，不逐字压撤销历史
+    canvasChange?.change()
+  })
 }
 
 function writeStoryboard(next: StoryboardShot[]) {
@@ -388,8 +407,9 @@ function writeStoryboard(next: StoryboardShot[]) {
 }
 
 function onStoryboardPrompt(index: number, event: Event) {
-  const value = (event.target as HTMLTextAreaElement).value
-  writeStoryboard(storyboardShots.value.map((item, i) => i === index ? { ...item, prompt: value } : item))
+  keepCaret(event, (value) => {
+    writeStoryboard(storyboardShots.value.map((item, i) => i === index ? { ...item, prompt: value } : item))
+  })
 }
 
 function onStoryboardSeconds(index: number, event: Event) {
@@ -430,12 +450,39 @@ function applyStageSize(w: number, h: number, syncFlow = true) {
 
 /** 文本节点以节点记录的宽高为准，避免 markdown 预览异步测量把卡片撑歪 */
 function textStageTarget() {
-  const w = Number(props.dimensions?.width) || stagePreset.value.w
-  const h = Number(props.dimensions?.height) || stagePreset.value.h
+  const node = findNode(props.id)
+  const w = Number(props.dimensions?.width) || Number(node?.width) || stagePreset.value.w
+  const h = Number(props.dimensions?.height) || Number(node?.height) || stagePreset.value.h
   return {
     w: w > 0 ? w : stagePreset.value.w,
     h: h > 0 ? h : stagePreset.value.h,
   }
+}
+
+/** 用户拖过右下角之后，不再把卡片收回默认高度 */
+let textUserSized = false
+/** 刚打开画布时的校正不标脏，避免两个标签页互相保存 */
+let textFitReady = false
+
+/**
+ * 反推结果曾经按字数把卡片拉到很高，文字会溢出盖住连着的图片。
+ * 高度如果还是那次自动拉高的值，就收回来，多出来的文字在卡片里滚动。
+ */
+function containTextCard(persist: boolean) {
+  if (!isText.value || resizing.value || textUserSized || isWrite.value)
+    return
+  const content = props.data.content?.trim() || ''
+  if (!content)
+    return
+  const box = textStageTarget()
+  const estimated = textCardHeight(content, box.w, props.data.fontSize || 16)
+  const cap = Math.max(stagePreset.value.h, 320)
+  if (box.h <= cap + 2 || Math.abs(box.h - estimated) > 24)
+    return
+  applyStageSize(box.w, cap)
+  nextTick(() => updateNodeInternals([props.id]))
+  if (persist)
+    canvasChange?.change()
 }
 
 function syncTextStageSize() {
@@ -474,7 +521,7 @@ function fitImageNode(img: { naturalWidth: number, naturalHeight: number }) {
   if (!isImage.value || isPanorama.value)
     return
   // 缩小后的宽等于上限，说明原图更大，像素标签不能拿缩略图的尺寸冒充
-  const capped = imageDisplaySrc.value !== imageSrc.value && img.naturalWidth >= OSS_IMAGE_DISPLAY_WIDTH - 1
+  const capped = imageDisplaySrc.value !== imageSrc.value && img.naturalWidth >= OSS_NODE_IMAGE_WIDTH - 1
   if (capped)
     mediaPx.value = ''
   fitStageToMedia(img.naturalWidth, img.naturalHeight, imageSrc.value !== initialImageSrc, !capped)
@@ -555,6 +602,7 @@ function onResizeStart(event: PointerEvent) {
 
   function onUp() {
     resizing.value = false
+    textUserSized = true
     el.removeEventListener('pointermove', onMove)
     el.removeEventListener('pointerup', onUp)
     el.removeEventListener('pointercancel', onUp)
@@ -596,8 +644,10 @@ function onUploadClick(event: MouseEvent) {
 }
 
 watch(isWrite, async (on) => {
-  if (!on)
+  if (!on) {
+    containTextCard(true)
     return
+  }
   // 进入编辑时再对齐一次尺寸：预览态下 markdown 测量常把卡片撑偏，双击后才「恢复正常」
   syncTextStageSize()
   await nextTick()
@@ -610,12 +660,15 @@ watch(() => props.selected, (on) => {
 })
 
 watch(
-  () => [props.dimensions?.width, props.dimensions?.height, props.data.kind, props.data.content, audioSrc.value, isFramePull.value] as const,
-  ([width, height]) => {
+  () => [props.dimensions?.width, props.dimensions?.height, props.data.kind, props.data.content, props.data.fontSize, audioSrc.value, isFramePull.value] as const,
+  ([width, height, , content, fontSize], prev) => {
     if (!isStage.value || resizing.value)
       return
     if (isText.value) {
+      if (prev && (content !== prev[3] || fontSize !== prev[4]))
+        textUserSized = false
       syncTextStageSize()
+      containTextCard(textFitReady)
       return
     }
     if (width)
@@ -702,10 +755,9 @@ onMounted(() => {
   if (!isStage.value)
     return
   if (isText.value) {
-    const next = textStageTarget()
-    stageBox.w = next.w
-    stageBox.h = next.h
-    applyStageSize(next.w, next.h)
+    syncTextStageSize()
+    containTextCard(false)
+    textFitReady = true
     nextTick(() => updateNodeInternals([props.id]))
     return
   }

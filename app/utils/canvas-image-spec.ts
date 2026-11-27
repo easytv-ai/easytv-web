@@ -64,7 +64,14 @@ const LABEL_KEYS: Record<string, string> = {
   seed: '种子',
   watermark: '水印',
   voice: '音色',
+  enable_thinking: '思考模式',
+  negative_prompt: '反向提示词',
+  prompt_extend: '提示词智能改写',
+  prompt_extend_mode: '改写方式',
 }
+
+/** 没给枚举时的常用尺寸，和模型广场 playground 同一套，另加模型允许的 2048 */
+const SIZE_PRESETS = ['1024x1024', '1536x1024', '1024x1536', '2048x2048']
 
 const FIELD_ORDER = [
   'size',
@@ -88,6 +95,44 @@ type ParamProp = {
   min?: unknown
   max?: unknown
   description?: string
+}
+
+function sizeCap(description?: string) {
+  const hits = [...String(description || '').matchAll(/(\d+)\s*[xX×*]\s*(\d+)/g)]
+  if (!hits.length)
+    return 0
+  return hits.reduce((cap, item) => Math.max(cap, Number(item[1]), Number(item[2])), 0)
+}
+
+function normalizeSize(value: string) {
+  return value.trim().replace(/\s+/g, '').replace(/[X×*]/g, 'x')
+}
+
+/** 参数表没给尺寸枚举时，按说明里的像素上限筛出可选档。没写上限就只用广场那三档。 */
+function sizePresetOptions(prop: ParamProp) {
+  const cap = sizeCap(prop.description)
+  const options = SIZE_PRESETS.filter((item) => {
+    if (!cap)
+      return item !== '2048x2048'
+    const [w, h] = item.split('x').map(Number)
+    return w <= cap && h <= cap
+  })
+  const fallback = normalizeSize(String(prop.default ?? ''))
+  if (/^\d+x\d+$/.test(fallback) && !options.some(item => item.toLowerCase() === fallback.toLowerCase()))
+    options.unshift(fallback)
+  return options.length ? options : ['1024x1024']
+}
+
+function sizePresetDefault(options: string[], prop: ParamProp) {
+  const raw = normalizeSize(String(prop.default ?? ''))
+  const hit = options.find(item => item.toLowerCase() === raw.toLowerCase())
+  if (hit)
+    return hit
+  const squares = options.filter((item) => {
+    const [w, h] = item.split('x').map(Number)
+    return w > 0 && w === h
+  })
+  return squares.sort((a, b) => Number(b.split('x')[0]) - Number(a.split('x')[0]))[0] || options[0] || '1024x1024'
 }
 
 type DetailLike = {
@@ -162,18 +207,38 @@ function buildField(name: string, prop: ParamProp, skip: Set<string>): CanvasIma
   if (type === 'integer' || type === 'number') {
     const min = Number(prop.min)
     const max = Number(prop.max)
-    const fallback = Number(prop.default)
+    const hasDefault = prop.default !== undefined && prop.default !== null && String(prop.default).trim() !== ''
+    let value: number | string = ''
+    if (hasDefault) {
+      value = Number(prop.default)
+      if (!Number.isFinite(value))
+        value = Number.isFinite(min) ? min : 0
+      if (Number.isFinite(min) && value < min)
+        value = min
+      if (Number.isFinite(max) && value > max)
+        value = max
+    }
     return {
       name,
       kind: 'number',
       label,
       options: [],
-      defaultValue: Number.isFinite(fallback) ? fallback : (Number.isFinite(min) ? min : 0),
+      defaultValue: value,
       min: Number.isFinite(min) ? min : undefined,
       max: Number.isFinite(max) ? max : undefined,
     }
   }
-  if (name === 'size' || type === 'string' || type === '') {
+  if (name === 'size') {
+    const presets = sizePresetOptions(prop)
+    return {
+      name,
+      kind: 'select',
+      label,
+      options: presets,
+      defaultValue: sizePresetDefault(presets, prop),
+    }
+  }
+  if (type === 'string' || type === '') {
     return {
       name,
       kind: 'text',
@@ -206,7 +271,8 @@ export function canvasDynamicFields(detail: DetailLike, keys: string[], skipExtr
 }
 
 export function canvasImageSpec(detail: DetailLike): CanvasImageSpec {
-  const fields = canvasDynamicFields(detail, IMAGE_KEYS)
+  // n 是接口一次出几张。画布用底栏「生成数量」拆成多次任务，每次只向网关要 1 张。
+  const fields = canvasDynamicFields(detail, IMAGE_KEYS, ['n'])
   return { declared: fields.length > 0, fields }
 }
 

@@ -51,8 +51,6 @@ export function useCanvasGenerate(opts: {
   /** 跟练回放（useCanvasPractice）：返回 true 表示这次提交已被跟练接住 */
   replaySubmit?: (node: CanvasFlowNode, req: TaskRequest) => boolean
   pollTask: (id: string, taskId: number) => void
-  /** 提交后等这条跑完再放下一条，画布只能同时跑一条 */
-  waitTask?: (nodeId: string, taskId: number, timeoutMs?: number) => Promise<unknown>
   /** 提交前补分镜参考线，角色图才能进 inputs */
   beforeGenerate?: (node: CanvasFlowNode) => void
   pushHistory: () => void
@@ -228,17 +226,6 @@ export function useCanvasGenerate(opts: {
   }
 
   let generateTail = Promise.resolve()
-  let generateQueued = 0
-
-  function generateWaitMs(node: CanvasFlowNode) {
-    if (!isContentNode(node))
-      return 180_000
-    if (node.data.kind === 'video')
-      return 600_000
-    if (node.data.kind === 'audio')
-      return 360_000
-    return 180_000
-  }
 
   async function onGenerate(payload?: GeneratePayload, target?: CanvasFlowNode) {
     const node = target ?? opts.selected.value
@@ -250,17 +237,11 @@ export function useCanvasGenerate(opts: {
       opts.notify(opts.t('该节点正在生成中'))
       return
     }
-    generateQueued++
-    if (generateQueued > 1)
-      opts.notify(opts.t('已排队，上一条完成后开始'))
+    // 只把「提交请求」排开，避免连续点击把节点编号写乱。
+    // 请求一旦成功就返回，图还在跑也能接着提交别的节点，并发路数由套餐控制。
     const job = generateTail.then(() => runQueuedGenerate(payload, node), () => runQueuedGenerate(payload, node))
     generateTail = job.then(() => undefined, () => undefined)
-    try {
-      await job
-    }
-    finally {
-      generateQueued--
-    }
+    await job
   }
 
   async function runQueuedGenerate(payload?: GeneratePayload, node?: CanvasFlowNode) {
@@ -270,7 +251,6 @@ export function useCanvasGenerate(opts: {
       opts.notify(opts.t('该节点正在生成中'))
       return
     }
-    const before = Number(node.data.taskId) || 0
     submitting.value = true
     try {
       await runGenerate(payload, node)
@@ -281,13 +261,6 @@ export function useCanvasGenerate(opts: {
     finally {
       submitting.value = false
     }
-    const taskId = Number(node.data.taskId) || 0
-    const status = String(node.data.taskStatus || '')
-    if (!opts.waitTask || taskId <= 0 || taskId === before)
-      return
-    if (status !== 'pending' && status !== 'running')
-      return
-    await opts.waitTask(node.id, taskId, generateWaitMs(node))
   }
 
   async function runGenerate(payload?: GeneratePayload, target?: CanvasFlowNode) {

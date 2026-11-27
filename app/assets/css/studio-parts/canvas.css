@@ -4510,6 +4510,8 @@ html.dark .canvas-ctx button.is-danger:hover:not(:disabled) {
   min-height: 0;
   height: 100%;
   overflow: hidden;
+  align-items: stretch;
+  justify-content: flex-start;
 }
 
 .cnode.is-image,
@@ -5469,6 +5471,22 @@ html.dark .cnode__preview .github-markdown-body .hljs-literal {
 .cnode.is-text.has-prompt .cnode__stage,
 .cnode.is-text.is-write .cnode__stage {
   padding: 0;
+}
+
+.cnode.is-text .cnode__preview,
+.cnode.is-text .cnode__editor {
+  align-self: stretch;
+  flex: 1 1 auto;
+  height: 0;
+  min-height: 0;
+  max-height: 100%;
+  overflow: auto;
+  overflow-wrap: anywhere;
+}
+
+.cnode__preview .github-markdown-body > :last-child,
+.cnode__preview.is-rich .github-markdown-body > :last-child {
+  margin-bottom: 0;
 }
 
 .cnode__editor {

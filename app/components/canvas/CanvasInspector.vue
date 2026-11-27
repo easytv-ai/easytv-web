@@ -690,6 +690,14 @@ function thumbBan(item: { key: string, kind: 'image' | 'video' | 'audio' }) {
 }
 const firstFrameBan = computed(() => isFrameMode.value && refMissing('first_frame') ? t('当前模型不支持首帧') : '')
 const lastFrameBan = computed(() => isFl2vMode.value && refMissing('last_frame') ? t('当前模型不支持尾帧') : '')
+const imageRefLimit = computed(() => {
+  if (!isImage.value || !refSupport.value.known)
+    return ''
+  const max = refSupport.value.maxCount.reference_image
+  if (max == null)
+    return ''
+  return t('参考图最多 {n} 张', { n: max })
+})
 const refBanNote = computed(() => {
   const titles = new Set<string>()
   if (firstFrameBan.value)
@@ -790,7 +798,7 @@ function imageStored(name: string): unknown {
     return value
   return undefined
 }
-function coerceImageValue(field: { kind: string, options: string[], defaultValue: string | boolean | number }, raw: unknown): string | boolean | number {
+function coerceImageValue(field: { kind: string, options: string[], defaultValue: string | boolean | number, min?: number, max?: number }, raw: unknown): string | boolean | number {
   if (field.kind === 'boolean')
     return typeof raw === 'boolean' ? raw : Boolean(field.defaultValue)
   if (field.kind === 'select') {
@@ -799,8 +807,17 @@ function coerceImageValue(field: { kind: string, options: string[], defaultValue
     return hit || String(field.defaultValue ?? field.options[0] ?? '')
   }
   if (field.kind === 'number') {
-    const n = typeof raw === 'number' ? raw : Number(String(raw ?? '').trim())
-    return Number.isFinite(n) ? n : Number(field.defaultValue) || 0
+    if (raw === '' || raw === undefined || raw === null)
+      return typeof field.defaultValue === 'number' ? field.defaultValue : ''
+    const n = typeof raw === 'number' ? raw : Number(String(raw).trim())
+    if (!Number.isFinite(n))
+      return typeof field.defaultValue === 'number' ? field.defaultValue : ''
+    let value = n
+    if (field.min != null && value < field.min)
+      value = field.min
+    if (field.max != null && value > field.max)
+      value = field.max
+    return value
   }
   const text = String(raw ?? '').trim()
   return text || String(field.defaultValue ?? '')
@@ -808,6 +825,22 @@ function coerceImageValue(field: { kind: string, options: string[], defaultValue
 function setImageField(name: string, value: string | boolean | number) {
   imageTouched.value = { ...imageTouched.value, [name]: true }
   imageValues.value = { ...imageValues.value, [name]: value }
+}
+function onImageTextInput(field: { name: string, kind: string }, event: Event) {
+  // 数字也先留着用户正在打的原文。立刻转成 Number 会把输入框的值写回去，光标被浏览器扔到开头。
+  setImageField(field.name, (event.target as HTMLInputElement).value)
+}
+function commitImageText(field: Parameters<typeof coerceImageValue>[0] & { name: string, kind: string }, event: Event) {
+  if (field.kind !== 'number')
+    return
+  const raw = (event.target as HTMLInputElement).value
+  setImageField(field.name, raw.trim() === '' ? '' : coerceImageValue(field, raw))
+}
+function commitVideoExtra(field: Parameters<typeof coerceImageValue>[0] & { name: string, kind: string }, event: Event) {
+  if (field.kind !== 'number')
+    return
+  const raw = (event.target as HTMLInputElement).value
+  setVideoExtra(field.name, raw.trim() === '' ? '' : coerceImageValue(field, raw))
 }
 watch(imageSpec, (spec) => {
   if (!spec.declared) {
@@ -1041,7 +1074,7 @@ function patchTalking(patch: Partial<TalkingData>) {
   emit('update:talking', next)
 }
 function onTalkingScript(event: Event) {
-  patchTalking({ script: (event.target as HTMLTextAreaElement).value.slice(0, TALKING_SCRIPT_MAX) })
+  keepCaret(event, value => patchTalking({ script: value.slice(0, TALKING_SCRIPT_MAX) }))
 }
 /** 自动时长档：按台词长度落到当前模型的 durations 档位（API.md 24.9） */
 const talkingAutoSeconds = computed(() => talkingDuration(talking.value.script, currentApiModel.value?.durations ?? null))
@@ -1798,8 +1831,24 @@ function onPanelPointer(event: PointerEvent) {
     specMenu.value = false
 }
 
+/** 受控输入把值写回去时，浏览器会把光标放到开头。记下位置，渲染后再放回去。 */
+function keepCaret(event: Event, apply: (value: string) => void) {
+  const el = event.target as HTMLInputElement | HTMLTextAreaElement
+  const start = el.selectionStart
+  const end = el.selectionEnd
+  apply(el.value)
+  nextTick(() => {
+    if (document.activeElement !== el || start == null || end == null)
+      return
+    if (el.selectionStart === start && el.selectionEnd === end)
+      return
+    const max = el.value.length
+    el.setSelectionRange(Math.min(start, max), Math.min(end, max))
+  })
+}
+
 function onInput(event: Event) {
-  emit('update:prompt', (event.target as HTMLTextAreaElement).value)
+  keepCaret(event, value => emit('update:prompt', value))
 }
 
 function focusPrompt(event: MouseEvent) {
@@ -2092,6 +2141,7 @@ const placeholder = computed(() => {
             </button>
           </div>
         </span>
+        <p v-if="imageRefLimit && !refBanNote" class="canvas-inspector__note">{{ imageRefLimit }}</p>
         <p v-if="refBanNote" class="canvas-inspector__note is-warn">{{ refBanNote }}</p>
       </div>
       <div v-if="showTagRow" class="canvas-inspector__subjects">
@@ -2308,7 +2358,7 @@ const placeholder = computed(() => {
                 <StudioSelect
                   v-if="field.kind === 'select'"
                   :model-value="String(imageValues[field.name] ?? field.defaultValue)"
-                  :options="field.options.map(item => ({ value: item, label: item }))"
+                  :options="field.options.map(item => ({ value: item, label: field.name === 'size' ? item.replace(/x/i, '×') : item }))"
                   :sr-label="t(field.label)"
                   size="compact"
                   placement="up"
@@ -2329,12 +2379,12 @@ const placeholder = computed(() => {
                 <input
                   v-else
                   class="canvas-inspector__text"
-                  :type="field.kind === 'number' ? 'number' : 'text'"
-                  :min="field.min"
-                  :max="field.max"
+                  type="text"
+                  :inputmode="field.kind === 'number' ? 'decimal' : 'text'"
                   :placeholder="field.kind === 'text' ? String(field.defaultValue || '') : undefined"
                   :value="imageValues[field.name] ?? ''"
-                  @input="setImageField(field.name, field.kind === 'number' ? Number(($event.target as HTMLInputElement).value) : ($event.target as HTMLInputElement).value)"
+                  @input="onImageTextInput(field, $event)"
+                  @change="commitImageText(field, $event)"
                 >
               </div>
             </div>
@@ -2487,10 +2537,8 @@ const placeholder = computed(() => {
                   <input
                     v-model="seedText"
                     class="canvas-inspector__text"
-                    type="number"
-                    :min="videoSpec.seedMin"
-                    :max="videoSpec.seedMax"
-                    step="1"
+                    type="text"
+                    inputmode="numeric"
                     :placeholder="t('留空自动')"
                   >
                 </label>
@@ -2520,11 +2568,11 @@ const placeholder = computed(() => {
                   <input
                     v-else
                     class="canvas-inspector__text"
-                    :type="field.kind === 'number' ? 'number' : 'text'"
-                    :min="field.min"
-                    :max="field.max"
+                    type="text"
+                    :inputmode="field.kind === 'number' ? 'decimal' : 'text'"
                     :value="videoExtraValues[field.name] ?? ''"
-                    @input="setVideoExtra(field.name, field.kind === 'number' ? Number(($event.target as HTMLInputElement).value) : ($event.target as HTMLInputElement).value)"
+                    @input="setVideoExtra(field.name, ($event.target as HTMLInputElement).value)"
+                    @change="commitVideoExtra(field, $event)"
                   >
                 </div>
               </div>

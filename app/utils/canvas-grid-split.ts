@@ -115,8 +115,8 @@ export function cellPixelSize(cell: GridCell, width: number, height: number) {
 }
 
 /**
- * 切片节点在画布上的落点：贴着源节点右侧，按原来的行列摆成同样的网格。
- * 每格宽高按源节点尺寸等比缩小，行列之间留 16px。
+ * 旧的紧凑落点：按源节点分数缩小。服务端宫格作业还在用。
+ * 画布上的切分改走 splitBoardLayout，卡片按真实像素撑开，避免名字叠在一起。
  */
 export function cellNodeLayout(
   cell: GridCell,
@@ -153,4 +153,38 @@ export function fitCellBox(real: { w?: number, h?: number }, box: { w: number, h
 /** 超过上限时不让提交：25 片已经是画布上能看清的极限 */
 export function gridSplitTooMany(lines: GridLines) {
   return gridCellCount(lines) > GRID_SPLIT_MAX
+}
+
+/**
+ * 切分结果的落点：贴在源图右侧，按原来的行列摆成宫格。
+ * 每张卡片用自己的尺寸（调用方按真实像素算好），格子取本批最大的宽高，
+ * 小图在格子里居中。纵向空隙留给卡片上方的名字和尺寸。
+ */
+export function splitBoardLayout(
+  cells: GridCell[],
+  source: { x: number, y: number, w: number, h: number },
+  cards: Array<{ w: number, h: number }>,
+  gap = { x: 28, y: 44 },
+  offset = 80,
+) {
+  const boxes = cells.map((_, i) => {
+    const card = cards[i]
+    return {
+      w: Math.max(1, Math.round(card?.w || 1)),
+      h: Math.max(1, Math.round(card?.h || 1)),
+    }
+  })
+  const pitchW = Math.max(...boxes.map(box => box.w), 1)
+  const pitchH = Math.max(...boxes.map(box => box.h), 1)
+  return cells.map((cell, i) => {
+    const box = boxes[i]!
+    const col = Math.max(0, cell.col - 1)
+    const row = Math.max(0, cell.row - 1)
+    return {
+      x: Math.round(source.x + source.w + offset + col * (pitchW + gap.x) + (pitchW - box.w) / 2),
+      y: Math.round(source.y + row * (pitchH + gap.y) + (pitchH - box.h) / 2),
+      w: box.w,
+      h: box.h,
+    }
+  })
 }

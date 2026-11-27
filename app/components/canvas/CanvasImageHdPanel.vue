@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { GenerationModel } from '~/types/creative'
 import type { CanvasNodeData } from '~/utils/canvas-node-kinds'
-import { listImageUpscaleModels } from '~/utils/image-input'
+import { listImageUpscaleModels, shownImageUpscaleModel } from '~/utils/image-input'
 import { shortModelName } from '~/utils/model-name'
 
 const { t } = useI18n()
@@ -27,19 +27,27 @@ const emit = defineEmits<{
 
 const SCALES = [2, 4, 6] as const
 const menuOpen = ref(false)
+const menuRef = ref<HTMLElement | null>(null)
 
 const models = computed(() => listImageUpscaleModels(generationModels.value))
 
 const draft = computed(() => {
-  const picked = String(props.params?.model || '')
-  const model = models.value.some(item => item.model === picked)
-    ? picked
-    : (models.value[0]?.model || '')
   const scale = props.params?.scale
   return {
-    model,
+    model: shownImageUpscaleModel(generationModels.value, props.params?.model),
     scale: scale === 4 || scale === 6 ? scale : 2 as const,
   }
+})
+
+// 面板上看到的模型和倍数写回节点。报价、提交读的是节点，不能只在这里兜底显示。
+watch(draft, (next) => {
+  if (!props.open || !next.model)
+    return
+  const stored = String(props.params?.model || '')
+  const storedScale = props.params?.scale === 4 || props.params?.scale === 6 ? props.params.scale : 2
+  if (next.model === stored && next.scale === storedScale)
+    return
+  emit('update:params', { model: next.model, scale: next.scale })
 })
 
 function modelName(item?: GenerationModel) {
@@ -65,6 +73,27 @@ function patch(partial: Partial<NonNullable<CanvasNodeData['imageHdParams']>>) {
 
 function closeMenus() {
   menuOpen.value = false
+}
+
+/** 打开时把当前模型滚到列表中间。菜单每次都是新的，不滚就会从第一条开始。 */
+function scrollMenuToSelected() {
+  const container = menuRef.value
+  if (!container)
+    return
+  const el = container.querySelector<HTMLElement>('button.is-on')
+  if (!el)
+    return
+  const top = el.offsetTop
+  const bottom = top + el.offsetHeight
+  if (top >= container.scrollTop && bottom <= container.scrollTop + container.clientHeight)
+    return
+  container.scrollTop = top + el.offsetHeight / 2 - container.clientHeight / 2
+}
+
+function toggleMenu() {
+  menuOpen.value = !menuOpen.value
+  if (menuOpen.value)
+    nextTick(scrollMenuToSelected)
 }
 
 function onPanelPointer(event: PointerEvent) {
@@ -96,12 +125,12 @@ watch(() => props.open, (open) => {
         <div class="canvas-hd__row">
           <span class="canvas-hd__label">{{ t('模型选择') }}</span>
           <div class="canvas-hd__ctrl">
-            <button type="button" class="canvas-hd__select" :class="{ 'is-on': menuOpen }" @click.stop="menuOpen = !menuOpen">
+            <button type="button" class="canvas-hd__select" :class="{ 'is-on': menuOpen }" @click.stop="toggleMenu">
               <UIcon name="i-lucide-box" class="size-3.5" />
               <em>{{ modelLabel }}</em>
               <UIcon name="i-lucide-chevron-down" class="size-3.5 canvas-hd__chev" />
             </button>
-            <div v-if="menuOpen" class="canvas-hd__pop canvas-hd__pop--up canvas-hd__pop--models nowheel" @pointerdown.stop @wheel.stop>
+            <div v-if="menuOpen" ref="menuRef" class="canvas-hd__pop canvas-hd__pop--up canvas-hd__pop--models nowheel" @pointerdown.stop @wheel.stop>
               <button
                 v-for="item in models"
                 :key="item.model"

@@ -97,7 +97,7 @@ function onResize(event: PointerEvent, corner: Corner) {
     :class="{ 'is-on': selected, 'is-collapsed': data.collapsed }"
     :style="{ background: data.color }"
   >
-    <span v-if="selected || data.collapsed || groupLocked" class="cgroup__name">
+    <span v-if="selected || data.collapsed || groupLocked || data.named" class="cgroup__name">
       <UIcon v-if="groupLocked" name="i-lucide-lock" class="size-3" />
       {{ data.label }}
     </span>

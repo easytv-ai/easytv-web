@@ -762,6 +762,30 @@ export function canvasMediaSizeClose(a: { w: number, h: number }, b: { w: number
   return Math.abs(a.w - b.w) < 2 && Math.abs(a.h - b.h) < 2
 }
 
+/** 文本卡片最高拉到这么高，再长的反推结果在卡片里滚动 */
+export const CANVAS_TEXT_MAX_H = 720
+
+/**
+ * 按字数估算文本卡片高度，避免结果被底边裁掉。
+ * 汉字按一个字号宽，英文按半个。不读页面布局，免得 markdown 异步测量把卡片撑歪。
+ */
+export function textCardHeight(content: string, width: number, fontSize = 16) {
+  const preset = CANVAS_STAGE_SIZE.text
+  const text = String(content || '').replace(/\s+$/g, '')
+  if (!text.trim())
+    return preset.h
+  const size = fontSize >= 12 ? fontSize : 16
+  const inner = Math.max(size * 4, (width > 0 ? width : preset.w) - 32)
+  const lines = text.split('\n').reduce((sum, line) => {
+    let units = 0
+    for (const ch of line)
+      units += (ch.codePointAt(0) || 0) > 0xff ? 1 : 0.55
+    return sum + Math.max(1, Math.ceil(units / (inner / size)))
+  }, 0)
+  const height = Math.ceil(lines * size * 1.75 + 36)
+  return Math.max(preset.minH, Math.min(CANVAS_TEXT_MAX_H, height))
+}
+
 export function canvasStageSize(kind: CanvasNodeKind) {
   if (kind in CANVAS_STAGE_SIZE)
     return CANVAS_STAGE_SIZE[kind as keyof typeof CANVAS_STAGE_SIZE]

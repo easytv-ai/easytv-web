@@ -66,3 +66,30 @@ export function estimateTaskPoints(unitPrice: number, unit: string, count: numbe
     return unitPrice * Math.max(0, durationSeconds) * n
   return unitPrice * n
 }
+
+/** 约一张 2K（1024×1024 再放大 2 倍）。与 billing.go upscaleBillBaseline 一致。 */
+export const UPSCALE_BILL_BASELINE = 4_000_000
+
+/**
+ * 图片高清积分，与服务端 upscaleBillPoints 同一整数口径。
+ * 有原图尺寸：ceil(单价 × 宽 × 高 × 倍数² / 400 万像素)，再和倍数面积比（2→1、4→4、6→9 倍单价）取较高者。
+ * 原图小于基准时不压到模型单价以下；没有尺寸时只用面积比。
+ */
+export function estimateUpscalePoints(unitPrice: number, width: number, height: number, scale: number, count = 1): number {
+  const price = Math.floor(Number(unitPrice) || 0)
+  if (price <= 0)
+    return 0
+  const n = Math.max(1, Math.floor(Number(count) || 0) || 1)
+  const s = scale === 4 || scale === 6 ? scale : 2
+  const floor = price * (s * s / 4)
+  const w = Math.floor(Number(width) || 0)
+  const h = Math.floor(Number(height) || 0)
+  if (w <= 0 || h <= 0)
+    return floor * n
+  const pixels = BigInt(w) * BigInt(h) * BigInt(s) * BigInt(s)
+  const base = BigInt(UPSCALE_BILL_BASELINE)
+  let points = (BigInt(price) * pixels + base - 1n) / base
+  if (points < BigInt(floor))
+    points = BigInt(floor)
+  return Number(points) * n
+}

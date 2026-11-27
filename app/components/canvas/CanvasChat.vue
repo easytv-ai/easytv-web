@@ -1674,8 +1674,12 @@ function failReply(reply: ChatMsg, message: string, data?: { reason?: string } |
 /** 真实对话：创建文本任务并轮询。媒体附件已在上传时拿到 asset_id，直接引用（TaskInput.inputs） */
 async function ask(value: string, reply: ChatMsg, attachments: ChatAttachment[] = [], id = runId) {
   runTaskId = 0
-  if (attachments.some(item => item.kind === 'image'))
-    await loadAppConfig()
+  if (attachments.some(item => item.kind === 'image')) {
+    await loadAppConfig(true)
+    const want = String(growthConfig.value?.vision_text_model || '').trim()
+    if (!models.value.length || (want && !models.value.some(item => item.type === 'text' && item.model === want)))
+      await loadModels()
+  }
   if (!runAlive(id))
     return
   const inputs = attachments

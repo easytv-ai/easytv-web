@@ -45,10 +45,10 @@ export function useCanvasGroups(opts: {
         const nb = Number(b.id.replace(/\D/g, '')) || 0
         return na - nb
       })
-    // 分镜组保留自己的名字，不占普通组的序号
+    // 分镜组和自己起过名的组保留名字，不占普通组的序号
     let index = 0
     for (const group of groups) {
-      if (group.data.storyboard)
+      if (group.data.storyboard || group.data.named)
         continue
       index += 1
       group.data.label = `${opts.t('组')} ${index}`

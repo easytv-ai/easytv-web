@@ -3,7 +3,6 @@ import taskApi from '~/api/task'
 import type { GenerationModel } from '~/types/creative'
 import { buildCanvasTuningMessages, canvasTuningMode, flattenTuningMessages, introducedReferenceTokens, isWanVideoModel, type CanvasTuningDomain, type CanvasTuningMode } from '~/utils/canvas-video-tune'
 import { canvasRefSupport } from '~/utils/canvas-reference-support'
-import { pickVisionTextModel } from '~/utils/image-input'
 import { shortModelName } from '~/utils/model-name'
 import { loadKnowledge, parseTuningResult } from '~/utils/wan-tuner/wan-tuner-core.js'
 
@@ -24,7 +23,7 @@ const emit = defineEmits<{
 
 const { t, locale } = useI18n()
 const generationModels = useState<GenerationModel[]>('generation-models', () => [])
-const { growth } = useStudioAppConfig()
+const { resolveVisionTextModel } = useCanvasCatalog()
 const { load: loadModelDetail } = useGenerationModelDetail()
 
 const draft = ref(props.prompt)
@@ -61,8 +60,13 @@ watch(() => props.open, (open) => {
   suggestion.value = ''
   analysis.value = ''
   error.value = ''
-  if (!modelId.value)
-    modelId.value = pickVisionTextModel(generationModels.value, growth.value?.vision_text_model) || textModels.value[0]?.model || ''
+  if (modelId.value)
+    return
+  void resolveVisionTextModel().then((vision) => {
+    if (!props.open || modelId.value)
+      return
+    modelId.value = vision || textModels.value[0]?.model || ''
+  })
 })
 
 function onKey(event: KeyboardEvent) {
